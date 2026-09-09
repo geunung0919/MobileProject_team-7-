@@ -1,1 +1,1 @@
-console.log("커밋 확인용")
+console.log("커밋 확인용");
