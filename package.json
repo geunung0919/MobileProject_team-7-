@@ -1,0 +1,11 @@
+{
+  "name": "project-js",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Simple JavaScript project initialized for running with Node.js.",
+  "main": "test.js",
+  "scripts": {
+    "start": "node test.js",
+    "test": "node test.js"
+  }
+}
