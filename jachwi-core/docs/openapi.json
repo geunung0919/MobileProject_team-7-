@@ -1,0 +1,906 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "자취 가이드 중앙 코어",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": [
+          "운영"
+        ],
+        "summary": "Health",
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/me/onboarding": {
+      "get": {
+        "tags": [
+          "1번 온보딩"
+        ],
+        "summary": "Get Onboarding",
+        "operationId": "get_onboarding_api_v1_me_onboarding_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OnboardingResult"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "1번 온보딩"
+        ],
+        "summary": "Put Onboarding",
+        "operationId": "put_onboarding_api_v1_me_onboarding_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Onboarding"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OnboardingResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/me/dashboard": {
+      "get": {
+        "tags": [
+          "4번 연결"
+        ],
+        "summary": "Dashboard",
+        "operationId": "dashboard_api_v1_me_dashboard_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntegratedView"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/me/ai-context": {
+      "get": {
+        "tags": [
+          "6번 연결"
+        ],
+        "summary": "Ai Context",
+        "operationId": "ai_context_api_v1_me_ai_context_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/dev/me/modules/spending": {
+      "put": {
+        "tags": [
+          "개발 연결 2번"
+        ],
+        "summary": "Spending",
+        "operationId": "spending_api_v1_dev_me_modules_spending_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SpendingSnapshot"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/dev/me/modules/inventory": {
+      "put": {
+        "tags": [
+          "개발 연결 3번"
+        ],
+        "summary": "Inventory",
+        "operationId": "inventory_api_v1_dev_me_modules_inventory_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InventorySnapshot"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/dev/me/modules/life": {
+      "put": {
+        "tags": [
+          "개발 연결 5번"
+        ],
+        "summary": "Life",
+        "operationId": "life_api_v1_dev_me_modules_life_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LifeSnapshot"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Card": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "target": {
+            "type": "string",
+            "title": "Target"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "kind",
+          "title",
+          "target"
+        ],
+        "title": "Card"
+      },
+      "Diagnosis": {
+        "properties": {
+          "rule_version": {
+            "type": "string",
+            "title": "Rule Version",
+            "default": "1.0"
+          },
+          "experience": {
+            "type": "string",
+            "enum": [
+              "unknown",
+              "new",
+              "experienced"
+            ],
+            "title": "Experience"
+          },
+          "cooking_environment": {
+            "type": "string",
+            "enum": [
+              "unknown",
+              "no_tools",
+              "microwave_only",
+              "equipped"
+            ],
+            "title": "Cooking Environment"
+          },
+          "cooking_frequency": {
+            "type": "string",
+            "enum": [
+              "unknown",
+              "rare",
+              "regular"
+            ],
+            "title": "Cooking Frequency"
+          },
+          "missing_fields": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Missing Fields"
+          },
+          "suggested_actions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Suggested Actions"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "experience",
+          "cooking_environment",
+          "cooking_frequency",
+          "missing_fields",
+          "suggested_actions"
+        ],
+        "title": "Diagnosis"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "IntegratedView": {
+        "properties": {
+          "schema_version": {
+            "type": "string",
+            "const": "1.0",
+            "title": "Schema Version",
+            "default": "1.0"
+          },
+          "generated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Generated At"
+          },
+          "profile": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Onboarding"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "diagnosis": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Diagnosis"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "modules": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/SpendingSnapshot"
+                },
+                {
+                  "$ref": "#/components/schemas/InventorySnapshot"
+                },
+                {
+                  "$ref": "#/components/schemas/LifeSnapshot"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "type": "object",
+            "title": "Modules"
+          },
+          "module_status": {
+            "additionalProperties": {
+              "type": "string",
+              "enum": [
+                "missing",
+                "available",
+                "stale"
+              ]
+            },
+            "type": "object",
+            "title": "Module Status"
+          },
+          "cards": {
+            "items": {
+              "$ref": "#/components/schemas/Card"
+            },
+            "type": "array",
+            "title": "Cards"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "generated_at",
+          "profile",
+          "diagnosis",
+          "modules",
+          "module_status",
+          "cards"
+        ],
+        "title": "IntegratedView"
+      },
+      "Inventory": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/InventoryItem"
+            },
+            "type": "array",
+            "maxItems": 500,
+            "title": "Items"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "title": "Inventory"
+      },
+      "InventoryItem": {
+        "properties": {
+          "item_id": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Item Id"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "quantity": {
+            "type": "number",
+            "maximum": 1000000.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Quantity"
+          },
+          "unit": {
+            "type": "string",
+            "enum": [
+              "g",
+              "ml",
+              "piece",
+              "pack"
+            ],
+            "title": "Unit"
+          },
+          "storage": {
+            "type": "string",
+            "enum": [
+              "fridge",
+              "freezer",
+              "room"
+            ],
+            "title": "Storage"
+          },
+          "target_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Date"
+          },
+          "date_source": {
+            "type": "string",
+            "enum": [
+              "label",
+              "estimate",
+              "unknown"
+            ],
+            "title": "Date Source",
+            "default": "unknown"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "item_id",
+          "name",
+          "quantity",
+          "unit",
+          "storage"
+        ],
+        "title": "InventoryItem"
+      },
+      "InventorySnapshot": {
+        "properties": {
+          "schema_version": {
+            "type": "string",
+            "const": "1.0",
+            "title": "Schema Version",
+            "default": "1.0"
+          },
+          "source_updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Source Updated At"
+          },
+          "data": {
+            "$ref": "#/components/schemas/Inventory"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "source_updated_at",
+          "data"
+        ],
+        "title": "InventorySnapshot"
+      },
+      "Life": {
+        "properties": {
+          "routines": {
+            "items": {
+              "$ref": "#/components/schemas/Routine"
+            },
+            "type": "array",
+            "maxItems": 500,
+            "title": "Routines"
+          },
+          "exhausted": {
+            "type": "boolean",
+            "title": "Exhausted",
+            "default": false
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "routines"
+        ],
+        "title": "Life"
+      },
+      "LifeSnapshot": {
+        "properties": {
+          "schema_version": {
+            "type": "string",
+            "const": "1.0",
+            "title": "Schema Version",
+            "default": "1.0"
+          },
+          "source_updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Source Updated At"
+          },
+          "data": {
+            "$ref": "#/components/schemas/Life"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "source_updated_at",
+          "data"
+        ],
+        "title": "LifeSnapshot"
+      },
+      "Onboarding": {
+        "properties": {
+          "living_months": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 1200.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Living Months"
+          },
+          "cooking_days_per_week": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 7.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cooking Days Per Week"
+          },
+          "cooking_tools": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "microwave",
+                    "stove",
+                    "rice_cooker",
+                    "air_fryer"
+                  ]
+                },
+                "type": "array",
+                "maxItems": 4
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cooking Tools"
+          },
+          "monthly_budget_krw": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 1000000000.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Monthly Budget Krw"
+          },
+          "region_code": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^\\d{10}$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Region Code"
+          },
+          "priority": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "save_money",
+                  "reduce_waste",
+                  "build_routine"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Priority"
+          },
+          "initial_inventory_state": {
+            "type": "string",
+            "enum": [
+              "not_entered",
+              "empty",
+              "needs_registration"
+            ],
+            "title": "Initial Inventory State",
+            "default": "not_entered"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "Onboarding"
+      },
+      "OnboardingResult": {
+        "properties": {
+          "profile": {
+            "$ref": "#/components/schemas/Onboarding"
+          },
+          "diagnosis": {
+            "$ref": "#/components/schemas/Diagnosis"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "profile",
+          "diagnosis"
+        ],
+        "title": "OnboardingResult"
+      },
+      "Routine": {
+        "properties": {
+          "routine_id": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Routine Id"
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Title"
+          },
+          "due_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Due Date"
+          },
+          "completed": {
+            "type": "boolean",
+            "title": "Completed"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "routine_id",
+          "title",
+          "due_date",
+          "completed"
+        ],
+        "title": "Routine"
+      },
+      "Spending": {
+        "properties": {
+          "period": {
+            "type": "string",
+            "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+            "title": "Period"
+          },
+          "budget_krw": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 1000000000.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Budget Krw"
+          },
+          "spent_krw": {
+            "type": "integer",
+            "maximum": 1000000000.0,
+            "minimum": 0.0,
+            "title": "Spent Krw"
+          },
+          "remaining_krw": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 1000000000.0,
+                "minimum": -1000000000.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remaining Krw"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "period",
+          "spent_krw"
+        ],
+        "title": "Spending"
+      },
+      "SpendingSnapshot": {
+        "properties": {
+          "schema_version": {
+            "type": "string",
+            "const": "1.0",
+            "title": "Schema Version",
+            "default": "1.0"
+          },
+          "source_updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Source Updated At"
+          },
+          "data": {
+            "$ref": "#/components/schemas/Spending"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "source_updated_at",
+          "data"
+        ],
+        "title": "SpendingSnapshot"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    },
+    "securitySchemes": {
+      "HTTPBearer": {
+        "type": "http",
+        "scheme": "bearer"
+      }
+    }
+  }
+}

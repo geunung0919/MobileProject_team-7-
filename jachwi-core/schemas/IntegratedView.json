@@ -1,0 +1,557 @@
+{
+  "$defs": {
+    "Card": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "title": "Kind",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "target": {
+          "title": "Target",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "title",
+        "target"
+      ],
+      "title": "Card",
+      "type": "object"
+    },
+    "Diagnosis": {
+      "additionalProperties": false,
+      "properties": {
+        "rule_version": {
+          "default": "1.0",
+          "title": "Rule Version",
+          "type": "string"
+        },
+        "experience": {
+          "enum": [
+            "unknown",
+            "new",
+            "experienced"
+          ],
+          "title": "Experience",
+          "type": "string"
+        },
+        "cooking_environment": {
+          "enum": [
+            "unknown",
+            "no_tools",
+            "microwave_only",
+            "equipped"
+          ],
+          "title": "Cooking Environment",
+          "type": "string"
+        },
+        "cooking_frequency": {
+          "enum": [
+            "unknown",
+            "rare",
+            "regular"
+          ],
+          "title": "Cooking Frequency",
+          "type": "string"
+        },
+        "missing_fields": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Missing Fields",
+          "type": "array"
+        },
+        "suggested_actions": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Suggested Actions",
+          "type": "array"
+        }
+      },
+      "required": [
+        "experience",
+        "cooking_environment",
+        "cooking_frequency",
+        "missing_fields",
+        "suggested_actions"
+      ],
+      "title": "Diagnosis",
+      "type": "object"
+    },
+    "Inventory": {
+      "additionalProperties": false,
+      "properties": {
+        "items": {
+          "items": {
+            "$ref": "#/$defs/InventoryItem"
+          },
+          "maxItems": 500,
+          "title": "Items",
+          "type": "array"
+        }
+      },
+      "required": [
+        "items"
+      ],
+      "title": "Inventory",
+      "type": "object"
+    },
+    "InventoryItem": {
+      "additionalProperties": false,
+      "properties": {
+        "item_id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Item Id",
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "quantity": {
+          "exclusiveMinimum": 0,
+          "maximum": 1000000,
+          "title": "Quantity",
+          "type": "number"
+        },
+        "unit": {
+          "enum": [
+            "g",
+            "ml",
+            "piece",
+            "pack"
+          ],
+          "title": "Unit",
+          "type": "string"
+        },
+        "storage": {
+          "enum": [
+            "fridge",
+            "freezer",
+            "room"
+          ],
+          "title": "Storage",
+          "type": "string"
+        },
+        "target_date": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Target Date"
+        },
+        "date_source": {
+          "default": "unknown",
+          "enum": [
+            "label",
+            "estimate",
+            "unknown"
+          ],
+          "title": "Date Source",
+          "type": "string"
+        }
+      },
+      "required": [
+        "item_id",
+        "name",
+        "quantity",
+        "unit",
+        "storage"
+      ],
+      "title": "InventoryItem",
+      "type": "object"
+    },
+    "InventorySnapshot": {
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "source_updated_at": {
+          "format": "date-time",
+          "title": "Source Updated At",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/Inventory"
+        }
+      },
+      "required": [
+        "source_updated_at",
+        "data"
+      ],
+      "title": "InventorySnapshot",
+      "type": "object"
+    },
+    "Life": {
+      "additionalProperties": false,
+      "properties": {
+        "routines": {
+          "items": {
+            "$ref": "#/$defs/Routine"
+          },
+          "maxItems": 500,
+          "title": "Routines",
+          "type": "array"
+        },
+        "exhausted": {
+          "default": false,
+          "title": "Exhausted",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "routines"
+      ],
+      "title": "Life",
+      "type": "object"
+    },
+    "LifeSnapshot": {
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "source_updated_at": {
+          "format": "date-time",
+          "title": "Source Updated At",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/Life"
+        }
+      },
+      "required": [
+        "source_updated_at",
+        "data"
+      ],
+      "title": "LifeSnapshot",
+      "type": "object"
+    },
+    "Onboarding": {
+      "additionalProperties": false,
+      "properties": {
+        "living_months": {
+          "anyOf": [
+            {
+              "maximum": 1200,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Living Months"
+        },
+        "cooking_days_per_week": {
+          "anyOf": [
+            {
+              "maximum": 7,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cooking Days Per Week"
+        },
+        "cooking_tools": {
+          "anyOf": [
+            {
+              "items": {
+                "enum": [
+                  "microwave",
+                  "stove",
+                  "rice_cooker",
+                  "air_fryer"
+                ],
+                "type": "string"
+              },
+              "maxItems": 4,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cooking Tools"
+        },
+        "monthly_budget_krw": {
+          "anyOf": [
+            {
+              "maximum": 1000000000,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Monthly Budget Krw"
+        },
+        "region_code": {
+          "anyOf": [
+            {
+              "pattern": "^\\d{10}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Region Code"
+        },
+        "priority": {
+          "anyOf": [
+            {
+              "enum": [
+                "save_money",
+                "reduce_waste",
+                "build_routine"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Priority"
+        },
+        "initial_inventory_state": {
+          "default": "not_entered",
+          "enum": [
+            "not_entered",
+            "empty",
+            "needs_registration"
+          ],
+          "title": "Initial Inventory State",
+          "type": "string"
+        }
+      },
+      "title": "Onboarding",
+      "type": "object"
+    },
+    "Routine": {
+      "additionalProperties": false,
+      "properties": {
+        "routine_id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Routine Id",
+          "type": "string"
+        },
+        "title": {
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        },
+        "due_date": {
+          "format": "date",
+          "title": "Due Date",
+          "type": "string"
+        },
+        "completed": {
+          "title": "Completed",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "routine_id",
+        "title",
+        "due_date",
+        "completed"
+      ],
+      "title": "Routine",
+      "type": "object"
+    },
+    "Spending": {
+      "additionalProperties": false,
+      "properties": {
+        "period": {
+          "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+          "title": "Period",
+          "type": "string"
+        },
+        "budget_krw": {
+          "anyOf": [
+            {
+              "maximum": 1000000000,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Budget Krw"
+        },
+        "spent_krw": {
+          "maximum": 1000000000,
+          "minimum": 0,
+          "title": "Spent Krw",
+          "type": "integer"
+        },
+        "remaining_krw": {
+          "anyOf": [
+            {
+              "maximum": 1000000000,
+              "minimum": -1000000000,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Remaining Krw"
+        }
+      },
+      "required": [
+        "period",
+        "spent_krw"
+      ],
+      "title": "Spending",
+      "type": "object"
+    },
+    "SpendingSnapshot": {
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "source_updated_at": {
+          "format": "date-time",
+          "title": "Source Updated At",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/Spending"
+        }
+      },
+      "required": [
+        "source_updated_at",
+        "data"
+      ],
+      "title": "SpendingSnapshot",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "generated_at": {
+      "format": "date-time",
+      "title": "Generated At",
+      "type": "string"
+    },
+    "profile": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Onboarding"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "diagnosis": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Diagnosis"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "modules": {
+      "additionalProperties": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/SpendingSnapshot"
+          },
+          {
+            "$ref": "#/$defs/InventorySnapshot"
+          },
+          {
+            "$ref": "#/$defs/LifeSnapshot"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "title": "Modules",
+      "type": "object"
+    },
+    "module_status": {
+      "additionalProperties": {
+        "enum": [
+          "missing",
+          "available",
+          "stale"
+        ],
+        "type": "string"
+      },
+      "title": "Module Status",
+      "type": "object"
+    },
+    "cards": {
+      "items": {
+        "$ref": "#/$defs/Card"
+      },
+      "title": "Cards",
+      "type": "array"
+    }
+  },
+  "required": [
+    "generated_at",
+    "profile",
+    "diagnosis",
+    "modules",
+    "module_status",
+    "cards"
+  ],
+  "title": "IntegratedView",
+  "type": "object"
+}
