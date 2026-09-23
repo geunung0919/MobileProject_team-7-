@@ -14,6 +14,7 @@ from sqlalchemy.exc import IntegrityError
 from .database import connect, Base, ProfileRow, SnapshotRow
 from .schemas import Onboarding, OnboardingResult, OnboardingPreview, SpendingSnapshot, InventorySnapshot, LifeSnapshot, IntegratedView
 from .services import diagnose, integrate, preview_onboarding
+from .onboarding_form import OnboardingForm, get_onboarding_form
 
 load_dotenv()
 SNAPSHOTS = {'spending': SpendingSnapshot, 'inventory': InventorySnapshot, 'life': LifeSnapshot}
@@ -58,6 +59,10 @@ def create_app(database_url=None, tokens=None, demo_enabled=None):
     @app.get('/health', tags=['운영'])
     def health():
         return {'status': 'ok', 'version': '0.1.0'}
+    @app.get('/api/v1/onboarding/form', response_model=OnboardingForm, tags=['1번 온보딩'])
+    def onboarding_form(user=Depends(current_user)):
+        return get_onboarding_form()
+
     @app.post('/api/v1/me/onboarding/preview', response_model=OnboardingPreview, tags=['1번 온보딩'])
     def preview(body: Onboarding, user=Depends(current_user)):
         return preview_onboarding(body)

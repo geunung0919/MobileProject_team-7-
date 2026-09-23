@@ -24,6 +24,32 @@
         }
       }
     },
+    "/api/v1/onboarding/form": {
+      "get": {
+        "tags": [
+          "1번 온보딩"
+        ],
+        "summary": "Onboarding Form",
+        "operationId": "onboarding_form_api_v1_onboarding_form_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OnboardingForm"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/me/onboarding/preview": {
       "post": {
         "tags": [
@@ -409,6 +435,97 @@
           "suggested_actions"
         ],
         "title": "Diagnosis"
+      },
+      "FormField": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "widget": {
+            "type": "string",
+            "enum": [
+              "integer",
+              "single_select",
+              "multi_select",
+              "region_search"
+            ],
+            "title": "Widget"
+          },
+          "option_labels": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Option Labels"
+          },
+          "skip_value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Skip Value"
+          },
+          "empty_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Empty Label"
+          },
+          "help_text": {
+            "type": "string",
+            "title": "Help Text"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "name",
+          "label",
+          "widget",
+          "help_text"
+        ],
+        "title": "FormField"
+      },
+      "FormStep": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "fields": {
+            "items": {
+              "$ref": "#/components/schemas/FormField"
+            },
+            "type": "array",
+            "title": "Fields"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "fields"
+        ],
+        "title": "FormStep"
       },
       "HTTPValidationError": {
         "properties": {
@@ -810,6 +927,35 @@
           "owner_module"
         ],
         "title": "OnboardingAction"
+      },
+      "OnboardingForm": {
+        "properties": {
+          "form_version": {
+            "type": "string",
+            "const": "1.0",
+            "title": "Form Version",
+            "default": "1.0"
+          },
+          "steps": {
+            "items": {
+              "$ref": "#/components/schemas/FormStep"
+            },
+            "type": "array",
+            "title": "Steps"
+          },
+          "input_schema": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Input Schema"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "steps",
+          "input_schema"
+        ],
+        "title": "OnboardingForm"
       },
       "OnboardingPreview": {
         "properties": {
