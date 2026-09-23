@@ -24,6 +24,52 @@
         }
       }
     },
+    "/api/v1/me/onboarding/preview": {
+      "post": {
+        "tags": [
+          "1번 온보딩"
+        ],
+        "summary": "Preview",
+        "operationId": "preview_api_v1_me_onboarding_preview_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Onboarding"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OnboardingPreview"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/me/onboarding": {
       "get": {
         "tags": [
@@ -308,7 +354,7 @@
           "rule_version": {
             "type": "string",
             "title": "Rule Version",
-            "default": "1.0"
+            "default": "1.1"
           },
           "experience": {
             "type": "string",
@@ -692,7 +738,7 @@
             "anyOf": [
               {
                 "type": "string",
-                "pattern": "^\\d{10}$"
+                "pattern": "^[0-9]{10}$"
               },
               {
                 "type": "null"
@@ -730,6 +776,71 @@
         "additionalProperties": false,
         "type": "object",
         "title": "Onboarding"
+      },
+      "OnboardingAction": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "target": {
+            "type": "string",
+            "title": "Target"
+          },
+          "owner_module": {
+            "type": "integer",
+            "enum": [
+              2,
+              3,
+              5
+            ],
+            "title": "Owner Module"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "code",
+          "label",
+          "target",
+          "owner_module"
+        ],
+        "title": "OnboardingAction"
+      },
+      "OnboardingPreview": {
+        "properties": {
+          "profile": {
+            "$ref": "#/components/schemas/Onboarding"
+          },
+          "diagnosis": {
+            "$ref": "#/components/schemas/Diagnosis"
+          },
+          "saved": {
+            "type": "boolean",
+            "const": false,
+            "title": "Saved",
+            "default": false
+          },
+          "actions": {
+            "items": {
+              "$ref": "#/components/schemas/OnboardingAction"
+            },
+            "type": "array",
+            "title": "Actions"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "profile",
+          "diagnosis",
+          "actions"
+        ],
+        "title": "OnboardingPreview"
       },
       "OnboardingResult": {
         "properties": {

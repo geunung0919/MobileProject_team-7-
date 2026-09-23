@@ -116,3 +116,7 @@ SQLite 데이터는 자동 이전되지 않습니다. 변경한 DB에서 샘플�
 
 공식 참고: https://fastapi.tiangolo.com/tutorial/testing/
 및 https://docs.pydantic.dev/latest/concepts/models/
+
+## 온보딩 후속 개발
+
+저장 전 미리보기 API와 규칙 1.1이 추가되었습니다. [온보딩 화면 연결 가이드](docs/ONBOARDING_UI_API.md)에서 버튼별 API, 입력값, 수정·취소 동작을 확인하세요.

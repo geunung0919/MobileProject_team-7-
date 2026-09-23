@@ -28,7 +28,7 @@
       "additionalProperties": false,
       "properties": {
         "rule_version": {
-          "default": "1.0",
+          "default": "1.1",
           "title": "Rule Version",
           "type": "string"
         },
@@ -320,7 +320,7 @@
         "region_code": {
           "anyOf": [
             {
-              "pattern": "^\\d{10}$",
+              "pattern": "^[0-9]{10}$",
               "type": "string"
             },
             {

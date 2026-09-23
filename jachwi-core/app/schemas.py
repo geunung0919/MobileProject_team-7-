@@ -13,7 +13,7 @@ class Onboarding(Contract):
     cooking_days_per_week: int | None = Field(default=None, ge=0, le=7, strict=True)
     cooking_tools: list[Literal['microwave', 'stove', 'rice_cooker', 'air_fryer']] | None = Field(default=None, max_length=4)
     monthly_budget_krw: Money | None = None
-    region_code: str | None = Field(default=None, pattern=r'^\d{10}$')
+    region_code: str | None = Field(default=None, pattern=r'^[0-9]{10}$')
     priority: Literal['save_money', 'reduce_waste', 'build_routine'] | None = None
     # 실제 재고는 3번에서 등록. 미입력과 빈 냉장고를 구별한다.
     initial_inventory_state: Literal['not_entered', 'empty', 'needs_registration'] = 'not_entered'
@@ -25,7 +25,7 @@ class Onboarding(Contract):
         return self
 
 class Diagnosis(Contract):
-    rule_version: str = '1.0'
+    rule_version: str = '1.1'
     experience: Literal['unknown', 'new', 'experienced']
     cooking_environment: Literal['unknown', 'no_tools', 'microwave_only', 'equipped']
     cooking_frequency: Literal['unknown', 'rare', 'regular']
@@ -35,6 +35,17 @@ class Diagnosis(Contract):
 class OnboardingResult(Contract):
     profile: Onboarding
     diagnosis: Diagnosis
+
+class OnboardingAction(Contract):
+    code: str
+    label: str
+    target: str
+    owner_module: Literal[2, 3, 5]
+
+class OnboardingPreview(OnboardingResult):
+    # 미리보기는 저장된 프로필을 변경하지 않는다.
+    saved: Literal[False] = False
+    actions: list[OnboardingAction]
 
 class Spending(Contract):
     # 2번이 계산한 결과를 전달한다. 1번은 예산을 재계산하지 않는다.

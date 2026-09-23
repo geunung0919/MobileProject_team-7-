@@ -1,6 +1,20 @@
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
-from .schemas import Onboarding, Diagnosis, IntegratedView, Card
+from .schemas import Onboarding, Diagnosis, IntegratedView, Card, OnboardingAction, OnboardingPreview
+
+def preview_onboarding(profile: Onboarding) -> OnboardingPreview:
+    actions = [OnboardingAction(
+        code='set_budget' if profile.monthly_budget_krw is None else 'view_budget',
+        label='예산 설정하기' if profile.monthly_budget_krw is None else '예산 확인하기',
+        target='/spending', owner_module=2)]
+    if profile.initial_inventory_state == 'needs_registration':
+        actions.append(OnboardingAction(code='register_inventory', label='재료 등록하기',
+                                        target='/inventory', owner_module=3))
+    actions.append(OnboardingAction(code='create_routine', label='생활 루틴 설정하기',
+                                    target='/routines', owner_module=5))
+    preferred = {'save_money': 2, 'reduce_waste': 3, 'build_routine': 5}.get(profile.priority)
+    actions.sort(key=lambda action: action.owner_module != preferred)
+    return OnboardingPreview(profile=profile, diagnosis=diagnose(profile), actions=actions)
 
 def diagnose(profile: Onboarding) -> Diagnosis:
     tools = profile.cooking_tools
@@ -9,7 +23,7 @@ def diagnose(profile: Onboarding) -> Diagnosis:
     actions = []
     if profile.monthly_budget_krw is None:
         actions.append('set_budget')
-    if profile.initial_inventory_state != 'empty':
+    if profile.initial_inventory_state == 'needs_registration':
         actions.append('register_inventory')
     if profile.priority == 'build_routine':
         actions.append('create_routine')
@@ -17,7 +31,8 @@ def diagnose(profile: Onboarding) -> Diagnosis:
         experience='unknown' if profile.living_months is None else 'new' if profile.living_months < 6 else 'experienced',
         cooking_environment=environment,
         cooking_frequency='unknown' if profile.cooking_days_per_week is None else 'rare' if profile.cooking_days_per_week < 3 else 'regular',
-        missing_fields=[k for k, v in profile.model_dump().items() if v is None],
+        missing_fields=[k for k, v in profile.model_dump().items() if v is None]
+                       + (['initial_inventory_state'] if profile.initial_inventory_state == 'not_entered' else []),
         suggested_actions=actions,
     )
 

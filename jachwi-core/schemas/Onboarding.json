@@ -68,7 +68,7 @@
     "region_code": {
       "anyOf": [
         {
-          "pattern": "^\\d{10}$",
+          "pattern": "^[0-9]{10}$",
           "type": "string"
         },
         {

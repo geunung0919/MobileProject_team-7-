@@ -12,8 +12,8 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.exc import IntegrityError
 from .database import connect, Base, ProfileRow, SnapshotRow
-from .schemas import Onboarding, OnboardingResult, SpendingSnapshot, InventorySnapshot, LifeSnapshot, IntegratedView
-from .services import diagnose, integrate
+from .schemas import Onboarding, OnboardingResult, OnboardingPreview, SpendingSnapshot, InventorySnapshot, LifeSnapshot, IntegratedView
+from .services import diagnose, integrate, preview_onboarding
 
 load_dotenv()
 SNAPSHOTS = {'spending': SpendingSnapshot, 'inventory': InventorySnapshot, 'life': LifeSnapshot}
@@ -33,7 +33,7 @@ def create_app(database_url=None, tokens=None, demo_enabled=None):
     app = FastAPI(title='자취 가이드 중앙 코어', version='0.1.0', lifespan=lifespan)
     app.state.sessions = sessions
     app.add_middleware(CORSMiddleware, allow_origins=os.getenv('CORS_ORIGINS', 'http://localhost:5173,http://127.0.0.1:5173').split(','),
-                       allow_methods=['GET', 'PUT'], allow_headers=['Authorization', 'Content-Type'])
+                       allow_methods=['GET', 'PUT', 'POST'], allow_headers=['Authorization', 'Content-Type'])
     bearer = HTTPBearer(auto_error=False)
     def current_user(credentials: HTTPAuthorizationCredentials | None = Depends(bearer)):
         if credentials:
@@ -58,6 +58,10 @@ def create_app(database_url=None, tokens=None, demo_enabled=None):
     @app.get('/health', tags=['운영'])
     def health():
         return {'status': 'ok', 'version': '0.1.0'}
+    @app.post('/api/v1/me/onboarding/preview', response_model=OnboardingPreview, tags=['1번 온보딩'])
+    def preview(body: Onboarding, user=Depends(current_user)):
+        return preview_onboarding(body)
+
     @app.put('/api/v1/me/onboarding', response_model=OnboardingResult, tags=['1번 온보딩'])
     def put_onboarding(body: Onboarding, user=Depends(current_user), session=Depends(db)):
         session.merge(ProfileRow(user_id=user, payload=body.model_dump(mode='json')))

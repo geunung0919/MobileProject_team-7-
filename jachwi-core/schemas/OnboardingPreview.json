@@ -171,6 +171,40 @@
       },
       "title": "Onboarding",
       "type": "object"
+    },
+    "OnboardingAction": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "title": "Code",
+          "type": "string"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "target": {
+          "title": "Target",
+          "type": "string"
+        },
+        "owner_module": {
+          "enum": [
+            2,
+            3,
+            5
+          ],
+          "title": "Owner Module",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "code",
+        "label",
+        "target",
+        "owner_module"
+      ],
+      "title": "OnboardingAction",
+      "type": "object"
     }
   },
   "additionalProperties": false,
@@ -180,12 +214,26 @@
     },
     "diagnosis": {
       "$ref": "#/$defs/Diagnosis"
+    },
+    "saved": {
+      "const": false,
+      "default": false,
+      "title": "Saved",
+      "type": "boolean"
+    },
+    "actions": {
+      "items": {
+        "$ref": "#/$defs/OnboardingAction"
+      },
+      "title": "Actions",
+      "type": "array"
     }
   },
   "required": [
     "profile",
-    "diagnosis"
+    "diagnosis",
+    "actions"
   ],
-  "title": "OnboardingResult",
+  "title": "OnboardingPreview",
   "type": "object"
 }
