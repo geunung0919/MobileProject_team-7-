@@ -1,0 +1,77 @@
+{
+  "$defs": {
+    "Spending": {
+      "additionalProperties": false,
+      "properties": {
+        "period": {
+          "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+          "title": "Period",
+          "type": "string"
+        },
+        "budget_krw": {
+          "anyOf": [
+            {
+              "maximum": 1000000000,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Budget Krw"
+        },
+        "spent_krw": {
+          "maximum": 1000000000,
+          "minimum": 0,
+          "title": "Spent Krw",
+          "type": "integer"
+        },
+        "remaining_krw": {
+          "anyOf": [
+            {
+              "maximum": 1000000000,
+              "minimum": -1000000000,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Remaining Krw"
+        }
+      },
+      "required": [
+        "period",
+        "spent_krw"
+      ],
+      "title": "Spending",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "source_updated_at": {
+      "format": "date-time",
+      "title": "Source Updated At",
+      "type": "string"
+    },
+    "data": {
+      "$ref": "#/$defs/Spending"
+    }
+  },
+  "required": [
+    "source_updated_at",
+    "data"
+  ],
+  "title": "SpendingSnapshot",
+  "type": "object"
+}
