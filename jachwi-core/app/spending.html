@@ -3,6 +3,9 @@
 <main><small>자취 생존 AI · 2번 모듈 개발 확인 화면</small><h1>내 소비 관리</h1><p>친구의 온보딩 서버와 같은 사용자·DB로 연결됩니다.</p>
 <section><label>개발용 사용자 토큰<input id="token" type="password" autocomplete="off" placeholder="서버에 설정한 개발 토큰"></label><label>조회 월<input id="month" type="month"></label><button id="connect">연결 / 새로고침</button><p><small>토큰은 이 화면의 메모리에서만 사용합니다. 실제 로그인 화면은 아닙니다.</small></p></section>
 <p id="status" role="status" aria-live="polite"></p><div id="content" hidden>
+<section><h2>생활 설정 · 온보딩</h2><p id="onboardingState">생활 설정을 불러와 예산과 자취 정보를 확인하세요.</p><button id="loadOnboarding">생활 설정 불러오기 / 시작</button>
+<form id="onboarding" hidden><div id="onboardingFields"></div><button type="submit">저장 전 미리보기</button><button id="cancelOnboarding" type="button">취소</button></form>
+<div id="onboardingPreview" hidden><h3>입력 확인</h3><p id="previewText"></p><button id="saveOnboarding">확인하고 저장</button></div></section>
 <section><small>남은 예산</small><div id="balance"></div><p id="summary"></p><p id="warning"></p><label>이번 달 예산 (원)<input id="budget" type="number" min="0" max="1000000000" step="1"></label><div class="row"><button id="saveBudget">예산 저장</button><button id="suggest">온보딩 예산 불러오기</button><button id="clearBudget">예산 해제</button></div><small>불러온 온보딩 예산은 ‘예산 저장’을 눌러야 적용됩니다.</small></section>
 <section><h2 id="formTitle">지출 등록</h2><form id="expense"><label>사용처·내용<input id="title" required maxlength="100"></label><div class="row"><label>금액 (원)<input id="amount" type="number" min="1" max="1000000000" step="1" required></label><label>날짜<input id="date" type="date" required></label></div><label>분류<select id="category"><option value="food">외식·배달</option><option value="groceries">식재료</option><option value="living">생활용품</option><option value="transport">교통</option><option value="other">기타</option></select></label><button type="submit">저장</button> <button id="cancel" type="button">입력 초기화</button></form></section>
 <section><h2>소비 내역</h2><ul id="list"></ul></section><section><h2>팀 대시보드 연결</h2><button id="dashboard">연결 결과 확인</button><pre id="result" style="white-space:pre-wrap;overflow-wrap:anywhere"></pre></section></div></main>
@@ -10,11 +13,53 @@
 const $=id=>document.getElementById(id),base='/api/v1/me';let editing=null,suggestion=null;
 const today=new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Seoul'}).format(new Date());$('month').value=today.slice(0,7);$('date').value=today;
 const won=n=>n===null?'미설정':n.toLocaleString('ko-KR')+'원';
-async function api(path,method='GET',body){const r=await fetch(base+path,{method,headers:{Authorization:'Bearer '+$('token').value,'Content-Type':'application/json'},...(body===undefined?{}:{body:JSON.stringify(body)})});const d=await r.json();if(!r.ok)throw Error(d.error?.message||'요청 실패');return d;}
-let busy=false;async function run(fn){if(busy)return;busy=true;const controls=[...document.querySelectorAll('button,input,select')];controls.forEach(e=>e.disabled=true);$('status').textContent='';try{await fn()}catch(e){$('status').textContent=e.message}finally{busy=false;controls.forEach(e=>e.disabled=false)}}
+async function api(path,method='GET',body){const r=await fetch((path.startsWith('/api/')?path:base+path),{method,headers:{Authorization:'Bearer '+$('token').value,'Content-Type':'application/json'},...(body===undefined?{}:{body:JSON.stringify(body)})});const d=await r.json();if(!r.ok){const e=Error(d.error?.message||'요청 실패');e.status=r.status;e.details=d.error?.details;throw e;}return d;}
+let busy=false;async function run(fn){if(busy)return;busy=true;const controls=[...document.querySelectorAll('button,input,select')];controls.forEach(e=>e.disabled=true);$('status').textContent='';try{await fn()}catch(e){$('status').textContent=e.message+(e.details?'\n'+e.details.map(x=>x.field+': '+x.message).join('\n'):'')}finally{busy=false;controls.forEach(e=>e.disabled=false)}}
 function reset() {editing=null;$('expense').reset();$('date').value=today;$('formTitle').textContent='지출 등록'}
 async function refresh(){if(!$('month').value)throw Error('조회 월을 선택하세요.');const d=await api('/spending?period='+$('month').value);$('content').hidden=false;suggestion=d.suggested_budget_krw;$('budget').value=d.data.budget_krw??'';$('balance').textContent=won(d.data.remaining_krw);$('summary').textContent='예산 '+won(d.data.budget_krw)+' · 지출 '+won(d.data.spent_krw);$('warning').textContent={unset:'예산을 설정해 주세요.',exceeded:'예산을 초과했어요.',reached:'예산을 모두 사용했어요.',near_limit:'예산의 80% 이상 사용했어요.',normal:'예산 안에서 사용 중이에요.'}[d.warning];$('list').replaceChildren();if(!d.expenses.length)$('list').textContent='이 달의 소비 내역이 없습니다.';for(const e of d.expenses){const li=document.createElement('li'),text=document.createElement('div');text.textContent=e.spent_on+' · '+e.title+' · '+won(e.amount_krw);li.append(text);const edit=document.createElement('button');edit.textContent='수정';edit.onclick=()=>{editing=e.id;$('title').value=e.title;$('amount').value=e.amount_krw;$('date').value=e.spent_on;$('category').value=e.category;$('formTitle').textContent='지출 수정';$('title').focus()};const del=document.createElement('button');del.textContent='삭제';del.onclick=()=>run(async()=>{if(confirm('이 지출을 삭제할까요?')){await api('/spending/expenses/'+e.id,'DELETE');if(editing===e.id)reset();await refresh()}});li.append(edit,del);$('list').append(li)}}
-$('connect').onclick=()=>run(async()=>{reset();$('result').textContent='';$('content').hidden=true;await refresh()});$('token').oninput=()=>{$('content').hidden=true;reset();$('result').textContent=''};$('month').onchange=()=>{$('content').hidden=true;reset()};
+$('connect').onclick=()=>run(async()=>{reset();clearOnboarding();$('result').textContent='';$('content').hidden=true;await refresh()});$('token').oninput=()=>{$('content').hidden=true;reset();clearOnboarding();$('result').textContent=''};$('month').onchange=()=>{$('content').hidden=true;reset()};
 $('saveBudget').onclick=()=>run(async()=>{if($('budget').value==='')throw Error('예산을 입력하세요.');await api('/spending/budgets/'+$('month').value,'PUT',{budget_krw:Number($('budget').value)});await refresh()});$('clearBudget').onclick=()=>run(async()=>{await api('/spending/budgets/'+$('month').value,'PUT',{budget_krw:null});await refresh()});$('suggest').onclick=()=>run(async()=>{if(suggestion===null)throw Error('온보딩에 입력된 예산이 없습니다. 먼저 온보딩을 저장하세요.');$('budget').value=suggestion;$('status').textContent='온보딩 예산을 불러왔습니다. 예산 저장을 눌러 적용하세요.'});$('cancel').onclick=reset;
 $('expense').onsubmit=e=>{e.preventDefault();run(async()=>{const body={title:$('title').value,amount_krw:Number($('amount').value),spent_on:$('date').value,category:$('category').value};await api('/spending/expenses'+(editing?'/'+editing:''),editing?'PUT':'POST',body);$('month').value=body.spent_on.slice(0,7);reset();await refresh()})};$('dashboard').onclick=()=>run(async()=>{$('result').textContent=JSON.stringify(await api('/dashboard'),null,2)});
+
+let onboardingFields=[],pendingProfile=null;
+function clearOnboarding(){pendingProfile=null;$('onboarding').hidden=true;$('onboardingPreview').hidden=true;$('onboardingFields').replaceChildren();$('onboardingState').textContent='생활 설정을 불러와 예산과 자취 정보를 확인하세요.'}
+function invalidatePreview(){pendingProfile=null;$('onboardingPreview').hidden=true}
+$('loadOnboarding').onclick=()=>run(async()=>{
+ invalidatePreview();$('onboarding').hidden=true;
+ const form=await api('/api/v1/onboarding/form');
+ let profile={};try{profile=(await api('/onboarding')).profile}catch(e){if(e.status!==404)throw e}
+ onboardingFields=form.steps.flatMap(step=>step.fields);$('onboardingFields').replaceChildren();
+ for(const step of form.steps){const heading=document.createElement('h3');heading.textContent=step.title;$('onboardingFields').append(heading);
+  for(const field of step.fields){const box=document.createElement('div'),label=document.createElement('label');label.textContent=field.label;label.htmlFor='ob-'+field.name;box.append(label);
+   const value=profile[field.name];let input;
+   if(field.widget==='multi_select'){
+    input=document.createElement('select');input.id='ob-'+field.name;
+    for(const [v,t] of [['skip','나중에 입력'],['none',field.empty_label],['choose','보유 도구 선택']]){const o=document.createElement('option');o.value=v;o.textContent=t;input.append(o)}
+    input.value=value==null?'skip':value.length?'choose':'none';box.append(input);
+    const choices=document.createElement('div');choices.id='choices-'+field.name;
+    for(const [v,t] of Object.entries(field.option_labels)){const l=document.createElement('label'),c=document.createElement('input');c.type='checkbox';c.value=v;c.name=field.name;c.checked=(value||[]).includes(v);c.style.width='auto';l.append(c,document.createTextNode(t));choices.append(l)}
+    choices.hidden=input.value!=='choose';input.onchange=()=>{choices.hidden=input.value!=='choose'};box.append(choices);
+   }else if(field.widget==='single_select'){
+    input=document.createElement('select');const skip=document.createElement('option');skip.value=field.skip_value||'';skip.textContent='나중에 입력';input.append(skip);
+    for(const [v,t] of Object.entries(field.option_labels)){if(v===field.skip_value)continue;const o=document.createElement('option');o.value=v;o.textContent=t;input.append(o)}input.value=value??field.skip_value??'';
+   }else{input=document.createElement('input');input.type=field.widget==='integer'?'number':'text';input.value=value??'';
+    if(field.widget==='integer'){input.step='1';input.min='0';const rule=form.input_schema.properties[field.name];const limits=rule.anyOf?.find(x=>x.type==='integer')||rule;if(limits.maximum!=null)input.max=limits.maximum}
+    else{input.pattern='[0-9]{10}';input.placeholder='법정동 코드 10자리 · 생략 가능'}
+   }
+   input.id='ob-'+field.name;if(!input.parentNode)box.append(input);const help=document.createElement('small');help.textContent=field.help_text;box.append(help);$('onboardingFields').append(box);
+  }
+ }
+ $('onboardingState').textContent=Object.keys(profile).length?'저장된 생활 설정을 불러왔어요.':'처음 생활 설정을 입력해 주세요. 건너뛰어도 됩니다.';$('onboarding').hidden=false;
+});
+$('onboarding').oninput=invalidatePreview;$('onboarding').onchange=invalidatePreview;
+$('onboarding').onsubmit=e=>{e.preventDefault();run(async()=>{
+ const body={};for(const field of onboardingFields){const value=$('ob-'+field.name).value;
+ body[field.name]=field.widget==='integer'?(value===''?null:Number(value)):field.widget==='multi_select'?(value==='skip'?null:value==='none'?[]:[...document.querySelectorAll('input[name="'+field.name+'"]:checked')].map(x=>x.value)):(value||null);
+ }
+ const preview=await api('/onboarding/preview','POST',body);pendingProfile=preview.profile;
+ $('previewText').textContent='월 생활비 목표: '+won(preview.profile.monthly_budget_krw)+' · 미입력 항목 '+preview.diagnosis.missing_fields.length+'개. 저장 후 소비 관리에서 예산을 불러와 적용하세요.';$('onboardingPreview').hidden=false;
+})};
+$('saveOnboarding').onclick=()=>run(async()=>{if(!pendingProfile)throw Error('먼저 미리보기를 확인하세요.');await api('/onboarding','PUT',pendingProfile);clearOnboarding();await refresh();$('onboardingState').textContent='생활 설정을 저장했어요. 아래에서 온보딩 예산을 불러오세요.';$('status').textContent='온보딩 저장 완료. 월 예산은 아직 변경하지 않았습니다.'});
+$('cancelOnboarding').onclick=clearOnboarding;
+
 </script></html>

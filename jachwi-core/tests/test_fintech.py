@@ -57,3 +57,29 @@ def test_total_limit_rollback(client):
     assert client.post(ROOT+'/expenses',headers=A,json=expense(1000000000)).status_code==201
     assert client.post(ROOT+'/expenses',headers=A,json=expense(1)).status_code==422
     assert len(client.get(ROOT,headers=A).json()['expenses'])==1
+
+def test_onboarding_to_spending_without_losing_profile(client):
+    profile = {'living_months': 8, 'cooking_days_per_week': 3,
+               'cooking_tools': [], 'monthly_budget_krw': 300000,
+               'region_code': '1111010100', 'priority': 'save_money',
+               'initial_inventory_state': 'empty'}
+    form = client.get('/api/v1/onboarding/form', headers=A).json()
+    assert {f['name'] for step in form['steps'] for f in step['fields']} == set(profile)
+    preview = client.post('/api/v1/me/onboarding/preview', headers=A, json=profile)
+    assert preview.status_code == 200
+    assert client.get('/api/v1/me/onboarding', headers=A).status_code == 404
+    client.put('/api/v1/me/onboarding', headers=A, json=preview.json()['profile'])
+    summary = client.get(ROOT, headers=A).json()
+    assert summary['suggested_budget_krw'] == 300000
+    assert summary['data']['budget_krw'] is None
+    client.put(ROOT+'/budgets/'+P, headers=A, json={'budget_krw': 300000})
+    updated = client.get('/api/v1/me/onboarding', headers=A).json()['profile']
+    updated['monthly_budget_krw'] = 400000
+    client.put('/api/v1/me/onboarding', headers=A, json=updated)
+    stored = client.get('/api/v1/me/onboarding', headers=A).json()['profile']
+    assert stored['cooking_tools'] == []
+    assert stored['region_code'] == '1111010100'
+    assert stored['living_months'] == 8
+    summary = client.get(ROOT, headers=A).json()
+    assert summary['suggested_budget_krw'] == 400000
+    assert summary['data']['budget_krw'] == 300000
