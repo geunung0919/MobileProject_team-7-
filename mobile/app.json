@@ -1,0 +1,20 @@
+{
+  "expo": {
+    "name": "자취 생존 AI",
+    "slug": "jachwi-team7",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {},
+    "web": {
+      "bundler": "metro"
+    },
+    "scheme": "jachwi-team7",
+    "plugins": [
+      "expo-router"
+    ]
+  }
+}

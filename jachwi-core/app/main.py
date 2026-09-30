@@ -34,7 +34,7 @@ def create_app(database_url=None, tokens=None, demo_enabled=None):
         engine.dispose()
     app = FastAPI(title='자취 가이드 중앙 코어', version='0.1.0', lifespan=lifespan)
     app.state.sessions = sessions
-    app.add_middleware(CORSMiddleware, allow_origins=os.getenv('CORS_ORIGINS', 'http://localhost:5173,http://127.0.0.1:5173').split(','),
+    app.add_middleware(CORSMiddleware, allow_origins=os.getenv('CORS_ORIGINS', 'http://localhost:5173,http://127.0.0.1:5173,http://localhost:8081,http://127.0.0.1:8081').split(','),
                        allow_methods=['GET', 'PUT', 'POST', 'DELETE'], allow_headers=['Authorization', 'Content-Type'])
     bearer = HTTPBearer(auto_error=False)
     def current_user(credentials: HTTPAuthorizationCredentials | None = Depends(bearer)):

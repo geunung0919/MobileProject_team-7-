@@ -1,3 +1,8 @@
+# 모바일 앱 실행 안내
+
+실제 앱은 [React Native + JavaScript + Expo](../../mobile/README.md)로 실행합니다.
+아래는 보조 웹 확인 화면과 서버 API 안내입니다.
+
 # 2번 소비 관리 실행 안내
 
 친구의 `feature/core-onboarding` 브랜치 위에서 개발했습니다.
@@ -44,7 +49,7 @@ if (!(Test-Path .env)) { Copy-Item .env.example .env }
 4. 지출 등록 후 잔액 변화 확인, 수정·삭제 확인.
 5. 예산을 초과하도록 지출을 등록하고 ‘팀 대시보드 연결’ 확인.
 
-이 페이지는 모바일 반응형 **개발 확인용 웹 화면**입니다. Flutter 앱 화면은 별도 연결이 필요합니다.
+이 페이지는 모바일 반응형 **개발 확인용 웹 화면**입니다. 실제 앱은 `../../mobile/README.md`의 Expo 실행 안내를 따르세요.
 자동 결제 수집·OCR·기기 푸시·재고 연동은 아직 구현하지 않았습니다.
 
 ## 앱 연결 API
@@ -81,4 +86,4 @@ warning: unset / normal / near_limit(80% 이상) / reached / exceeded.
 
 `python -m pytest -q`: 온보딩 회귀 및 소비 등록/수정/삭제, 예산 확인 적용,
 사용자 격리, 월 구분, 입력 검증, 상한 초과 롤백, 재시작 영속성, 타임스탬프 검증.
-웹 화면 스크립트는 Node 구문 검사. 실제 모바일/Flutter 기기 검증은 미실시.
+웹 화면 스크립트는 Node 구문 검사. 실제 모바일 기기 검증은 미실시.

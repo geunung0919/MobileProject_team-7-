@@ -5,7 +5,7 @@
 - 1번: 온보딩·공통 계약·조회용 통합 데이터. 원본 업무 계산을 대신하지 않음.
 - 2번: 지출/예산 계산 결과 SpendingSnapshot 제공. OCR 문구 원본은 중앙 코어에 불필요.
 - 3번: InventorySnapshot 제공. 원본 품목·소비·폐기·날짜 근거 관리는 3번 소유.
-- 4번: 온보딩 PUT/GET, dashboard GET. target은 Flutter에서 매핑할 화면 경로이며 서버 URL이 아님.
+- 4번: 온보딩 PUT/GET, dashboard GET. target은 Expo Router에서 매핑할 화면 경로이며 서버 URL이 아님.
 - 5번: LifeSnapshot 제공. 반복 일정 계산과 변경/완료 처리는 5번 소유.
 - 6번: ai-context GET 결과로 LLM 호출. 빠진 자료를 0으로 해석하지 말 것.
 

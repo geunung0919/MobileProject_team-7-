@@ -1,0 +1,4 @@
+{
+  "compilerOptions": {"allowJs":true,"checkJs":false,"noEmit":true,"jsx":"react-jsx","moduleResolution":"bundler","module":"esnext","target":"es2022","skipLibCheck":true},
+  "include":["src/**/*.js"]
+}
