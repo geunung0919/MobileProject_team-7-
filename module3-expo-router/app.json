@@ -1,0 +1,17 @@
+{
+  "expo": {
+    "name": "냉장고 한 끼",
+    "slug": "module3-app",
+    "scheme": "module3",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "plugins": [
+      "expo-router",
+      "expo-status-bar"
+    ],
+    "web": {
+      "bundler": "metro"
+    }
+  }
+}
