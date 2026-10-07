@@ -19,3 +19,32 @@ test('확인 화면은 미입력과 도구 없음을 다른 문구로 표시한�
   assert.equal(answerLabel(fields[1], []), '도구 없음');
   assert.equal(answerLabel(fields[1], ['microwave']), '전자레인지');
 });
+
+import { readFileSync } from 'node:fs';
+import { stepErrors } from '../src/lib/onboarding.js';
+const schema = JSON.parse(readFileSync(new URL('../../jachwi-core/schemas/Onboarding.json', import.meta.url), 'utf8'));
+const validationForm = {
+  input_schema: schema,
+  steps: [{ fields: [
+    { name: 'living_months', widget: 'integer' },
+    { name: 'cooking_days_per_week', widget: 'integer' },
+    { name: 'monthly_budget_krw', widget: 'integer' },
+    { name: 'region_code', widget: 'region_search' },
+  ] }],
+};
+test('실제 서버 스키마의 상한을 넘는 입력은 해당 항목에 오류를 반환한다', () => {
+  const errors = stepErrors(validationForm, { living_months: '1201', cooking_days_per_week: '8', monthly_budget_krw: '1000000001' }, 0);
+  assert.deepEqual(Object.keys(errors), ['living_months', 'cooking_days_per_week', 'monthly_budget_krw']);
+});
+test('서버 경계값과 선택 항목 건너뛰기를 허용한다', () => {
+  assert.deepEqual(stepErrors(validationForm, { living_months: 1200, cooking_days_per_week: 7, monthly_budget_krw: 0, region_code: '1111010100' }, 0), {});
+  assert.deepEqual(stepErrors(validationForm, { living_months: '', region_code: null }, 0), {});
+});
+test('전각 숫자와 잘못된 지역 코드, 소수를 거부한다', () => {
+  for (const region_code of ['서울', '123', '１２３４５６７８９０']) assert.ok(stepErrors(validationForm, { region_code }, 0).region_code);
+  assert.ok(stepErrors(validationForm, { cooking_days_per_week: '2.5' }, 0).cooking_days_per_week);
+});
+test('다른 단계의 오류 때문에 현재 단계 이동을 막지 않는다', () => {
+  const form = { ...validationForm, steps: [{ fields: [{ name: 'living_months', widget: 'integer' }] }] };
+  assert.deepEqual(stepErrors(form, { living_months: 1, cooking_days_per_week: 9 }, 0), {});
+});

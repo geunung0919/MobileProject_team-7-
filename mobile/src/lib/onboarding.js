@@ -14,3 +14,25 @@ export function answerLabel(field, value) {
   if (Array.isArray(value)) return value.length ? value.map(key => field.option_labels[key] || key).join(', ') : (field.empty_label || '없음');
   return field.option_labels[value] || String(value);
 }
+
+// 서버가 내려준 입력 스키마에서 현재 화면의 범위를 읽는다. 최종 검증은 서버가 수행한다.
+export function stepErrors(form, profile, stepIndex) {
+  const errors = {};
+  for (const field of form.steps[stepIndex].fields) {
+    const value = profile[field.name];
+    if (value == null || value === '') continue;
+    const property = form.input_schema?.properties?.[field.name] || {};
+    const schema = property.anyOf?.find(item => item.type !== 'null') || property;
+    if (field.widget === 'integer') {
+      if (!/^[0-9]+$/.test(String(value)) || !Number.isSafeInteger(Number(value))) {
+        errors[field.name] = '0 이상의 정수로 입력해 주세요.';
+      } else if ((schema.minimum != null && Number(value) < schema.minimum) ||
+                 (schema.maximum != null && Number(value) > schema.maximum)) {
+        errors[field.name] = `${schema.minimum ?? 0}~${schema.maximum ?? '허용 범위'} 사이로 입력해 주세요.`;
+      }
+    } else if (field.widget === 'region_search' && schema.pattern && !new RegExp(schema.pattern).test(String(value))) {
+      errors[field.name] = '법정동 코드 10자리 숫자를 입력하거나 비워 두세요.';
+    }
+  }
+  return errors;
+}
