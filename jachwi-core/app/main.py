@@ -11,7 +11,8 @@ from fastapi.responses import JSONResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.exc import IntegrityError
-from .database import connect, Base, ProfileRow, SnapshotRow
+from .database import connect, Base, ProfileRow, SnapshotRow, NotificationSettingsRow
+from .schemas import NotificationSettings
 from .schemas import Onboarding, OnboardingResult, OnboardingPreview, SpendingSnapshot, InventorySnapshot, LifeSnapshot, IntegratedView
 from .services import diagnose, integrate, preview_onboarding
 from .fintech import register_fintech, LedgerRow, snapshot_for, current_period
@@ -60,6 +61,17 @@ def create_app(database_url=None, tokens=None, demo_enabled=None):
     @app.get('/health', tags=['운영'])
     def health():
         return {'status': 'ok', 'version': '0.1.0'}
+
+    @app.get('/api/v1/me/notification-settings', response_model=NotificationSettings, tags=['1번 마이페이지'])
+    def get_notification_settings(user=Depends(current_user), session=Depends(db)):
+        row = session.get(NotificationSettingsRow, user)
+        return NotificationSettings.model_validate(row.payload) if row else NotificationSettings.initial()
+
+    @app.put('/api/v1/me/notification-settings', response_model=NotificationSettings, tags=['1번 마이페이지'])
+    def put_notification_settings(body: NotificationSettings, user=Depends(current_user), session=Depends(db)):
+        session.merge(NotificationSettingsRow(user_id=user, payload=body.model_dump(mode='json')))
+        session.commit()
+        return body
     @app.get('/api/v1/onboarding/form', response_model=OnboardingForm, tags=['1번 온보딩'])
     def onboarding_form(user=Depends(current_user)):
         return get_onboarding_form()

@@ -58,3 +58,9 @@ flowchart TD
 ## 온보딩 후속 개발
 
 저장 전 미리보기 API와 규칙 1.1이 추가되었습니다. [온보딩 화면 연결 가이드](ONBOARDING_UI_API.md)에서 버튼별 API, 입력값, 수정·취소 동작을 확인하세요.
+
+## 앱 환경 및 마이페이지 추가
+
+앱은 React Native + JavaScript + Expo이며 서버는 Python + FastAPI를 유지합니다.
+[마이페이지 API](MYPAGE_API.md)에 알림 선호 설정의 조회/저장 계약을 추가했습니다.
+기존 온보딩·소비·스냅샷 계약은 변경하지 않습니다.
