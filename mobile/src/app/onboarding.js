@@ -19,6 +19,7 @@ export default function Onboarding(){
  ?<Button key={action.code} title={action.label} onPress={()=>router.replace('/spending')}/>
  :<Text key={action.code} style={styles.small}>{action.label} · 화면 연결 준비 중</Text>)}
  </Card>
+ <Button title="통합 현황 보기" onPress={()=>router.replace('/dashboard')}/>
  <Button title="생활 설정 다시 수정" onPress={()=>{setProfile(saved.profile);setSaved(null);setPreview(null)}}/>
  <Button title={destination==='/mypage'?'마이페이지로':'소비 관리로'} onPress={()=>router.replace(destination)}/>
  </Page>;
