@@ -60,6 +60,10 @@ def create_app(database_url=None, tokens=None, demo_enabled=None):
     @app.get('/health', tags=['운영'])
     def health():
         return {'status': 'ok', 'version': '0.1.0'}
+    @app.get('/api/v1/me/identity', tags=['개발 인증'])
+    def identity(user=Depends(current_user)):
+        return {'user_id': user}
+
     @app.get('/api/v1/onboarding/form', response_model=OnboardingForm, tags=['1번 온보딩'])
     def onboarding_form(user=Depends(current_user)):
         return get_onboarding_form()
