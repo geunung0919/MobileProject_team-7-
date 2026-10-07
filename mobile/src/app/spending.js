@@ -17,7 +17,7 @@ export default function Spending(){
  const reset=()=>{setEntry(empty());setEditing(null)};
  const field=(key,value)=>setEntry(e=>({...e,[key]:value}));
  const afterWrite=async(action,period=month)=>{await action();setData(null);setNotice('저장 완료.');await refresh(period)};
- return <Page title="내 소비 관리"><View style={styles.row}><Button title="생활 설정" disabled={busy} onPress={()=>router.push('/onboarding')}/><Button title="연결 종료" disabled={busy} onPress={()=>{setSession(null);router.replace('/')}}/></View>
+ return <Page title="내 소비 관리"><View style={styles.row}><Button title="마이페이지" disabled={busy} onPress={()=>router.push('/mypage')}/><Button title="생활 설정" disabled={busy} onPress={()=>router.push('/onboarding')}/><Button title="연결 종료" disabled={busy} onPress={()=>{setSession(null);router.replace('/')}}/></View>
  {!!error&&<Text accessibilityRole="alert" style={styles.error}>{error}</Text>}{!!notice&&<Text style={styles.small}>{notice}</Text>}
  <Card><Field label="조회 월 (YYYY-MM)" value={month} editable={!busy} onChangeText={v=>{setMonth(v);setData(null);setDeleting(null);reset();setNotice('')}}/><Button title={busy?'처리 중…':'조회 / 새로고침'} disabled={busy} onPress={()=>run(()=>refresh())}/></Card>
  {data&&<><Card><Text style={styles.small}>남은 예산</Text><Text style={styles.title}>{won(data.data.remaining_krw)}</Text><Text style={styles.text}>사용 {won(data.data.spent_krw)} / 예산 {won(data.data.budget_krw)}</Text><Text style={data.warning==='exceeded'?styles.error:styles.text}>{warnings[data.warning]}</Text>

@@ -1,10 +1,12 @@
 import { useEffect,useState } from 'react';
 import { Text,View } from 'react-native';
-import { Redirect,router } from 'expo-router';
+import { Redirect,router,useLocalSearchParams } from 'expo-router';
 import { Page,Card,Field,Button,styles,useTask } from '../components/UI';
 import { useSession } from '../state/Session';
 import { won } from '../lib/api';
 export default function Onboarding(){
+ const {returnTo}=useLocalSearchParams();
+ const destination=returnTo==='mypage'?'/mypage':'/spending';
  const {api}=useSession(),{busy,error,run}=useTask();
  const [form,setForm]=useState(null),[profile,setProfile]=useState({}),[preview,setPreview]=useState(null);
  const load=()=>run(async()=>{const f=await api('onboarding/form');let p={};try{p=(await api('me/onboarding')).profile}catch(e){if(e.status!==404)throw e}setForm(f);setProfile(p);setPreview(null)});
@@ -20,6 +22,6 @@ export default function Onboarding(){
  {Object.entries(f.option_labels).filter(([v])=>v!==f.skip_value).map(([v,label])=>{const multi=f.widget==='multi_select',selected=multi?(profile[f.name]||[]).includes(v):profile[f.name]===v;return <Button key={v} disabled={busy} title={(selected?'✓ ':'')+label} onPress={()=>change(f.name,multi?(selected?profile[f.name].filter(x=>x!==v):[...(profile[f.name]||[]),v]):v)}/>})}</View></>}
  <Text style={styles.small}>{f.help_text}</Text></View>)}</Card>)}
  <Button title="저장 전 미리보기" disabled={busy} onPress={()=>run(async()=>setPreview(await api('me/onboarding/preview','POST',body())))}/>
- {preview&&<Card><Text style={styles.text}>월 생활비 목표: {won(preview.profile.monthly_budget_krw)}</Text><Text style={styles.small}>미입력 {preview.diagnosis.missing_fields.length}개 · 월 예산에는 별도로 확인 후 적용해요.</Text><Button title="확인하고 저장" disabled={busy} onPress={()=>run(async()=>{await api('me/onboarding','PUT',preview.profile);router.replace('/spending')})}/></Card>}
- </>}<Button title="취소하고 소비 관리로" disabled={busy} onPress={()=>router.replace('/spending')}/></Page>
+ {preview&&<Card><Text style={styles.text}>월 생활비 목표: {won(preview.profile.monthly_budget_krw)}</Text><Text style={styles.small}>미입력 {preview.diagnosis.missing_fields.length}개 · 월 예산에는 별도로 확인 후 적용해요.</Text><Button title="확인하고 저장" disabled={busy} onPress={()=>run(async()=>{await api('me/onboarding','PUT',preview.profile);router.replace(destination)})}/></Card>}
+ </>}<Button title={destination==='/mypage'?'취소하고 마이페이지로':'취소하고 소비 관리로'} disabled={busy} onPress={()=>router.replace(destination)}/></Page>
 }

@@ -8,6 +8,16 @@ Money = Annotated[int, Field(strict=True, ge=0, le=1_000_000_000)]
 class Contract(BaseModel):
     model_config = ConfigDict(extra='forbid', str_strip_whitespace=True)
 
+class NotificationSettings(Contract):
+    # 앱 내 선호 설정이며 OS 알림 권한/푸시 구독 상태가 아니다.
+    spending_alerts: bool = Field(strict=True)
+    inventory_alerts: bool = Field(strict=True)
+    routine_reminders: bool = Field(strict=True)
+
+    @classmethod
+    def initial(cls):
+        return cls(spending_alerts=False, inventory_alerts=False, routine_reminders=False)
+
 class Onboarding(Contract):
     living_months: int | None = Field(default=None, ge=0, le=1200, strict=True)
     cooking_days_per_week: int | None = Field(default=None, ge=0, le=7, strict=True)
