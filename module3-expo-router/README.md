@@ -54,3 +54,11 @@ git remote add origin <저장소주소>
 git push -u origin main
 ```
 이후 각자 `git switch -c feature/기능명`으로 작업하고 PR로 합치세요. .env에는 비밀키를 넣지 마세요. EXPO_PUBLIC_ 값은 앱 사용자에게 공개됩니다.
+
+## 구매일·보관 방법·날짜 유형 입력
+- 구매일(`purchasedAt`): YYYY-MM-DD. 신규 등록은 오늘로 시작하고 미래 구매일은 허용하지 않습니다.
+- 보관 방법(`storageMethod`): 냉장(`refrigerated`), 냉동(`frozen`), 실온(`room`) 중 선택합니다.
+- 날짜 유형(`dateType`): 포장지 표시 소비기한(`package`) 또는 직접 설정한 보관 참고일(`reference`)을 선택합니다. 기준 날짜는 기존 `expiresAt`에 저장합니다.
+- 세 항목은 등록·수정 시 필수입니다. 이전 재고는 그대로 조회·사용할 수 있고, 수정하여 저장할 때 미입력 항목을 채웁니다. 이전 구매일이나 날짜 출처를 추측하여 채우지 않습니다.
+- 보관 방법 변경으로 날짜를 자동 연장하지 않으며, 기한 지난 재고의 입력도 허용합니다.
+- 입력 초기화·검증·저장 데이터 구성은 `src/domain/inventoryFields.mjs`, 관련 테스트는 `tests/inventoryFields.test.mjs`에 있습니다.
