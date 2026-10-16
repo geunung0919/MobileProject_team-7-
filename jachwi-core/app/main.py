@@ -72,6 +72,10 @@ def create_app(database_url=None, tokens=None, demo_enabled=None):
         session.merge(NotificationSettingsRow(user_id=user, payload=body.model_dump(mode='json')))
         session.commit()
         return body
+    @app.get('/api/v1/me/identity', tags=['개발 인증'])
+    def identity(user=Depends(current_user)):
+        return {'user_id': user}
+
     @app.get('/api/v1/onboarding/form', response_model=OnboardingForm, tags=['1번 온보딩'])
     def onboarding_form(user=Depends(current_user)):
         return get_onboarding_form()
