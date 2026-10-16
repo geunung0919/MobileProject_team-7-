@@ -85,4 +85,4 @@ form_version은 질문 표시 계약 버전이며 진단 rule_version과 별개�
 }
 ```
 
-확인 범위: Python 3.12 / SQLite. MySQL 실서버, 실제 로그인, Flutter 화면 연결은 후속 검증이 필요합니다.
+확인 범위: Python 3.12 / SQLite. MySQL 실서버, 실제 로그인, React Native·Expo 실제 기기 연결은 후속 검증이 필요합니다.

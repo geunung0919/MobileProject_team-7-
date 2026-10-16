@@ -24,6 +24,76 @@
         }
       }
     },
+    "/api/v1/me/notification-settings": {
+      "get": {
+        "tags": [
+          "1번 마이페이지"
+        ],
+        "summary": "Get Notification Settings",
+        "operationId": "get_notification_settings_api_v1_me_notification_settings_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationSettings"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "1번 마이페이지"
+        ],
+        "summary": "Put Notification Settings",
+        "operationId": "put_notification_settings_api_v1_me_notification_settings_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NotificationSettings"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationSettings"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/onboarding/form": {
       "get": {
         "tags": [
@@ -1103,6 +1173,30 @@
           "data"
         ],
         "title": "LifeSnapshot"
+      },
+      "NotificationSettings": {
+        "properties": {
+          "spending_alerts": {
+            "type": "boolean",
+            "title": "Spending Alerts"
+          },
+          "inventory_alerts": {
+            "type": "boolean",
+            "title": "Inventory Alerts"
+          },
+          "routine_reminders": {
+            "type": "boolean",
+            "title": "Routine Reminders"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "spending_alerts",
+          "inventory_alerts",
+          "routine_reminders"
+        ],
+        "title": "NotificationSettings"
       },
       "Onboarding": {
         "properties": {

@@ -1,0 +1,2 @@
+import React from 'react';import {Text} from 'react-native';import {Page,Card,styles} from '../../features/fridge/components/UI';import {useApp} from '../../features/fridge/state/AppProvider';
+export default function Meal(){const {state}=useApp();return <Page title="식사 기록" subtitle="레시피에서 식사를 기록하면 재고도 함께 줄어들어요.">{state.meals.length?state.meals.map(m=><Card key={m.id}><Text style={styles.label}>{m.name}</Text><Text style={styles.muted}>{new Date(m.createdAt).toLocaleString('ko-KR')}</Text></Card>):<Text style={styles.muted}>아직 식사 기록이 없어요.</Text>}</Page>;}
