@@ -45,7 +45,7 @@ PC 방화벽은 신뢰하는 사설 네트워크에서만 Python 8000 포트 접
 
 ## 폴더
 
-- `src/app/`: Expo Router 화면 (index, onboarding, spending)
+- `src/app/`: Expo Router 화면 (index, onboarding, spending, routine, fridge)
 - `src/components/UI.js`: 공통 컴포넌트·스타일·요청 중복 방지
 - `src/lib/api.js`: 서버 API·금액 입력 검증
 - `src/state/Session.js`: 연결 상태 (개발 토큰)
@@ -54,7 +54,7 @@ PC 방화벽은 신뢰하는 사설 네트워크에서만 Python 8000 포트 접
 새 팀 기능은 이 앱에 화면과 API를 추가하세요. 별도 앱 프로젝트나 WebView로 복제하지 않습니다.
 기존 `jachwi-core/app/spending.html`은 보조 웹 확인 도구이며 모바일 앱 화면이 아닙니다.
 Flutter를 전제로 한 이전 계약 문서의 화면 target은 이제 Expo Router 경로로 연결합니다.
-OCR/결제 문자 자동 읽기/기기 푸시/재고 전달은 아직 구현 전입니다.
+OCR/결제 문자 자동 읽기/실제 기기 푸시는 아직 구현 전입니다. 생활 루틴의 알림 시간은 현재 로컬에 저장·표시만 하며 OS 알림은 후속 연결합니다.
 
 ## 개발 검사
 
@@ -113,3 +113,20 @@ npx expo export --platform android --platform ios
 
 휴대폰에서는 계정 A에서 재고 등록 → 연결 종료 → 계정 B가 빈 재고인지 확인 →
 계정 A 재연결 후 유지 확인, 동일 지출 재등록 차단, 식사 기록/재고 차감을 확인하세요.
+
+
+## 생활 루틴 MVP
+
+소비 관리 화면의 **생활 루틴** 버튼에서 반복 생활 루틴을 관리합니다.
+
+- 반복 요일: 매일 / 평일 / 주말 / 요일 직접 선택
+- 알림 시간: HH:MM 형식으로 선택 저장(현재는 앱 내 표시용)
+- 완료 체크: 오늘 예정된 루틴을 완료/취소하고 날짜별 완료 기록 저장
+- 방전모드: 에너지를 **5분 이하**로 등록한 가벼운 루틴만 필터링
+- 저장 범위: 서버 주소 + 인증된 사용자 ID별 AsyncStorage 분리
+
+생활 루틴은 `jachwi.routine.v1` 키로 재고와 별도 저장합니다. 개발 토큰은 저장하지 않습니다.
+현재 기기 로컬 기능이므로 다른 기기 동기화와 실제 OS 푸시 알림은 아직 지원하지 않습니다.
+
+생활 루틴 도메인 테스트는 `tests/routine-store.test.mjs`에 있으며 잘못된 입력, 요일 필터,
+방전모드, 완료 토글, 영속 저장을 확인합니다.
