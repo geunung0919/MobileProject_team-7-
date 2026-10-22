@@ -1,11 +1,15 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Image, Text, View } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
-import { Redirect, router } from 'expo-router';
+import { Redirect, router, useLocalSearchParams } from 'expo-router';
 import { Button, Card, Field, Page, styles, useTask } from '../components/UI';
 import { parseMoney } from '../lib/api';
 import { recognizeReceiptText } from '../lib/receiptOcr';
 import { useSession } from '../state/Session';
+import {
+  getPendingNotifications,
+  markProcessedNotifications,
+} from '../../modules/payment-notifications';
 
 const sources = {
   notification: '카드앱 알림',
@@ -25,16 +29,17 @@ const categories = {
 
 export default function SpendingImport() {
   const { api } = useSession();
+  const params = useLocalSearchParams();
+  const routeNotificationId = Array.isArray(params.notificationId)
+    ? params.notificationId[0]
+    : params.notificationId;
   const { busy, error, run, setError } = useTask();
   const [source, setSource] = useState('notification');
   const [rawText, setRawText] = useState('');
   const [imageUri, setImageUri] = useState('');
   const [review, setReview] = useState(null);
   const [candidate, setCandidate] = useState(null);
-
-  if (!api) return <Redirect href="/" />;
-
-  const change = (key, value) => setCandidate(current => ({ ...current, [key]: value }));
+  const [activeNotificationId, setActiveNotificationId] = useState('');
 
   async function analyzeText(text, nextSource = source) {
     const normalized = text.trim();
@@ -52,11 +57,43 @@ export default function SpendingImport() {
     });
   }
 
+  useEffect(() => {
+    if (!api || !routeNotificationId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const item = getPendingNotifications().find(value => value.id === routeNotificationId);
+        if (!item) throw new Error('자동수집함에서 해당 알림을 찾지 못했어요.');
+        const result = await api('me/spending/imports/preview', 'POST', {
+          raw_text: item.rawText,
+          source: 'notification',
+        });
+        if (cancelled) return;
+        setImageUri('');
+        setSource('notification');
+        setRawText(item.rawText);
+        setReview(result);
+        setCandidate({
+          ...result.candidate,
+          amount_krw: result.candidate.amount_krw == null ? '' : String(result.candidate.amount_krw),
+        });
+        setActiveNotificationId(item.id);
+      } catch (e) {
+        if (!cancelled) setError(e.message || '자동수집 알림을 불러오지 못했어요.');
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [api, routeNotificationId, setError]);
+
+  if (!api) return <Redirect href="/" />;
+
+  const change = (key, value) => setCandidate(current => ({ ...current, [key]: value }));
   const preview = () => run(() => analyzeText(rawText, source));
 
   const handlePickedImage = async result => {
     if (result.canceled || !result.assets?.length) return;
     const uri = result.assets[0].uri;
+    setActiveNotificationId('');
     setImageUri(uri);
     setSource('ocr');
     setReview(null);
@@ -99,10 +136,22 @@ export default function SpendingImport() {
       spent_on: candidate.spent_on,
       category: candidate.category,
     });
+    if (activeNotificationId) {
+      try {
+        markProcessedNotifications([activeNotificationId]);
+      } catch {
+        // 서버 저장 성공을 로컬 수집함 정리 실패 때문에 취소하지 않는다.
+      }
+    }
     router.replace('/spending');
   });
 
   return <Page title="결제 자동입력">
+    {!!activeNotificationId && <Card>
+      <Text style={styles.text}>✓ Android 자동수집함에서 가져온 결제 알림이에요.</Text>
+      <Text style={styles.small}>내용을 확인하거나 고친 뒤 저장하면 수집함에서도 자동으로 제거돼요.</Text>
+    </Card>}
+
     <Card>
       <Text style={styles.title}>영수증 사진 OCR</Text>
       <Text style={styles.text}>영수증을 촬영하거나 앨범에서 고르면 한국어 OCR 후 금액·날짜·사용처까지 자동 분석해요.</Text>
@@ -123,7 +172,13 @@ export default function SpendingImport() {
           key={key}
           title={(source === key ? '✓ ' : '') + label}
           disabled={busy}
-          onPress={() => { setSource(key); setImageUri(''); setReview(null); setCandidate(null); }}
+          onPress={() => {
+            setSource(key);
+            setActiveNotificationId('');
+            setImageUri('');
+            setReview(null);
+            setCandidate(null);
+          }}
         />)}
       </View>
       <Field
@@ -134,10 +189,15 @@ export default function SpendingImport() {
         numberOfLines={8}
         maxLength={5000}
         placeholder={'예) [KB국민] 12,300원 승인 10/22 13:15 스타벅스 아산점'}
-        onChangeText={value => { setRawText(value); setReview(null); setCandidate(null); setError(''); }}
+        onChangeText={value => {
+          setRawText(value);
+          setReview(null);
+          setCandidate(null);
+          setError('');
+        }}
       />
       <Button title={busy ? '분석 중…' : '자동 추출'} disabled={busy} onPress={preview} />
-      <Text style={styles.small}>OCR 결과도 위 원문 칸에 들어오므로 잘못 읽힌 글자를 직접 고친 뒤 다시 추출할 수 있어요.</Text>
+      <Text style={styles.small}>자동수집/OCR 결과도 원문 칸에 들어오므로 잘못 읽힌 내용을 고친 뒤 다시 분석할 수 있어요.</Text>
     </Card>
 
     {!!error && <Text accessibilityRole="alert" style={styles.error}>{error}</Text>}
@@ -164,8 +224,8 @@ export default function SpendingImport() {
 
     <Card>
       <Text style={styles.title}>자동수집 연결 상태</Text>
-      <Text style={styles.text}>영수증은 사진 → OCR → 자동 추출 → 검토 → 저장까지 연결돼요.</Text>
-      <Text style={styles.small}>Android 카드앱 알림 백그라운드 감지는 같은 import API에 네이티브 수집기를 추가하는 다음 단계입니다. iOS는 다른 앱의 문자·알림을 직접 읽지 않고 공유/복사/OCR 경로를 사용합니다.</Text>
+      <Text style={styles.text}>Android에서는 결제성 알림을 백그라운드에서 로컬 수집함에 모으고, 검토 후 소비내역에 저장할 수 있어요.</Text>
+      <Text style={styles.small}>iOS는 다른 앱의 문자·알림을 직접 읽지 않고 공유/복사/OCR 경로를 사용합니다.</Text>
     </Card>
   </Page>;
 }
