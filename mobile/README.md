@@ -148,11 +148,11 @@ npx expo export --platform android --platform ios
 Android에서는 Google ML Kit 한국어 모델, iOS에서는 Apple Vision(ko-KR)을 사용합니다.
 OCR 모듈은 Expo Go에 포함되지 않으므로 Development Build가 필요합니다.
 
-\`\`\`powershell
+```powershell
 cd mobile
 npm ci
 npx expo run:android
-\`\`\`
+```
 
 처음 native 프로젝트를 만들 때 app.json의 ImagePicker 권한 설정이 적용됩니다.
 Android의 NotificationListenerService 같은 결제 알림 자동 수집은 custom native code가 필요하므로
