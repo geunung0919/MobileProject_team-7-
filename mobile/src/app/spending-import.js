@@ -1,8 +1,10 @@
 import { useState } from 'react';
-import { Text, View } from 'react-native';
+import { Image, Text, View } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { Redirect, router } from 'expo-router';
 import { Button, Card, Field, Page, styles, useTask } from '../components/UI';
 import { parseMoney } from '../lib/api';
+import { recognizeReceiptText } from '../lib/receiptOcr';
 import { useSession } from '../state/Session';
 
 const sources = {
@@ -26,6 +28,7 @@ export default function SpendingImport() {
   const { busy, error, run, setError } = useTask();
   const [source, setSource] = useState('notification');
   const [rawText, setRawText] = useState('');
+  const [imageUri, setImageUri] = useState('');
   const [review, setReview] = useState(null);
   const [candidate, setCandidate] = useState(null);
 
@@ -33,17 +36,54 @@ export default function SpendingImport() {
 
   const change = (key, value) => setCandidate(current => ({ ...current, [key]: value }));
 
-  const preview = () => run(async () => {
-    if (rawText.trim().length < 3) throw new Error('결제 알림이나 OCR 텍스트를 붙여 넣어 주세요.');
+  async function analyzeText(text, nextSource = source) {
+    const normalized = text.trim();
+    if (normalized.length < 3) throw new Error('결제 알림이나 OCR 텍스트를 입력해 주세요.');
     const result = await api('me/spending/imports/preview', 'POST', {
-      raw_text: rawText.trim(),
-      source,
+      raw_text: normalized,
+      source: nextSource,
     });
+    setSource(nextSource);
+    setRawText(normalized);
     setReview(result);
     setCandidate({
       ...result.candidate,
       amount_krw: result.candidate.amount_krw == null ? '' : String(result.candidate.amount_krw),
     });
+  }
+
+  const preview = () => run(() => analyzeText(rawText, source));
+
+  const handlePickedImage = async result => {
+    if (result.canceled || !result.assets?.length) return;
+    const uri = result.assets[0].uri;
+    setImageUri(uri);
+    setSource('ocr');
+    setReview(null);
+    setCandidate(null);
+    setError('');
+    const text = await recognizeReceiptText(uri);
+    await analyzeText(text, 'ocr');
+  };
+
+  const takeReceiptPhoto = () => run(async () => {
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permission.granted) throw new Error('영수증 촬영을 위해 카메라 권한이 필요해요.');
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ['images'],
+      allowsEditing: false,
+      quality: 1,
+    });
+    await handlePickedImage(result);
+  });
+
+  const pickReceiptImage = () => run(async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: false,
+      quality: 1,
+    });
+    await handlePickedImage(result);
   });
 
   const confirm = () => run(async () => {
@@ -64,18 +104,30 @@ export default function SpendingImport() {
 
   return <Page title="결제 자동입력">
     <Card>
-      <Text style={styles.title}>1. 원문 가져오기</Text>
-      <Text style={styles.text}>카드 알림·문자·카톡 결제내역·영수증 OCR·쇼핑몰 결제 텍스트를 그대로 넣어 주세요.</Text>
+      <Text style={styles.title}>영수증 사진 OCR</Text>
+      <Text style={styles.text}>영수증을 촬영하거나 앨범에서 고르면 한국어 OCR 후 금액·날짜·사용처까지 자동 분석해요.</Text>
+      <View style={styles.row}>
+        <Button title={busy ? '처리 중…' : '영수증 촬영'} disabled={busy} onPress={takeReceiptPhoto} />
+        <Button title="앨범에서 선택" disabled={busy} onPress={pickReceiptImage} />
+      </View>
+      {!!imageUri && <Image source={{ uri: imageUri }} style={{ width: '100%', height: 320, borderRadius: 12, backgroundColor: '#eef3f0' }} resizeMode="contain" />}
+      <Text style={styles.small}>Android는 Google ML Kit 한국어 모델, iOS는 Apple Vision 한국어 인식을 사용해요. OCR 자체는 기기에서 처리됩니다.</Text>
+      <Text style={styles.small}>OCR 네이티브 모듈은 Expo Go에 포함되지 않으므로 Development Build가 필요해요.</Text>
+    </Card>
+
+    <Card>
+      <Text style={styles.title}>결제 원문 직접 입력</Text>
+      <Text style={styles.text}>카드 알림·문자·카톡 결제내역·쇼핑몰 텍스트도 같은 파이프라인으로 분석할 수 있어요.</Text>
       <View style={styles.row}>
         {Object.entries(sources).map(([key, label]) => <Button
           key={key}
           title={(source === key ? '✓ ' : '') + label}
           disabled={busy}
-          onPress={() => { setSource(key); setReview(null); setCandidate(null); }}
+          onPress={() => { setSource(key); setImageUri(''); setReview(null); setCandidate(null); }}
         />)}
       </View>
       <Field
-        label="결제 원문"
+        label="결제 / OCR 원문"
         value={rawText}
         editable={!busy}
         multiline
@@ -85,13 +137,13 @@ export default function SpendingImport() {
         onChangeText={value => { setRawText(value); setReview(null); setCandidate(null); setError(''); }}
       />
       <Button title={busy ? '분석 중…' : '자동 추출'} disabled={busy} onPress={preview} />
-      <Text style={styles.small}>원문은 추출·중복 확인에 사용됩니다. 저장 전 아래 결과를 반드시 확인하세요.</Text>
+      <Text style={styles.small}>OCR 결과도 위 원문 칸에 들어오므로 잘못 읽힌 글자를 직접 고친 뒤 다시 추출할 수 있어요.</Text>
     </Card>
 
     {!!error && <Text accessibilityRole="alert" style={styles.error}>{error}</Text>}
 
     {candidate && <Card>
-      <Text style={styles.title}>2. 추출 결과 확인</Text>
+      <Text style={styles.title}>추출 결과 확인</Text>
       <Text style={styles.small}>신뢰도 {Math.round((review?.confidence || 0) * 100)}% · {review?.needs_review ? '확인 필요' : '자동 추출 양호'}</Text>
       {review?.warnings?.map((warning, index) => <Text key={index} style={styles.error}>• {warning}</Text>)}
       <Field label="사용처·내용" value={candidate.title} editable={!busy} maxLength={100} onChangeText={value => change('title', value)} />
@@ -107,13 +159,13 @@ export default function SpendingImport() {
         />)}
       </View>
       <Button title={busy ? '저장 중…' : '확인하고 소비내역 저장'} disabled={busy} onPress={confirm} />
-      <Button title="다시 추출" disabled={busy} onPress={preview} />
+      <Button title="원문 다시 분석" disabled={busy} onPress={preview} />
     </Card>}
 
     <Card>
       <Text style={styles.title}>자동수집 연결 상태</Text>
-      <Text style={styles.text}>현재 Expo Go에서는 텍스트 가져오기·파싱·확인·저장까지 검증합니다.</Text>
-      <Text style={styles.small}>Android 카드앱 알림 자동 감지는 같은 import API에 네이티브 수집기만 연결하면 됩니다. iOS는 다른 앱의 문자·알림을 임의로 읽는 방식 대신 공유/복사/OCR 입력 흐름을 유지합니다.</Text>
+      <Text style={styles.text}>영수증은 사진 → OCR → 자동 추출 → 검토 → 저장까지 연결돼요.</Text>
+      <Text style={styles.small}>Android 카드앱 알림 백그라운드 감지는 같은 import API에 네이티브 수집기를 추가하는 다음 단계입니다. iOS는 다른 앱의 문자·알림을 직접 읽지 않고 공유/복사/OCR 경로를 사용합니다.</Text>
     </Card>
   </Page>;
 }
