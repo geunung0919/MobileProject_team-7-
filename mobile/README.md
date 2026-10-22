@@ -54,7 +54,7 @@ PC 방화벽은 신뢰하는 사설 네트워크에서만 Python 8000 포트 접
 새 팀 기능은 이 앱에 화면과 API를 추가하세요. 별도 앱 프로젝트나 WebView로 복제하지 않습니다.
 기존 `jachwi-core/app/spending.html`은 보조 웹 확인 도구이며 모바일 앱 화면이 아닙니다.
 Flutter를 전제로 한 이전 계약 문서의 화면 target은 이제 Expo Router 경로로 연결합니다.
-결제 원문 자동 추출 파이프라인과 검토 화면은 구현되어 있습니다. Android 카드앱 알림의 백그라운드 자동 감지는 Development Build용 네이티브 수집기 연결이 남아 있고, 실제 기기 푸시도 아직 구현 전입니다. 생활 루틴의 알림 시간은 현재 로컬에 저장·표시만 하며 OS 알림은 후속 연결합니다.
+결제 원문 자동 추출, 영수증 OCR, Android 결제 알림 자동수집함까지 구현되어 있습니다. Android 자동수집은 NotificationListenerService 기반 Development Build 전용이며 사용자가 시스템의 알림 접근 권한을 직접 허용해야 합니다. 실제 생활 루틴 푸시는 아직 구현 전이며 알림 시간은 현재 로컬에 저장·표시만 합니다.
 
 ## 개발 검사
 
@@ -155,5 +155,30 @@ npx expo run:android
 ```
 
 처음 native 프로젝트를 만들 때 app.json의 ImagePicker 권한 설정이 적용됩니다.
-Android의 NotificationListenerService 같은 결제 알림 자동 수집은 custom native code가 필요하므로
-다음 단계에서 이 동일 import API 앞에 수집 어댑터를 연결합니다.
+### Android 결제 알림 자동수집
+
+`modules/payment-notifications` 로컬 Expo 모듈의 `NotificationListenerService`가 백그라운드에서
+결제 후보 알림을 감지합니다. 모든 알림을 서버에 전송하지 않고 아래 조건을 만족하는 알림만
+SharedPreferences의 로컬 수집함에 최대 50건/30일 보관합니다.
+
+- 포함: 원화 금액 + 승인/결제/이용/사용/구매/페이 키워드
+- 제외: 취소, 거절, 실패, 환불, 입금, 광고/혜택
+- 앱을 열어 **소비 관리 → 자동수집함**으로 이동하면 후보를 확인할 수 있습니다.
+- **검토 / 저장**을 누르면 기존 `imports/preview` 파서로 연결됩니다.
+- 저장 성공 또는 **무시** 처리하면 로컬 수집함에서 제거됩니다.
+- 인증 토큰은 NotificationListenerService에 저장하지 않으며 백그라운드 서버 전송도 하지 않습니다.
+
+Android Development Build를 새로 생성하세요.
+
+```powershell
+cd mobile
+npm ci
+npx expo prebuild --clean --platform android
+npx expo run:android
+```
+
+설치 후 앱의 **자동수집함 → 알림 접근 설정**을 누르고 Android 시스템 설정에서
+**자취 생존 AI**의 알림 접근을 허용해야 합니다. 이 권한은 일반 앱 권한 팝업이 아니라
+시스템의 Notification Access 설정에서 사용자가 직접 켭니다.
+
+네이티브 코드를 수정하면 Development Build를 다시 빌드해야 합니다.
