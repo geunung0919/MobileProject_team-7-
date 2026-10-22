@@ -14,7 +14,15 @@
     },
     "scheme": "jachwi-team7",
     "plugins": [
-      "expo-router"
+      "expo-router",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "영수증 사진을 선택해 소비내역을 자동 입력합니다.",
+          "cameraPermission": "영수증을 촬영해 소비내역을 자동 입력합니다.",
+          "microphonePermission": false
+        }
+      ]
     ]
   }
 }
