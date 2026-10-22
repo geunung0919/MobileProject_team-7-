@@ -54,7 +54,7 @@ PC 방화벽은 신뢰하는 사설 네트워크에서만 Python 8000 포트 접
 새 팀 기능은 이 앱에 화면과 API를 추가하세요. 별도 앱 프로젝트나 WebView로 복제하지 않습니다.
 기존 `jachwi-core/app/spending.html`은 보조 웹 확인 도구이며 모바일 앱 화면이 아닙니다.
 Flutter를 전제로 한 이전 계약 문서의 화면 target은 이제 Expo Router 경로로 연결합니다.
-OCR/결제 문자 자동 읽기/실제 기기 푸시는 아직 구현 전입니다. 생활 루틴의 알림 시간은 현재 로컬에 저장·표시만 하며 OS 알림은 후속 연결합니다.
+결제 원문 자동 추출 파이프라인과 검토 화면은 구현되어 있습니다. Android 카드앱 알림의 백그라운드 자동 감지는 Development Build용 네이티브 수집기 연결이 남아 있고, 실제 기기 푸시도 아직 구현 전입니다. 생활 루틴의 알림 시간은 현재 로컬에 저장·표시만 하며 OS 알림은 후속 연결합니다.
 
 ## 개발 검사
 
@@ -130,3 +130,20 @@ npx expo export --platform android --platform ios
 
 생활 루틴 도메인 테스트는 `tests/routine-store.test.mjs`에 있으며 잘못된 입력, 요일 필터,
 방전모드, 완료 토글, 영속 저장을 확인합니다.
+
+
+## 결제 자동입력 파이프라인
+
+소비 관리 → **결제 자동입력**에서 카드앱 알림, SMS, 카톡·페이, 영수증 OCR 결과,
+쇼핑몰 결제 텍스트를 공통 형식으로 정리할 수 있습니다.
+
+1. 원문과 출처를 입력합니다.
+2. 서버의 `POST /api/v1/me/spending/imports/preview`가 금액·날짜·사용처·카테고리 후보를 반환합니다.
+3. 사용자가 추출 결과를 확인·수정합니다.
+4. `POST /api/v1/me/spending/imports/confirm`으로 기존 소비 원장에 저장합니다.
+5. 같은 사용자에서 같은 출처+원문 fingerprint는 중복 저장을 409로 차단합니다.
+6. 가져온 지출을 삭제하면 해당 fingerprint도 해제되어 다시 가져올 수 있습니다.
+
+현재 Expo Go 검증 경로는 **원문 붙여넣기 → 자동 추출 → 검토 → 저장**입니다.
+Android의 NotificationListenerService 같은 자동 수집은 custom native code가 필요하므로
+Development Build 단계에서 이 동일 API 앞에 수집 어댑터를 연결하는 구조로 분리했습니다.
