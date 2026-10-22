@@ -144,6 +144,16 @@ npx expo export --platform android --platform ios
 5. 같은 사용자에서 같은 출처+원문 fingerprint는 중복 저장을 409로 차단합니다.
 6. 가져온 지출을 삭제하면 해당 fingerprint도 해제되어 다시 가져올 수 있습니다.
 
-현재 Expo Go 검증 경로는 **원문 붙여넣기 → 자동 추출 → 검토 → 저장**입니다.
-Android의 NotificationListenerService 같은 자동 수집은 custom native code가 필요하므로
-Development Build 단계에서 이 동일 API 앞에 수집 어댑터를 연결하는 구조로 분리했습니다.
+영수증 OCR은 **영수증 촬영/앨범 선택 → 기기 내 OCR → 자동 추출 → 검토 → 저장**까지 연결합니다.
+Android에서는 Google ML Kit 한국어 모델, iOS에서는 Apple Vision(ko-KR)을 사용합니다.
+OCR 모듈은 Expo Go에 포함되지 않으므로 Development Build가 필요합니다.
+
+\`\`\`powershell
+cd mobile
+npm ci
+npx expo run:android
+\`\`\`
+
+처음 native 프로젝트를 만들 때 app.json의 ImagePicker 권한 설정이 적용됩니다.
+Android의 NotificationListenerService 같은 결제 알림 자동 수집은 custom native code가 필요하므로
+다음 단계에서 이 동일 import API 앞에 수집 어댑터를 연결합니다.
