@@ -107,17 +107,30 @@ def _amount_value(value):
     return amount if 0 < amount <= 1_000_000_000 else None
 
 
-def extract_amount(text):
-    for pattern in _AMOUNT_PATTERNS:
-        for match in pattern.finditer(text):
-            amount = _amount_value(match.group(1))
-            if amount is not None:
-                return amount
+# Conservative extraction: totals/balances/discounts are not a new purchase.
+_NON_TRANSACTION_AMOUNT_RE = re.compile(r'누적|잔액|한도|청구|할인|적립|포인트|거스름')
+_NON_PURCHASE_EVENT_RE = re.compile(
+    r'(?:승인|결제)\s*(?:취소|거절|실패)|취소\s*완료|환불\s*(?:완료|금액)'
+)
 
-    for match in _GENERIC_AMOUNT_RE.finditer(text):
-        amount = _amount_value(match.group(1))
-        if amount is not None:
-            return amount
+
+def is_non_purchase_event(text):
+    return bool(_NON_PURCHASE_EVENT_RE.search(normalize_import_text(text)))
+
+
+def extract_amount(text):
+    lines = [line for line in text.split('\n') if not _NON_TRANSACTION_AMOUNT_RE.search(line)]
+    for patterns in (_AMOUNT_PATTERNS, [_GENERIC_AMOUNT_RE]):
+        amounts = {
+            amount
+            for line in lines
+            for pattern in patterns
+            for match in pattern.finditer(line)
+            if (amount := _amount_value(match.group(1))) is not None
+        }
+        if amounts:
+            # Multiple plausible amounts require a person to choose, not first-match wins.
+            return next(iter(amounts)) if len(amounts) == 1 else None
     return None
 
 
@@ -239,6 +252,9 @@ def parse_import_candidate(raw_text, source='unknown', today=None):
     title, title_inferred = extract_merchant(text)
 
     warnings = []
+    if is_non_purchase_event(text):
+        warnings.append('취소·거절·실패·환불 내역은 새 지출로 가져올 수 없어요.')
+        amount = None
     if amount is None:
         warnings.append('금액을 자동 추출하지 못했어요.')
     if date_inferred:
@@ -415,6 +431,8 @@ def register_fintech(app, current_user, db):
         user=Depends(current_user),
         session=Depends(db),
     ):
+        if is_non_purchase_event(body.raw_text):
+            raise HTTPException(422, '취소·거절·실패·환불 내역은 새 지출로 가져올 수 없어요.')
         row = ensure(session, user)
         fingerprint = import_fingerprint(body.source, body.raw_text)
         imported = row.payload.get('imported_fingerprints', [])

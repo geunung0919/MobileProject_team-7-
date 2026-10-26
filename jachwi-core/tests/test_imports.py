@@ -87,3 +87,38 @@ def test_confirm_blocks_duplicate_per_user_and_delete_allows_reimport(client):
 
     assert client.delete(ROOT + '/expenses/' + entry['id'], headers=A).status_code == 200
     assert client.post(ROOT + '/imports/confirm', headers=A, json=body).status_code == 201
+
+
+def test_cumulative_amount_does_not_replace_purchase_amount():
+    result = parse_import_candidate(
+        '이마트\n2026-10-26\n누적 이용금액 320,000원\n이번 결제 12,000원',
+        'notification', today=date(2026, 10, 26),
+    )
+    assert result['candidate']['amount_krw'] == 12000
+
+
+def test_only_cumulative_or_conflicting_amounts_require_review():
+    for text in [
+        '이마트\n2026-10-26\n누적 이용금액 320,000원',
+        '이마트\n2026-10-26\n12,000원\n15,000원',
+        '이마트\n2026-10-26\n결제금액 12,000원\n승인금액 15,000원',
+    ]:
+        result = parse_import_candidate(text, 'notification')
+        assert result['candidate']['amount_krw'] is None
+        assert result['needs_review'] is True
+
+
+def test_cancellation_preview_and_confirm_do_not_create_spending(client):
+    for event in ['결제 취소', '승인취소', '승인 거절', '결제 실패', '환불 완료']:
+        raw = f'사용처: 이마트\n2026-10-26\n{event} 12,000원'
+        result = client.post(ROOT + '/imports/preview', headers=A,
+                             json={'raw_text': raw, 'source': 'notification'})
+        assert result.status_code == 200
+        assert result.json()['needs_review'] is True
+        assert result.json()['candidate']['amount_krw'] is None
+        response = client.post(ROOT + '/imports/confirm', headers=A, json={
+            'raw_text': raw, 'source': 'notification', 'title': '이마트',
+            'amount_krw': 12000, 'spent_on': '2026-10-26', 'category': 'groceries',
+        })
+        assert response.status_code == 422
+    assert client.get(ROOT + '?period=2026-10', headers=A).json()['expenses'] == []
