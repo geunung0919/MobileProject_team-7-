@@ -125,3 +125,7 @@ SQLite 데이터는 자동 이전되지 않습니다. 변경한 DB에서 샘플�
 
 온보딩 예산 확인 적용, 지출 CRUD, 월 잔액·과지출 경고와 팀 대시보드를 연결했습니다.
 서버 실행 후 `/spending`에서 확인할 수 있습니다. [실행 및 API 안내](docs/FINTECH.md)
+
+## 중앙 재고 연동
+
+저장·조회 및 충돌 처리 규격: [INVENTORY_API.md](docs/INVENTORY_API.md).

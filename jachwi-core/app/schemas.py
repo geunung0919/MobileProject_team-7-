@@ -140,3 +140,13 @@ class IntegratedView(Contract):
     modules: dict[str, SpendingSnapshot | InventorySnapshot | LifeSnapshot | None]
     module_status: dict[str, Literal['missing', 'available', 'stale']]
     cards: list[Card]
+
+
+class InventoryWrite(Contract):
+    # 0 means no saved inventory yet; every successful write increments revision.
+    expected_revision: int = Field(strict=True, ge=0)
+    data: Inventory
+
+class InventoryState(Contract):
+    revision: int = Field(strict=True, ge=1)
+    snapshot: InventorySnapshot

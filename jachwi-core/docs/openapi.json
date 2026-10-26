@@ -94,6 +94,30 @@
         ]
       }
     },
+    "/api/v1/me/identity": {
+      "get": {
+        "tags": [
+          "개발 인증"
+        ],
+        "summary": "Identity",
+        "operationId": "identity_api_v1_me_identity_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/onboarding/form": {
       "get": {
         "tags": [
@@ -214,6 +238,76 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/OnboardingResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/me/inventory": {
+      "get": {
+        "tags": [
+          "3번 재고 연결"
+        ],
+        "summary": "Get Inventory",
+        "operationId": "get_inventory_api_v1_me_inventory_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InventoryState"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "3번 재고 연결"
+        ],
+        "summary": "Put Inventory",
+        "operationId": "put_inventory_api_v1_me_inventory_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InventoryWrite"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InventoryState"
                 }
               }
             }
@@ -1125,6 +1219,44 @@
           "data"
         ],
         "title": "InventorySnapshot"
+      },
+      "InventoryState": {
+        "properties": {
+          "revision": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Revision"
+          },
+          "snapshot": {
+            "$ref": "#/components/schemas/InventorySnapshot"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "revision",
+          "snapshot"
+        ],
+        "title": "InventoryState"
+      },
+      "InventoryWrite": {
+        "properties": {
+          "expected_revision": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Expected Revision"
+          },
+          "data": {
+            "$ref": "#/components/schemas/Inventory"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "expected_revision",
+          "data"
+        ],
+        "title": "InventoryWrite"
       },
       "Life": {
         "properties": {
