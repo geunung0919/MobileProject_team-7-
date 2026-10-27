@@ -21,3 +21,15 @@ test('인증 헤더, API 경로, 서버 오류 전달',async()=>{
  await assert.rejects(()=>api('me/spending'),e=>e.status===401&&e.message==='인증 실패');
  }finally{globalThis.fetch=old}
 });
+
+test('온보딩 입력 오류의 구조를 UI에 전달한다', async () => {
+ const old = globalThis.fetch;
+ const details = [{ field: 'body.living_months', message: '범위를 확인해 주세요.' }];
+ globalThis.fetch = async () => ({ ok: false, status: 422,
+  json: async () => ({ error: { message: '입력 형식 오류', details } }) });
+ try {
+  const api = createApi('http://localhost:8000', 'test-token');
+  await assert.rejects(() => api('me/onboarding', 'PUT', {}), error =>
+   error.status === 422 && JSON.stringify(error.details) === JSON.stringify(details));
+ } finally { globalThis.fetch = old; }
+});

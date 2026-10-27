@@ -30,9 +30,40 @@ export function stepErrors(form, profile, stepIndex) {
                  (schema.maximum != null && Number(value) > schema.maximum)) {
         errors[field.name] = `${schema.minimum ?? 0}~${schema.maximum ?? '허용 범위'} 사이로 입력해 주세요.`;
       }
+    } else if (field.widget === 'single_select' && !Object.hasOwn(field.option_labels || {}, value)) {
+      errors[field.name] = '목록에서 항목을 다시 선택해 주세요.';
+    } else if (field.widget === 'multi_select' && (!Array.isArray(value) ||
+               new Set(value).size !== value.length ||
+               value.some(key => !Object.hasOwn(field.option_labels || {}, key)))) {
+      errors[field.name] = '조리 도구를 목록에서 중복 없이 선택해 주세요.';
     } else if (field.widget === 'region_search' && schema.pattern && !new RegExp(schema.pattern).test(String(value))) {
       errors[field.name] = '법정동 코드 10자리 숫자를 입력하거나 비워 두세요.';
     }
   }
   return errors;
+}
+
+
+export function formErrors(form, profile) {
+  return Object.assign({}, ...form.steps.map((_, index) => stepErrors(form, profile, index)));
+}
+
+export function serverFieldErrors(form, error) {
+  const names = new Set(form.steps.flatMap(step => step.fields.map(field => field.name)));
+  const errors = {};
+  for (const detail of error.details || []) {
+    const name = String(detail.field).split('.').find(part => names.has(part));
+    if (name && !errors[name]) errors[name] = detail.message;
+  }
+  return errors;
+}
+
+export function firstErrorStep(form, errors) {
+  return form.steps.findIndex(step => step.fields.some(field => Object.hasOwn(errors, field.name)));
+}
+
+// Keep navigation restricted to implemented screens, regardless of server target strings.
+export function onboardingActionTarget(action) {
+  const routes = { '/spending': '/spending', '/inventory': '/fridge/inventory' };
+  return Object.hasOwn(routes, action.target) ? routes[action.target] : null;
 }

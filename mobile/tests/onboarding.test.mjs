@@ -48,3 +48,33 @@ test('다른 단계의 오류 때문에 현재 단계 이동을 막지 않는다
   const form = { ...validationForm, steps: [{ fields: [{ name: 'living_months', widget: 'integer' }] }] };
   assert.deepEqual(stepErrors(form, { living_months: 1, cooking_days_per_week: 9 }, 0), {});
 });
+
+import { formErrors, serverFieldErrors, firstErrorStep, onboardingActionTarget } from '../src/lib/onboarding.js';
+const choicesForm = { steps: [
+  { fields: [{ name: 'priority', widget: 'single_select', option_labels: { save_money: '절약' } }] },
+  { fields: [{ name: 'cooking_tools', widget: 'multi_select', option_labels: { microwave: '전자레인지' } }] },
+] };
+test('확인 단계는 이전 단계의 잘못된 선택과 중복 도구도 검증한다', () => {
+  const errors = formErrors(choicesForm, { priority: 'old-value', cooking_tools: ['microwave', 'microwave'] });
+  assert.deepEqual(Object.keys(errors), ['priority', 'cooking_tools']);
+  assert.equal(firstErrorStep(choicesForm, errors), 0);
+  assert.deepEqual(formErrors(choicesForm, { priority: null, cooking_tools: [] }), {});
+  assert.ok(formErrors(choicesForm, { cooking_tools: 'microwave' }).cooking_tools);
+});
+test('서버의 배열 항목 오류를 입력칸에 연결하며 폼 밖 오류는 무시한다', () => {
+  const errors = serverFieldErrors(choicesForm, { details: [
+    { field: 'body.cooking_tools.0', message: '지원하지 않는 도구입니다.' },
+    { field: 'body.cooking_tools.1', message: '다른 오류' },
+    { field: 'body.user_id', message: '금지' },
+  ] });
+  assert.deepEqual(errors, { cooking_tools: '지원하지 않는 도구입니다.' });
+  assert.equal(firstErrorStep(choicesForm, errors), 1);
+  assert.equal(firstErrorStep(choicesForm, serverFieldErrors(choicesForm, new Error('연결 실패'))), -1);
+});
+test('재고 후속 행동은 실제 화면으로 매핑하고 미구현/외부 경로는 차단한다', () => {
+  assert.equal(onboardingActionTarget({ target: '/inventory' }), '/fridge/inventory');
+  assert.equal(onboardingActionTarget({ target: '/spending' }), '/spending');
+  assert.equal(onboardingActionTarget({ target: '/routines' }), null);
+  assert.equal(onboardingActionTarget({ target: 'https://example.com' }), null);
+  assert.equal(onboardingActionTarget({ target: '__proto__' }), null);
+});

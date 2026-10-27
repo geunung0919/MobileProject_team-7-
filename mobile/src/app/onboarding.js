@@ -3,7 +3,7 @@ import { Text,View } from 'react-native';
 import { Redirect,router,useLocalSearchParams } from 'expo-router';
 import { Page,Card,Field,Button,styles,useTask } from '../components/UI';
 import { useSession } from '../state/Session';
-import { onboardingBody,answerLabel,stepErrors } from '../lib/onboarding';
+import { onboardingBody,answerLabel,stepErrors,formErrors,serverFieldErrors,firstErrorStep,onboardingActionTarget } from '../lib/onboarding';
 import { DiagnosisSummary } from '../components/DiagnosisSummary';
 export default function Onboarding(){
  const {returnTo}=useLocalSearchParams();
@@ -16,8 +16,8 @@ export default function Onboarding(){
  if(saved)return <Page key="result" title="생활 설정을 저장했어요">
  <DiagnosisSummary result={saved}/>
  <Card><Text style={styles.text}>이제 무엇을 해볼까요?</Text>
- {preview.actions.map(action=>action.target==='/spending'
- ?<Button key={action.code} title={action.label} onPress={()=>router.replace('/spending')}/>
+ {preview.actions.map(action=>onboardingActionTarget(action)
+ ?<Button key={action.code} title={action.label} onPress={()=>router.replace(onboardingActionTarget(action))}/>
  :<Text key={action.code} style={styles.small}>{action.label} · 화면 연결 준비 중</Text>)}
  </Card>
  <Button title="통합 현황 보기" onPress={()=>router.replace('/dashboard')}/>
@@ -28,6 +28,18 @@ export default function Onboarding(){
  const body=()=>onboardingBody(form,profile);
  const review=form&&stepIndex===form.steps.length;
  const move=index=>{setStepIndex(index);setPreview(null);setError('');setFieldErrors({})};
+ const request=async(path,method,payload)=>{
+  try{return await api(path,method,payload)}catch(e){
+   const errors=serverFieldErrors(form,e),index=firstErrorStep(form,errors);
+   if(index>=0){setStepIndex(index);setFieldErrors(errors);setPreview(null)}
+   throw e;
+  }
+ };
+ const previewAll=()=>run(async()=>{
+  const errors=formErrors(form,profile),index=firstErrorStep(form,errors);
+  if(index>=0){setStepIndex(index);setFieldErrors(errors);setError('입력한 항목을 확인해 주세요.');return}
+  setPreview(await request('me/onboarding/preview','POST',body()));
+ });
  const next=()=>{const errors=stepErrors(form,profile,stepIndex);setFieldErrors(errors);if(Object.keys(errors).length){setError('입력한 항목을 확인해 주세요.');return}move(stepIndex+1)};
  return <Page key={`step-${stepIndex}`} title="나에게 맞는 생활 설정">{!!error&&<Text style={styles.error}>{error}</Text>}{!form?<Button title="다시 불러오기" disabled={busy} onPress={load}/>:<>
  <Text style={styles.small}>{review?'입력 내용 확인':`${stepIndex+1} / ${form.steps.length}단계 · ${form.steps[stepIndex].title}`}</Text>
@@ -42,7 +54,7 @@ export default function Onboarding(){
  <Button title={`${step.title} 수정`} disabled={busy} onPress={()=>move(index)}/></View>)}</Card>}
  {!review&&<Button title={stepIndex===form.steps.length-1?'입력 내용 확인':'다음'} disabled={busy} onPress={next}/>}
  {stepIndex>0&&<Button title="이전" disabled={busy} onPress={()=>move(stepIndex-1)}/>}
- {review&&<Button title="저장 전 미리보기" disabled={busy} onPress={()=>run(async()=>setPreview(await api('me/onboarding/preview','POST',body())))}/>}
- {preview&&<><Text style={styles.text}>저장 전 미리보기 · 아직 저장되지 않았어요.</Text><DiagnosisSummary result={preview}/><Card><Button title="확인하고 저장" disabled={busy} onPress={()=>run(async()=>{const result=await api('me/onboarding','PUT',preview.profile);setSaved(result)})}/></Card></>}
+ {review&&<Button title="저장 전 미리보기" disabled={busy} onPress={previewAll}/>}
+ {preview&&<><Text style={styles.text}>저장 전 미리보기 · 아직 저장되지 않았어요.</Text><DiagnosisSummary result={preview}/><Card><Button title="확인하고 저장" disabled={busy} onPress={()=>run(async()=>{const result=await request('me/onboarding','PUT',preview.profile);setSaved(result)})}/></Card></>}
  </>}<Button title={destination==='/mypage'?'취소하고 마이페이지로':'취소하고 소비 관리로'} disabled={busy} onPress={()=>router.replace(destination)}/></Page>
 }
