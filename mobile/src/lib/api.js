@@ -19,6 +19,7 @@ export function createApi(baseUrl, token) {
       if (!response.ok) {
         const error = new Error(data.error?.message || '요청 실패 (' + response.status + ')');
         error.status = response.status;
+        error.details = Array.isArray(data.error?.details) ? data.error.details : [];
         error.message += (data.error?.details || []).map(item => '\n' + item.field + ': ' + item.message).join('');
         throw error;
       }

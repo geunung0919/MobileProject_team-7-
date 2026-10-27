@@ -15,6 +15,18 @@ class SnapshotRow(Base):
     module: Mapped[str] = mapped_column(String(32), primary_key=True)
     payload: Mapped[dict] = mapped_column(JSON)
 
+class NotificationSettingsRow(Base):
+    __tablename__ = 'core_notification_settings'
+    user_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    payload: Mapped[dict] = mapped_column(JSON)
+
+class InventoryRow(Base):
+    __tablename__ = 'core_inventory'
+    user_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    revision: Mapped[int] = mapped_column()
+    payload: Mapped[dict] = mapped_column(JSON)
+
+
 def connect(url):
     engine = create_engine(url, pool_pre_ping=True,
                            connect_args={'check_same_thread': False} if url.startswith('sqlite') else {})

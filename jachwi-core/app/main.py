@@ -10,8 +10,10 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import update
 from sqlalchemy.exc import IntegrityError
-from .database import connect, Base, ProfileRow, SnapshotRow
+from .database import connect, Base, ProfileRow, SnapshotRow, NotificationSettingsRow, InventoryRow
+from .schemas import InventoryWrite, InventoryState, NotificationSettings
 from .schemas import Onboarding, OnboardingResult, OnboardingPreview, SpendingSnapshot, InventorySnapshot, LifeSnapshot, IntegratedView
 from .services import diagnose, integrate, preview_onboarding
 from .fintech import register_fintech, LedgerRow, snapshot_for, current_period
@@ -60,6 +62,21 @@ def create_app(database_url=None, tokens=None, demo_enabled=None):
     @app.get('/health', tags=['운영'])
     def health():
         return {'status': 'ok', 'version': '0.1.0'}
+
+    @app.get('/api/v1/me/notification-settings', response_model=NotificationSettings, tags=['1번 마이페이지'])
+    def get_notification_settings(user=Depends(current_user), session=Depends(db)):
+        row = session.get(NotificationSettingsRow, user)
+        return NotificationSettings.model_validate(row.payload) if row else NotificationSettings.initial()
+
+    @app.put('/api/v1/me/notification-settings', response_model=NotificationSettings, tags=['1번 마이페이지'])
+    def put_notification_settings(body: NotificationSettings, user=Depends(current_user), session=Depends(db)):
+        session.merge(NotificationSettingsRow(user_id=user, payload=body.model_dump(mode='json')))
+        session.commit()
+        return body
+    @app.get('/api/v1/me/identity', tags=['개발 인증'])
+    def identity(user=Depends(current_user)):
+        return {'user_id': user}
+
     @app.get('/api/v1/onboarding/form', response_model=OnboardingForm, tags=['1번 온보딩'])
     def onboarding_form(user=Depends(current_user)):
         return get_onboarding_form()
@@ -81,6 +98,30 @@ def create_app(database_url=None, tokens=None, demo_enabled=None):
         profile = Onboarding.model_validate(row.payload)
         return OnboardingResult(profile=profile, diagnosis=diagnose(profile))
 
+    @app.get('/api/v1/me/inventory', response_model=InventoryState, tags=['3번 재고 연결'])
+    def get_inventory(user=Depends(current_user), session=Depends(db)):
+        row = session.get(InventoryRow, user)
+        if row is None:
+            raise HTTPException(404, '아직 중앙 재고를 등록하지 않았습니다.')
+        return InventoryState(revision=row.revision, snapshot=InventorySnapshot.model_validate(row.payload))
+
+    @app.put('/api/v1/me/inventory', response_model=InventoryState, tags=['3번 재고 연결'])
+    def put_inventory(body: InventoryWrite, user=Depends(current_user), session=Depends(db)):
+        snapshot = InventorySnapshot(source_updated_at=datetime.now(timezone.utc), data=body.data)
+        payload = snapshot.model_dump(mode='json')
+        revision = body.expected_revision + 1
+        if body.expected_revision == 0:
+            session.add(InventoryRow(user_id=user, revision=revision, payload=payload))
+        else:
+            result = session.execute(update(InventoryRow).where(
+                InventoryRow.user_id == user,
+                InventoryRow.revision == body.expected_revision,
+            ).values(revision=revision, payload=payload))
+            if result.rowcount != 1:
+                raise HTTPException(409, '재고가 변경되었습니다. 다시 조회한 뒤 저장하세요.')
+        session.commit()
+        return InventoryState(revision=revision, snapshot=snapshot)
+
     def get_view(user, session):
         row = session.get(ProfileRow, user)
         profile = Onboarding.model_validate(row.payload) if row else None
@@ -88,6 +129,9 @@ def create_app(database_url=None, tokens=None, demo_enabled=None):
         for name, model in SNAPSHOTS.items():
             snapshot = session.get(SnapshotRow, (user, name))
             modules[name] = model.model_validate(snapshot.payload) if snapshot else None
+        inventory_row = session.get(InventoryRow, user)
+        if inventory_row is not None:
+            modules['inventory'] = InventorySnapshot.model_validate(inventory_row.payload)
         ledger = session.get(LedgerRow, user)
         if ledger is not None:
             modules['spending'] = snapshot_for(ledger, current_period())

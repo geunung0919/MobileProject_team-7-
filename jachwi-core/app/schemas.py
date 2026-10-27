@@ -8,6 +8,16 @@ Money = Annotated[int, Field(strict=True, ge=0, le=1_000_000_000)]
 class Contract(BaseModel):
     model_config = ConfigDict(extra='forbid', str_strip_whitespace=True)
 
+class NotificationSettings(Contract):
+    # 앱 내 선호 설정이며 OS 알림 권한/푸시 구독 상태가 아니다.
+    spending_alerts: bool = Field(strict=True)
+    inventory_alerts: bool = Field(strict=True)
+    routine_reminders: bool = Field(strict=True)
+
+    @classmethod
+    def initial(cls):
+        return cls(spending_alerts=False, inventory_alerts=False, routine_reminders=False)
+
 class Onboarding(Contract):
     living_months: int | None = Field(default=None, ge=0, le=1200, strict=True)
     cooking_days_per_week: int | None = Field(default=None, ge=0, le=7, strict=True)
@@ -130,3 +140,13 @@ class IntegratedView(Contract):
     modules: dict[str, SpendingSnapshot | InventorySnapshot | LifeSnapshot | None]
     module_status: dict[str, Literal['missing', 'available', 'stale']]
     cards: list[Card]
+
+
+class InventoryWrite(Contract):
+    # 0 means no saved inventory yet; every successful write increments revision.
+    expected_revision: int = Field(strict=True, ge=0)
+    data: Inventory
+
+class InventoryState(Contract):
+    revision: int = Field(strict=True, ge=1)
+    snapshot: InventorySnapshot
