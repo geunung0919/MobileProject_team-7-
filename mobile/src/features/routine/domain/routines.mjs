@@ -28,6 +28,7 @@ export function validateRoutine(routine) {
       routine.days.some(day => !Number.isInteger(day) || day < 0 || day > 6) ||
       new Set(routine.days).size !== routine.days.length ||
       !validReminderTime(routine.reminderTime) ||
+      (routine.remindersEnabled !== undefined && typeof routine.remindersEnabled !== 'boolean') ||
       !['low', 'normal'].includes(routine.energy) ||
       !Array.isArray(routine.completedDates) ||
       routine.completedDates.some(date => !validRoutineDate(date))) {
@@ -53,6 +54,7 @@ export function parseRoutineState(raw) {
   const value = JSON.parse(raw);
   if (value?.version !== 1 || !Array.isArray(value.routines)) throw new Error('저장된 생활 루틴 형식을 확인할 수 없어요.');
   value.routines.forEach(validateRoutine);
+  if(new Set(value.routines.map(r=>r.id)).size!==value.routines.length)throw new Error('중복 루틴 ID를 확인해 주세요.');
   return value;
 }
 
@@ -123,7 +125,8 @@ export function createRoutineStore(storage, key) {
     update(fn) {
       const operation = queue.then(async () => {
         await load();
-        const next = fn(state);
+        const next = await fn(state);
+        if(next===state)return state;
         await storage.setItem(key, JSON.stringify(next));
         state = next;
         listeners.forEach(listener => listener(state));
@@ -133,4 +136,15 @@ export function createRoutineStore(storage, key) {
       return operation;
     },
   };
+}
+
+export function editRoutine(state,id,input) {
+ const original=state.routines.find(r=>r.id===id);
+ if(!original)throw new Error('수정할 루틴을 찾지 못했어요.');
+ const next={...makeRoutine({...input,id}),completedDates:original.completedDates,remindersEnabled:original.remindersEnabled ?? true};
+ return {...state,routines:state.routines.map(r=>r.id===id?next:r)};
+}
+export function toggleRoutineReminder(state,id) {
+ if(!state.routines.some(r=>r.id===id))throw new Error('변경할 루틴을 찾지 못했어요.');
+ return {...state,routines:state.routines.map(r=>r.id===id?{...r,remindersEnabled:r.remindersEnabled===false}:r)};
 }

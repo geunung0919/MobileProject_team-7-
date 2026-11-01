@@ -1,3 +1,4 @@
+import {useRoutines} from '../features/routine/state/RoutineProvider';
 import { useEffect, useRef, useState } from 'react';
 import { Switch, Text, View } from 'react-native';
 import { Redirect, router } from 'expo-router';
@@ -17,6 +18,7 @@ export default function MyPage() {
 }
 
 function Settings({ api }) {
+  const {applyNotificationSettings,requestRoutinePermission}=useRoutines();
   const [saved, setSaved] = useState(null);
   const [draft, setDraft] = useState(null);
   const [busy, setBusy] = useState(true);
@@ -50,11 +52,14 @@ function Settings({ api }) {
     setError('');
     setNotice('');
     try {
+      if(draft.routine_reminders && !saved.routine_reminders) await requestRoutinePermission();
       const data = await api('me/notification-settings', 'PUT', draft);
       if (!current.active) return;
       setSaved(data);
       setDraft({ ...data });
-      setNotice('알림 설정을 저장했어요.');
+      setNotice('서버 알림 설정을 저장했어요.');
+      try { await applyNotificationSettings(data); }
+      catch(e) { if(current.active)setError('설정은 저장했지만 기기 알림 반영에 실패했어요. '+e.message); }
     } catch (e) {
       if (current.active) setError(e.message || '저장하지 못했어요. 다시 시도해 주세요.');
     } finally {
@@ -72,7 +77,7 @@ function Settings({ api }) {
     </Card>
     <Card>
       <Text style={styles.text}>알림 설정</Text>
-      <Text style={styles.small}>원하는 알림을 선택하고 저장해 주세요. 실제 휴대폰 알림 발송은 아직 준비 중이에요.</Text>
+      <Text style={styles.small}>생활 루틴은 기기 예약 알림과 연결돼요. 소비·재고 알림은 선호 설정 저장 단계예요. 휴대폰 알림 권한은 별도예요.</Text>
       {!!error && <Text accessibilityRole="alert" style={styles.error}>{error}</Text>}
       {!draft ? <>
         <Text style={styles.small}>{busy ? '설정을 불러오는 중…' : '설정을 불러오지 못했어요.'}</Text>
