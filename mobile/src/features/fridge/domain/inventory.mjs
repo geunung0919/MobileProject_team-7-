@@ -5,6 +5,7 @@ export function validDate(value) {
  return date.getFullYear()===y && date.getMonth()===m-1 && date.getDate()===d;
 }
 export function daysLeft(value,today=dayKey()) {
+ if(!validDate(value) || !validDate(today))return NaN;
  const utc=s=>{const [y,m,d]=s.split('-').map(Number);return Date.UTC(y,m-1,d);};
  return Math.round((utc(value)-utc(today))/86400000);
 }

@@ -1,0 +1,22 @@
+import assert from 'node:assert/strict';
+import {createApi} from '../src/lib/api.js';
+import {createStore,fridgeActions} from '../src/features/fridge/domain/store.mjs';
+import {createInventorySync} from '../src/features/fridge/domain/sync.mjs';
+const a=createApi(process.argv[2],'sync-integration-user-a'),b=createApi(process.argv[2],'sync-integration-user-b');
+function device(){const data=new Map();const store=createStore({getItem:async k=>data.get(k)??null,setItem:async(k,v)=>data.set(k,v)},'account');return {store,sync:createInventorySync(store,a),actions:fridgeActions(fn=>store.update(fn),()=> 'id')};}
+const one=device(),two=device();
+const item={id:'egg',name:'달걀',quantity:4,unit:'개',storageMethod:'refrigerated',dateType:'unknown',expiresAt:null,remainingCost:1200};
+await one.actions.saveItem(item);await one.sync.resolve('upload',await one.sync.inspect());
+let view=await a('me/dashboard');assert.equal(view.module_status.inventory,'available');assert.equal(view.modules.inventory.data.items[0].quantity,4);
+let ai=await a('me/ai-context');assert.equal(ai.modules.inventory.data.items[0].target_date,null);
+await assert.rejects(b('me/inventory'),e=>e.status===404);
+await two.sync.resolve('download',await two.sync.inspect());assert.equal(two.store.getState().inventory[0].expiresAt,null);
+await two.actions.saveItem({...two.store.getState().inventory[0],quantity:3});await two.sync.sync();await one.sync.sync();assert.equal(one.store.getState().inventory[0].quantity,3);assert.equal(one.store.getState().inventory[0].remainingCost,null);
+await one.actions.saveItem({...one.store.getState().inventory[0],quantity:2});
+await two.actions.saveItem({...two.store.getState().inventory[0],quantity:1});await two.sync.sync();
+await assert.rejects(one.sync.sync(),e=>e.status===409);
+assert.equal(one.store.getState().inventory[0].quantity,2);assert.equal((await a('me/inventory')).snapshot.data.items[0].quantity,1);
+await one.sync.resolve('upload',await one.sync.inspect());assert.equal((await a('me/inventory')).snapshot.data.items[0].quantity,2);
+await one.actions.deleteItem('egg');await one.sync.sync();assert.equal((await a('me/inventory')).snapshot.data.items.length,0);
+assert.equal((await b('me/dashboard')).module_status.inventory,'missing');
+console.log('Real HTTP PASS: initial upload, dashboard/AI, user isolation, unknown-date roundtrip, second-device download, automatic pull, conflict preservation, explicit resolution, empty inventory.');

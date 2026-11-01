@@ -1,3 +1,4 @@
+import { validateSyncMetadata } from './sync.mjs';
 import { applyMeal, applyDiscard, undoLatest } from './transactions.mjs';
 import { mergeShopping, registerPurchased, shoppingItem } from './shopping.mjs';
 import { shortages, validDate } from './inventory.mjs';
@@ -10,7 +11,8 @@ export function storageKey(origin, userId) {
 export function validateItem(item) {
   if (typeof item.name !== 'string' || !item.name.trim() || item.name.length > 100 ||
       typeof item.unit !== 'string' || !item.unit.trim() || item.unit.length > 20 ||
-      !Number.isFinite(item.quantity) || item.quantity <= 0 || !validDate(item.expiresAt)) {
+      !Number.isFinite(item.quantity) || item.quantity <= 0 ||
+      (item.dateType === 'unknown' ? !!item.expiresAt : !validDate(item.expiresAt))) {
     throw new Error('재료명, 양수 수량, 단위, 올바른 소비기한을 입력해 주세요.');
   }
 }
@@ -35,6 +37,7 @@ export function parseState(raw) {
     if (!['meal', 'discard'].includes(migrated.undo.kind) || typeof migrated.undo.id !== 'string' || !Array.isArray(migrated.undo.inventory)) throw new Error('잘못된 복구 기록');
     migrated.undo.inventory.forEach(validateItem);
   }
+  validateSyncMetadata(migrated.inventorySync);
   return migrated;
 }
 export function importExpense(state, expense, items) {
@@ -67,7 +70,8 @@ export function createStore(storage, key) {
     update(fn) {
       const operation = queue.then(async () => {
         await load();
-        const next = fn(state);
+        const next = await fn(state);
+        if (next === state) return state;
         await storage.setItem(key, JSON.stringify(next));
         state = next;
         listeners.forEach(listener => listener(state));

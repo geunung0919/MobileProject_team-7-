@@ -20,7 +20,7 @@ test('구매일 누락, 실제로 없는 날짜, 미래 구매일 거부', () =>
 });
 test('선택값 누락 및 지원하지 않는 선택값 거부', () => {
   for (const key of ['storageMethod', 'dateType'])
-    for (const value of ['', 'unknown'])
+    for (const value of ['', 'unsupported'])
       assert.notEqual(validateInventoryDraft({ ...draft, [key]: value }, today), '');
 });
 test('모든 보관 방법과 두 날짜 유형 저장 가능', () => {

@@ -58,15 +58,15 @@ export default function InventoryForm({ item, shopping }) {
         <Text style={styles.muted}>이전에 등록한 재고예요. 구매일, 보관 방법, 날짜 유형을 확인해서 입력해 주세요.</Text>}
       <Field label="재료명 (예: 달걀)" value={draft.name} onChangeText={change('name')} />
       <Field label="수량" keyboardType="decimal-pad" value={draft.quantity} onChangeText={change('quantity')} />
-      <Field label="단위 (개 / g / 공기 / 모)" value={draft.unit} onChangeText={change('unit')} />
+      <Field label="단위 (서버 연결: 개 / g / ml / 팩)" value={draft.unit} onChangeText={change('unit')} />
       <Field label="현재 수량에 해당하는 구매 금액 (원, 선택)" keyboardType="number-pad" value={draft.remainingCost} onChangeText={change('remainingCost')} placeholder="모르면 비워 두세요"/>
       <Text style={styles.muted}>수량을 수정하면 해당 수량의 금액도 함께 확인해 주세요. 사용·폐기한 비율만큼 줄어들며 가계부 결제액은 바뀌지 않아요.</Text>
       <Field label="구매일 (YYYY-MM-DD)" placeholder="예: 2026-10-08"
         maxLength={10} autoCorrect={false} value={draft.purchasedAt} onChangeText={change('purchasedAt')} />
       <Choices label="보관 방법" options={STORAGE_METHODS} value={draft.storageMethod} onChange={change('storageMethod')} />
       <Choices label="날짜 유형" options={DATE_TYPES} value={draft.dateType} onChange={change('dateType')} />
-      <Field label={`${dateLabel} (YYYY-MM-DD)`} maxLength={10} autoCorrect={false}
-        value={draft.expiresAt} onChangeText={change('expiresAt')} />
+      {draft.dateType !== 'unknown' && <Field label={`${dateLabel} (YYYY-MM-DD)`} maxLength={10} autoCorrect={false}
+        value={draft.expiresAt} onChangeText={change('expiresAt')} />}
       <ReferenceNotice/>
       {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
       <Button title={busy?"저장 중…":"저장"} disabled={busy} onPress={save} />

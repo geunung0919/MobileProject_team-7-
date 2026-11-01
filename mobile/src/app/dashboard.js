@@ -32,7 +32,7 @@ export default function Dashboard() {
   }, [api, attempt]));
   if (!api) return <Redirect href="/" />;
   return <Page title="내 생활 통합 현황">
-    <Text style={styles.small}>각 기능에서 전달된 정보를 모아 보여줘요. 팀 연동 확인용 화면이에요. 냉장고·루틴의 기기 저장 데이터는 아직 중앙 현황에 자동 반영되지 않아요.</Text>
+    <Text style={styles.small}>각 기능에서 전달된 정보를 모아 보여줘요. 팀 연동 확인용 화면이에요. 냉장고는 서버 연결을 켠 뒤 저장한 재고가 반영돼요. 생활 루틴은 아직 기기 저장만 지원해요.</Text>
     {!!error && <Text accessibilityRole="alert" style={styles.error}>{error}</Text>}
     <Button title={busy ? '불러오는 중…' : '현황 새로고침'} disabled={busy}
       onPress={() => { setBusy(true); setAttempt(value => value + 1); }} />
