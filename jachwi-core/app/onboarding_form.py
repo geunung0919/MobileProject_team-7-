@@ -41,7 +41,7 @@ def get_onboarding_form() -> OnboardingForm:
                       option_labels={'microwave': '전자레인지', 'stove': '가스레인지·인덕션',
                                      'rice_cooker': '밥솥', 'air_fryer': '에어프라이어'},
                       empty_label='보유한 도구 없음',
-                      help_text='여러 개 선택할 수 있어요. 없음은 빈 목록([]), 건너뛰기는 null로 전송해요.'),
+                      help_text='여러 개 선택할 수 있어요. 도구가 없으면 없음, 아직 정하지 않았다면 나중에 입력을 선택해 주세요.'),
             FormField(name='cooking_days_per_week', label='일주일에 며칠 요리하나요?', widget='integer',
                       help_text='0일부터 7일까지 입력해 주세요.'),
         ]),

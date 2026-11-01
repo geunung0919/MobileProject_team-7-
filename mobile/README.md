@@ -1,22 +1,26 @@
-# 자취 생존 AI 모바일 앱
+# 자취 생존 AI — 팀 통합 앱 (2026-11-01)
 
-**React Native + JavaScript + Expo** 팀 프로젝트입니다. 화면 코드는 `.js`이며 Expo Router로 이동합니다.
-현재 blank 공식 템플릿 기반 Expo SDK 57 / React Native 0.86 / React 19.2를 사용합니다.
-Node.js 22.13 이상이 필요합니다. `package-lock.json`으로 팀 설치 버전을 고정합니다.
+React Native + JavaScript + Expo SDK 57 / Expo Router 프로젝트입니다.
+이 브랜치에서는 `mobile` 폴더 하나에서 중앙 코어 화면, 소비 관리, OCR,
+Android 결제 수집함, 생활 루틴, 최신 냉장고·레시피·장보기를 함께 실행합니다.
 
-## 실행: 터미널 2개
+## 시작
 
-### 1. Python API 서버 (저장소 루트, PowerShell)
+Node.js 22.13 이상과 Python 3.12를 권장합니다.
+서버와 앱은 이 통합 브랜치의 코드를 함께 사용하세요.
+
+서버: 저장소 루트에서 PowerShell 터미널을 열고 아래 명령을 실행합니다.
 
 ```powershell
 cd jachwi-core
-python -m venv .venv
-.\.venv\Scripts\python -m pip install -r requirements.txt
-if (!(Test-Path .env)) { Copy-Item .env.example .env }
-.\.venv\Scripts\python -m uvicorn app.main:create_app --factory --reload --host 0.0.0.0 --port 8000
+py -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+# 처음에만 복사하세요. 기존 .env가 있다면 유지합니다.
+Copy-Item .env.example .env
+.\.venv\Scripts\python.exe -m uvicorn app.main:create_app --factory --host 0.0.0.0 --port 8000
 ```
 
-### 2. Expo 앱 (새 터미널, 저장소 루트)
+앱: 저장소 루트에서 다른 터미널을 엽니다.
 
 ```powershell
 cd mobile
@@ -24,85 +28,78 @@ npm ci
 npx expo start
 ```
 
-휴대폰과 PC를 같은 Wi-Fi에 연결하고 SDK 57과 호환되는 Expo Go에서 QR을 여세요.
-기기 Expo Go가 SDK 57을 지원하지 않는다면 SDK를 임의로 섞지 말고 호환 버전 또는 development build를 사용하세요.
-`ipconfig`에서 Wi-Fi IPv4를 확인한 뒤 앱의 서버 주소에 `http://PC_IP:8000`을 입력합니다.
-PC 방화벽은 신뢰하는 사설 네트워크에서만 Python 8000 포트 접근을 허용합니다.
+휴대폰과 PC를 같은 Wi-Fi에 연결하고, 앱에서 PC의 IPv4 주소
+`http://192.168.x.x:8000`과 `.env`에 설정된 개발 토큰을 입력합니다.
+휴대폰의 localhost는 PC를 가리키지 않습니다. 실제 소셜 로그인은 아직 연결 전입니다.
+서버 토큰은 앱 메모리에만 보관합니다. `.env`와 개인 결제 원문을 Git에 올리지 마세요.
 
-- 실제 휴대폰의 localhost/127.0.0.1은 PC가 아니라 휴대폰 자신입니다.
-- Android 에뮬레이터는 보통 `http://10.0.2.2:8000` 사용.
-- 기본 .env.example을 복사한 서버의 개발 토큰: `local-demo-token-user-a`.
-- 토큰은 앱 메모리에만 보관하며 앱 재시작 시 다시 입력합니다. 실제 로그인은 별도 작업.
-- 인터넷에 공개 배포하는 구성은 아닙니다. 현재 개발용 인증을 그대로 공개하지 마세요.
+OCR과 Android 알림 수집은 Expo Go에 네이티브 모듈이 없어 Development Build가 필요합니다.
+Android Studio/SDK 환경에서:
 
-## 확인 순서
-
-연결하기 → 생활 설정 → 입력 → 미리보기 → 확인하고 저장 →
-온보딩 예산 불러오기 → 예산 저장 → 지출 등록/수정/삭제.
-월별 조회, 예산 80%/소진/초과 표시, 서버 DB 저장을 지원합니다.
-온보딩은 서버의 form 규격을 읽고 기존 값을 유지합니다. 예산 적용은 별도 확인 동작입니다.
-날짜·월은 현재 텍스트 입력입니다. 지역은 법정동 코드 입력이며 지역 검색은 후속 작업입니다.
-
-## 폴더
-
-- `src/app/`: Expo Router 화면 (index, onboarding, spending, routine, fridge)
-- `src/components/UI.js`: 공통 컴포넌트·스타일·요청 중복 방지
-- `src/lib/api.js`: 서버 API·금액 입력 검증
-- `src/state/Session.js`: 연결 상태 (개발 토큰)
-- `../jachwi-core/`: 기존 Python API. 앱 언어와 별개로 재사용
-
-새 팀 기능은 이 앱에 화면과 API를 추가하세요. 별도 앱 프로젝트나 WebView로 복제하지 않습니다.
-기존 `jachwi-core/app/spending.html`은 보조 웹 확인 도구이며 모바일 앱 화면이 아닙니다.
-Flutter를 전제로 한 이전 계약 문서의 화면 target은 이제 Expo Router 경로로 연결합니다.
-결제 원문 자동 추출, 영수증 OCR, Android 결제 알림 자동수집함까지 구현되어 있습니다. Android 자동수집은 NotificationListenerService 기반 Development Build 전용이며 사용자가 시스템의 알림 접근 권한을 직접 허용해야 합니다. 실제 생활 루틴 푸시는 아직 구현 전이며 알림 시간은 현재 로컬에 저장·표시만 합니다.
-
-## 개발 검사
-
-```sh
-npm test
-npx expo lint
-npx tsc -p jsconfig.json --noEmit
-npx expo install --check
-npx expo export --platform android --platform ios
+```powershell
+cd mobile
+npx expo run:android
 ```
 
-JavaScript 프로젝트이므로 TypeScript 소스는 작성하지 않습니다. tsc는 JS 프로젝트 구문 확인용이며 checkJs는 꺼져 있습니다.
-번들 생성 성공은 실제 Android/iOS 기기 테스트 완료를 의미하지 않습니다.
+네이티브 의존성·설정이 바뀌면 기존 개발 빌드를 다시 생성해야 합니다.
+iOS 네이티브 로컬 빌드에는 macOS/Xcode가 필요합니다.
 
-검증 결과: API 유틸 테스트 2개, ESLint, JS 프로젝트 구문 검사 통과.
-Expo SDK 내장 버전표 기준 의존성 검사 통과(외부 호환성 서버는 연결 제한으로 미조회).
-Android·iOS Metro/Hermes 번들 export 성공. 실제 휴대폰 터치 동작은 아직 검증하지 않았습니다.
+## 메뉴와 연결
 
-## 냉장고·식사 연결 (module3 통합)
+소비 관리에서 생활 설정, 통합 현황, 마이페이지, 냉장고·식사,
+생활 루틴, 결제 자동입력, Android 자동수집함으로 이동합니다.
 
-이 브랜치에서는 서버도 함께 갱신해야 합니다. 연결 시 `GET /api/v1/me/identity`로
-개발 토큰의 사용자 ID를 확인합니다. `mobile` 폴더에서 `npm ci` 후 실행하세요.
+- 온보딩: 단계별 입력, 서버 기준 검증, 미리보기·진단·저장·오류 복구.
+- 소비: 월별 예산·지출 CRUD, 잔여액·경고, 온보딩 예산 확인 후 적용.
+- 자동입력: 텍스트/OCR 결과 → 파서 후보 → 검토·수정 → 지출 저장.
+- OCR: 촬영/앨범 → ML Kit 한국어(Android) 또는 Apple Vision(iOS) → 검토.
+- Android 수집함: 사용자가 시스템 알림 접근을 허용하면 결제 후보만 로컬에 보관.
+  수집함에서 검토할 때 서버로 전달하며 저장 성공 시 수집함에서 제거합니다.
+  최대 50건/30일입니다. 취소/환불의 기존 지출 반영은 아직 없습니다.
+- 냉장고: 구매일·보관 방법·날짜 출처·잔여 금액 입력, 검색, 부분 폐기, 되돌리기.
+- 레시피: 예시 3개 카탈로그의 이름/재료 검색·시간/재고 필터, 실제 사용량 확인 후 차감.
+  AI 생성이나 외부 레시피 검색이 아닙니다.
+- 장보기: 추가·수정·체크, 쿠팡 검색, 구매 품목 재고 등록. 검색 링크가 구매를 자동 처리하지 않습니다.
+- 식재료 지출 → 냉장고 등록: 여러 재료 확인 후 한 번 등록. 소비 금액으로 재료를 추정하지 않습니다.
+- 레시피 알림: 개별/매일 로컬 예약, 취소, 알림 탭 시 통합 경로로 이동.
+  계정별 예약을 구분하고 명시적 연결 종료/계정 변경 때 다른 계정 예약 취소를 시도합니다.
+  예약 취소 실패나 OS 권한/절전 상태는 실기기 확인이 필요합니다.
+- 생활 루틴: 반복 요일·완료 체크·5분 이하 방전모드. **루틴 시간은 저장/표시만 하며 실제 OS 알림은 미구현**입니다.
+- 마이페이지 알림 토글은 서버 선호 설정입니다. 레시피 예약 화면의 명시적 로컬 예약과
+  별개이며, 소비/재고/루틴 자동 알림 발송 엔진은 아직 연결되지 않았습니다.
 
-1. 서버에 연결하고 **소비 관리 → 냉장고·식사**를 누릅니다.
-2. 재고 등록·수정·삭제, 레시피 추천, 부족한 재료 장보기, 식사 기록을 사용할 수 있습니다.
-3. 식료품 지출은 **식재료** 분류로 저장합니다. 소비 내역의 **냉장고에 등록**을 누릅니다.
-4. 한 지출에서 구매한 재료를 여러 줄로 입력하고 수량·단위·제품의 소비기한을 확인합니다.
-5. 저장 후 재고 목록으로 이동합니다. 동일 지출은 같은 기기의 같은 서버·계정에서 다시 등록되지 않습니다.
-6. 재고가 충분한 레시피에서 식사를 기록하면 소비기한이 가까운 재료부터 차감됩니다.
+## 저장 범위와 이전 데이터
 
-재고·식사·장보기는 AsyncStorage에 **서버 주소 + 인증된 사용자 ID**별로 저장합니다.
-토큰은 저장하지 않습니다. 새 계정은 빈 재고로 시작하며 팀원의 샘플 재고를 자동 주입하지 않습니다.
-기기 저장이 실패하면 성공 처리하지 않고 기존 데이터를 유지합니다.
-앱 삭제/앱 데이터 초기화 시 재고와 중복 등록 기록도 없어집니다. 다른 기기와는 동기화되지 않습니다.
-같은 서버라도 IP/도메인을 바꾸면 별도 저장 공간으로 취급합니다.
-지출을 수정·삭제해도 이미 등록된 재고는 자동 변경되지 않으며 재고 화면에서 직접 수정합니다.
+냉장고/식사/폐기/장보기는 기존 `jachwi.fridge.v1:<서버>:<사용자>` 저장 키를 유지합니다.
+생활 루틴도 계정별 별도 로컬 키를 유지합니다. 새 계정에 예시 재고를 넣지 않습니다.
+과거 냉장고에는 discards/processedIds/undo의 기본값만 추가하며 기존 값과 소비 연결 기록을 보존합니다.
+이전 구매일·보관법·날짜 출처는 추측하지 않으며 재고 수정 시 확인합니다.
+팀원의 독립 앱 `module3.state.v1` 키는 다른 계정의 데이터일 수 있어 자동으로 합치지 않습니다.
 
-### 팀원 코드 출처와 남은 연결
+식사·폐기·가져오기·장보기 등록은 같은 계정 저장 큐에서 처리하며,
+기기 저장 성공 후에만 화면에 반영합니다. 새 재고 변경은 이전 되돌리기를 종료합니다.
+앱 삭제/데이터 초기화 시 로컬 데이터와 등록 기록은 사라질 수 있습니다.
 
-- `feature/module3` 커밋 `6812ae0a984503674f572d1cc79b3a85ec3e5d73`의
-  `module3-expo-router` 재고 계산·레시피·화면을 `src/features/fridge`와 `src/app/fridge`에 가져와 연결했습니다.
-- 원본 팀원 브랜치는 수정하지 않습니다. 이후 module3 변경은 이 통합본과 함께 조정해야 합니다.
-- 원본의 전역 로컬 키를 계정별 키로 교체하고, 저장을 직렬 처리하며 영속 저장 성공 후 화면을 갱신합니다.
-- 서버 재고 규격은 `g/ml/piece/pack`, module3는 `개/공기/모` 등 자유 단위이므로
-  서버 재고 스냅샷에 자동 전송하지 않습니다. 단위 변환·저장 위치·소비기한 출처 규격을 합의한 뒤 연결해야 합니다.
-- 모바일 JavaScript 검사(`checkJs: false`)는 정적 타입 검증 전체를 보장하지 않습니다.
+Android 네이티브 알림 수집함은 현재 기기 공용입니다. 앱 계정별 수집함 격리는 후속 작업이며,
+재고/루틴처럼 계정별 저장이라고 간주하면 안 됩니다.
 
-검증 명령:
+## 중앙 재고 API와의 경계
+
+서버에는 `GET/PUT /api/v1/me/inventory`와 revision 기반 충돌 방지가 포함되어 있습니다.
+**기기 냉장고와 중앙 재고 간 자동 업로드/다운로드는 아직 연결하지 않았습니다.**
+통합 현황과 AI context는 서버가 받은 데이터만 사용하며 기기 재고·루틴은 자동 반영되지 않습니다.
+서버 g/ml/piece/pack과 앱의 개/모/공기 등 자유 단위는 임의로 환산하지 않습니다.
+자세한 규격은 `../jachwi-core/docs/INVENTORY_API.md`에 있습니다.
+
+## 출처
+
+- 기반 소비/OCR/루틴/수집함 및 파서 수정: `test/payment-integration-validation` (`f80ffa8`).
+- 중앙 코어/마이페이지/온보딩/재고 API: `feature/core-notification-settings` (`30f50c3`).
+- 최신 재고/폐기/되돌리기/레시피/장보기/알림: `feature/module3` (`4007295`).
+  원본을 `src/features/fridge`와 `/fridge` 경로로 적응하고 계정별 저장·가져오기를 유지했습니다.
+- 팀원 원본 브랜치를 수정하거나 main에 병합하지 않았습니다.
+
+## 검사
 
 ```bash
 npm test
@@ -111,74 +108,6 @@ npx tsc -p jsconfig.json --noEmit
 npx expo export --platform android --platform ios
 ```
 
-휴대폰에서는 계정 A에서 재고 등록 → 연결 종료 → 계정 B가 빈 재고인지 확인 →
-계정 A 재연결 후 유지 확인, 동일 지출 재등록 차단, 식사 기록/재고 차감을 확인하세요.
-
-
-## 생활 루틴 MVP
-
-소비 관리 화면의 **생활 루틴** 버튼에서 반복 생활 루틴을 관리합니다.
-
-- 반복 요일: 매일 / 평일 / 주말 / 요일 직접 선택
-- 알림 시간: HH:MM 형식으로 선택 저장(현재는 앱 내 표시용)
-- 완료 체크: 오늘 예정된 루틴을 완료/취소하고 날짜별 완료 기록 저장
-- 방전모드: 에너지를 **5분 이하**로 등록한 가벼운 루틴만 필터링
-- 저장 범위: 서버 주소 + 인증된 사용자 ID별 AsyncStorage 분리
-
-생활 루틴은 `jachwi.routine.v1` 키로 재고와 별도 저장합니다. 개발 토큰은 저장하지 않습니다.
-현재 기기 로컬 기능이므로 다른 기기 동기화와 실제 OS 푸시 알림은 아직 지원하지 않습니다.
-
-생활 루틴 도메인 테스트는 `tests/routine-store.test.mjs`에 있으며 잘못된 입력, 요일 필터,
-방전모드, 완료 토글, 영속 저장을 확인합니다.
-
-
-## 결제 자동입력 파이프라인
-
-소비 관리 → **결제 자동입력**에서 카드앱 알림, SMS, 카톡·페이, 영수증 OCR 결과,
-쇼핑몰 결제 텍스트를 공통 형식으로 정리할 수 있습니다.
-
-1. 원문과 출처를 입력합니다.
-2. 서버의 `POST /api/v1/me/spending/imports/preview`가 금액·날짜·사용처·카테고리 후보를 반환합니다.
-3. 사용자가 추출 결과를 확인·수정합니다.
-4. `POST /api/v1/me/spending/imports/confirm`으로 기존 소비 원장에 저장합니다.
-5. 같은 사용자에서 같은 출처+원문 fingerprint는 중복 저장을 409로 차단합니다.
-6. 가져온 지출을 삭제하면 해당 fingerprint도 해제되어 다시 가져올 수 있습니다.
-
-영수증 OCR은 **영수증 촬영/앨범 선택 → 기기 내 OCR → 자동 추출 → 검토 → 저장**까지 연결합니다.
-Android에서는 Google ML Kit 한국어 모델, iOS에서는 Apple Vision(ko-KR)을 사용합니다.
-OCR 모듈은 Expo Go에 포함되지 않으므로 Development Build가 필요합니다.
-
-```powershell
-cd mobile
-npm ci
-npx expo run:android
-```
-
-처음 native 프로젝트를 만들 때 app.json의 ImagePicker 권한 설정이 적용됩니다.
-### Android 결제 알림 자동수집
-
-`modules/payment-notifications` 로컬 Expo 모듈의 `NotificationListenerService`가 백그라운드에서
-결제 후보 알림을 감지합니다. 모든 알림을 서버에 전송하지 않고 아래 조건을 만족하는 알림만
-SharedPreferences의 로컬 수집함에 최대 50건/30일 보관합니다.
-
-- 포함: 원화 금액 + 승인/결제/이용/사용/구매/페이 키워드
-- 제외: 취소, 거절, 실패, 환불, 입금, 광고/혜택
-- 앱을 열어 **소비 관리 → 자동수집함**으로 이동하면 후보를 확인할 수 있습니다.
-- **검토 / 저장**을 누르면 기존 `imports/preview` 파서로 연결됩니다.
-- 저장 성공 또는 **무시** 처리하면 로컬 수집함에서 제거됩니다.
-- 인증 토큰은 NotificationListenerService에 저장하지 않으며 백그라운드 서버 전송도 하지 않습니다.
-
-Android Development Build를 새로 생성하세요.
-
-```powershell
-cd mobile
-npm ci
-npx expo prebuild --clean --platform android
-npx expo run:android
-```
-
-설치 후 앱의 **자동수집함 → 알림 접근 설정**을 누르고 Android 시스템 설정에서
-**자취 생존 AI**의 알림 접근을 허용해야 합니다. 이 권한은 일반 앱 권한 팝업이 아니라
-시스템의 Notification Access 설정에서 사용자가 직접 켭니다.
-
-네이티브 코드를 수정하면 Development Build를 다시 빌드해야 합니다.
+서버 검사: `jachwi-core`에서 `python -m pytest -q`.
+`checkJs:false` 검사와 번들 export는 완전한 JS 타입 검증이나 APK/IPA 빌드가 아닙니다.
+실제 영수증 OCR·카톡 알림 수신·로컬 알림 표시·화면 터치는 기기 검증이 남아 있습니다.
