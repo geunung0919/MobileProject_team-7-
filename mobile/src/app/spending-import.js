@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { Image, Text, View } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
-import { Redirect, router, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { Button, Card, Field, Page, styles, useTask } from '../components/UI';
 import { parseMoney } from '../lib/api';
-import { recognizeReceiptText } from '../lib/receiptOcr';
+import { recognizeReceiptText, receiptSupport } from '../lib/receiptOcr';
+import { readReceiptImage } from '../lib/receiptFlow.mjs';
 import { useSession } from '../state/Session';
 import {
   getPendingNotifications,
@@ -28,7 +29,11 @@ const categories = {
 };
 
 export default function SpendingImport() {
-  const { api } = useSession();
+  const { api, storageScope } = useSession();
+  return <SpendingImportContent key={storageScope || 'disconnected'} api={api} />;
+}
+
+function SpendingImportContent({ api }) {
   const params = useLocalSearchParams();
   const routeNotificationId = Array.isArray(params.notificationId)
     ? params.notificationId[0]
@@ -44,6 +49,9 @@ export default function SpendingImport() {
   async function analyzeText(text, nextSource = source) {
     const normalized = text.trim();
     if (normalized.length < 3) throw new Error('결제 알림이나 OCR 텍스트를 입력해 주세요.');
+    if (!api) throw new Error('사진 확인은 가능해요. 금액 분석·저장은 서버 연결 후 사용할 수 있어요.');
+    setReview(null);
+    setCandidate(null);
     const result = await api('me/spending/imports/preview', 'POST', {
       raw_text: normalized,
       source: nextSource,
@@ -85,23 +93,20 @@ export default function SpendingImport() {
     return () => { cancelled = true; };
   }, [api, routeNotificationId, setError]);
 
-  if (!api) return <Redirect href="/" />;
 
   const change = (key, value) => setCandidate(current => ({ ...current, [key]: value }));
   const preview = () => run(() => analyzeText(rawText, source));
 
-  const handlePickedImage = async result => {
-    if (result.canceled || !result.assets?.length) return;
-    const uri = result.assets[0].uri;
-    setActiveNotificationId('');
-    setImageUri(uri);
-    setSource('ocr');
-    setReview(null);
-    setCandidate(null);
-    setError('');
-    const text = await recognizeReceiptText(uri);
-    await analyzeText(text, 'ocr');
-  };
+  const handlePickedImage = result => readReceiptImage(result, {
+    canRecognize: receiptSupport.canRecognize,
+    recognize: recognizeReceiptText,
+    onSelected: uri => {
+      setActiveNotificationId(''); setImageUri(uri); setSource('ocr');
+      setRawText(''); setReview(null); setCandidate(null); setError('');
+    },
+    onText: setRawText,
+    analyze: api ? text => analyzeText(text, 'ocr') : null,
+  });
 
   const takeReceiptPhoto = () => run(async () => {
     const permission = await ImagePicker.requestCameraPermissionsAsync();
@@ -124,6 +129,7 @@ export default function SpendingImport() {
   });
 
   const confirm = () => run(async () => {
+    if (!api) throw new Error('소비내역 저장에는 서버 연결이 필요해요.');
     if (!candidate) throw new Error('먼저 자동 추출을 실행해 주세요.');
     const title = candidate.title.trim();
     if (!title || title === '사용처 확인 필요') throw new Error('사용처를 확인해서 입력해 주세요.');
@@ -146,7 +152,9 @@ export default function SpendingImport() {
     router.replace('/spending');
   });
 
-  return <Page title="결제 자동입력">
+  return <Page title="영수증 · 결제 자동입력">
+    {!!error && <Text accessibilityRole="alert" style={styles.error}>{error}</Text>}
+    {!api && <Card><Text style={styles.text}>서버 연결 없이 촬영·사진 확인을 할 수 있어요. 분석·저장은 연결 후 사용할 수 있어요. 이 화면의 사진·입력은 임시이며 화면을 나가면 유지되지 않을 수 있어요.</Text><Button title="서버 연결 화면" disabled={busy} onPress={() => router.replace('/')} /></Card>}
     {!!activeNotificationId && <Card>
       <Text style={styles.text}>✓ Android 자동수집함에서 가져온 결제 알림이에요.</Text>
       <Text style={styles.small}>내용을 확인하거나 고친 뒤 저장하면 수집함에서도 자동으로 제거돼요.</Text>
@@ -154,14 +162,19 @@ export default function SpendingImport() {
 
     <Card>
       <Text style={styles.title}>영수증 사진 OCR</Text>
-      <Text style={styles.text}>영수증을 촬영하거나 앨범에서 고르면 한국어 OCR 후 금액·날짜·사용처까지 자동 분석해요.</Text>
+      <Text style={styles.text}>{receiptSupport.message}</Text>
       <View style={styles.row}>
         <Button title={busy ? '처리 중…' : '영수증 촬영'} disabled={busy} onPress={takeReceiptPhoto} />
         <Button title="앨범에서 선택" disabled={busy} onPress={pickReceiptImage} />
       </View>
       {!!imageUri && <Image source={{ uri: imageUri }} style={{ width: '100%', height: 320, borderRadius: 12, backgroundColor: '#eef3f0' }} resizeMode="contain" />}
       <Text style={styles.small}>Android는 Google ML Kit 한국어 모델, iOS는 Apple Vision 한국어 인식을 사용해요. OCR 자체는 기기에서 처리됩니다.</Text>
-      <Text style={styles.small}>OCR 네이티브 모듈은 Expo Go에 포함되지 않으므로 Development Build가 필요해요.</Text>
+      {!!imageUri && <><Text style={styles.small}>사진 선택 완료. 사진이 보이는 것과 OCR 인식 완료는 달라요.</Text>
+        {receiptSupport.canRecognize && <Button title="이 사진 글자 다시 읽기" disabled={busy} onPress={() => run(async () => {
+          setReview(null); setCandidate(null);
+          const text = await recognizeReceiptText(imageUri); setRawText(text);
+          if (api) await analyzeText(text, 'ocr');
+        })} />}</>}
     </Card>
 
     <Card>
@@ -196,15 +209,14 @@ export default function SpendingImport() {
           setError('');
         }}
       />
-      <Button title={busy ? '분석 중…' : '자동 추출'} disabled={busy} onPress={preview} />
+      <Button title={busy ? '분석 중…' : '자동 추출'} disabled={busy || !api} onPress={preview} />
+      <Text style={styles.small}>추출 점수는 규칙의 충족 정도이며 실제 정확도 확률이 아니에요.</Text>
       <Text style={styles.small}>자동수집/OCR 결과도 원문 칸에 들어오므로 잘못 읽힌 내용을 고친 뒤 다시 분석할 수 있어요.</Text>
     </Card>
 
-    {!!error && <Text accessibilityRole="alert" style={styles.error}>{error}</Text>}
-
     {candidate && <Card>
       <Text style={styles.title}>추출 결과 확인</Text>
-      <Text style={styles.small}>신뢰도 {Math.round((review?.confidence || 0) * 100)}% · {review?.needs_review ? '확인 필요' : '자동 추출 양호'}</Text>
+      <Text style={styles.small}>규칙 기반 추출 점수 {Math.round((review?.confidence || 0) * 100)}점 · {review?.needs_review ? '확인 필요' : '자동 추출 양호'}</Text>
       {review?.warnings?.map((warning, index) => <Text key={index} style={styles.error}>• {warning}</Text>)}
       <Field label="사용처·내용" value={candidate.title} editable={!busy} maxLength={100} onChangeText={value => change('title', value)} />
       <Field label="금액 (원)" value={candidate.amount_krw} editable={!busy} keyboardType="number-pad" onChangeText={value => change('amount_krw', value)} />
@@ -219,7 +231,7 @@ export default function SpendingImport() {
         />)}
       </View>
       <Button title={busy ? '저장 중…' : '확인하고 소비내역 저장'} disabled={busy} onPress={confirm} />
-      <Button title="원문 다시 분석" disabled={busy} onPress={preview} />
+      <Button title="원문 다시 분석" disabled={busy || !api} onPress={preview} />
     </Card>}
 
     <Card>

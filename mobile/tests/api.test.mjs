@@ -33,3 +33,17 @@ test('온보딩 입력 오류의 구조를 UI에 전달한다', async () => {
    error.status === 422 && JSON.stringify(error.details) === JSON.stringify(details));
  } finally { globalThis.fetch = old; }
 });
+
+test('HTML gateway errors preserve status and do not retry financial writes', async()=>{
+ const old=globalThis.fetch;let calls=0;
+ globalThis.fetch=async()=>{calls++;return {ok:false,status:502,json:async()=>{throw new SyntaxError('private HTML')}}};
+ try {await assert.rejects(()=>createApi('http://localhost:8000','token')('me/spending/expenses','POST',{}),e=>e.status===502&&!e.message.includes('private'));assert.equal(calls,1);}
+ finally {globalThis.fetch=old;}
+});
+test('malformed error details and null bodies retain server error status', async()=>{
+ const old=globalThis.fetch;
+ try {for(const body of [null,{error:{message:'검증 실패',details:'invalid'}},{error:{details:[null,{}, {field:'amount',message:'금액 오류'}]}}]){
+  globalThis.fetch=async()=>({ok:false,status:422,json:async()=>body});
+  await assert.rejects(()=>createApi('http://localhost:8000','token')('me/onboarding'),e=>e.status===422&&Array.isArray(e.details));
+ }}finally {globalThis.fetch=old;}
+});

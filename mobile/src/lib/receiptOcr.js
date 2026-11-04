@@ -1,8 +1,12 @@
 import { Platform } from 'react-native';
+import Constants, { ExecutionEnvironment } from 'expo-constants';
+import { receiptCapability } from './receiptFlow.mjs';
+
+export const receiptSupport = receiptCapability(Platform.OS, Constants.executionEnvironment === ExecutionEnvironment.StoreClient);
 
 export async function recognizeReceiptText(uri) {
   if (!uri) throw new Error('영수증 이미지를 선택해 주세요.');
-  if (Platform.OS === 'web') throw new Error('영수증 OCR은 Android/iOS Development Build에서 사용할 수 있어요.');
+  if (!receiptSupport.canRecognize) throw new Error(receiptSupport.message);
 
   let extractor;
   try {

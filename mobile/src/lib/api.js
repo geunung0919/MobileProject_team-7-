@@ -15,12 +15,25 @@ export function createApi(baseUrl, token) {
         headers: { Authorization: 'Bearer ' + token.trim(), 'Content-Type': 'application/json' },
         ...(body === undefined ? {} : { body: JSON.stringify(body) }),
       });
-      const data = await response.json();
-      if (!response.ok) {
-        const error = new Error(data.error?.message || '요청 실패 (' + response.status + ')');
+      let data;
+      try { data = await response.json(); }
+      catch (cause) {
+        if (controller.signal.aborted || cause.name === 'AbortError') throw cause;
+        const error = new Error(response.ok
+          ? '서버 응답 형식이 올바르지 않아요. 서버 주소와 실행 상태를 확인해 주세요.'
+          : '서버 요청 실패 (' + response.status + '). 서버 실행 상태를 확인해 주세요.');
         error.status = response.status;
-        error.details = Array.isArray(data.error?.details) ? data.error.details : [];
-        error.message += (data.error?.details || []).map(item => '\n' + item.field + ': ' + item.message).join('');
+        error.details = [];
+        throw error;
+      }
+      if (!response.ok) {
+        const payload = data?.error;
+        const details = Array.isArray(payload?.details)
+          ? payload.details.filter(item => item && typeof item.field === 'string' && typeof item.message === 'string') : [];
+        const error = new Error(typeof payload?.message === 'string' ? payload.message : '요청 실패 (' + response.status + ')');
+        error.status = response.status;
+        error.details = details;
+        error.message += details.map(item => '\n' + item.field + ': ' + item.message).join('');
         throw error;
       }
       return data;
