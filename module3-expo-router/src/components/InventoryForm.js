@@ -56,7 +56,7 @@ export default function InventoryForm({ item, shopping }) {
     <Page title={item ? '재고 수정' : '새 재료 등록'}>
       {item && (!item.purchasedAt || !item.storageMethod || !item.dateType) &&
         <Text style={styles.muted}>이전에 등록한 재고예요. 구매일, 보관 방법, 날짜 유형을 확인해서 입력해 주세요.</Text>}
-      <Field label="재료명 (예: 달걀)" value={draft.name} onChangeText={change('name')} />
+      <Choices label="분류" options={[{value:"food",label:"식재료"},{value:"household",label:"생필품"}]} value={draft.category} onChange={change("category")}/><Field label="재료명 (예: 달걀)" value={draft.name} onChangeText={change('name')} />
       <Field label="수량" keyboardType="decimal-pad" value={draft.quantity} onChangeText={change('quantity')} />
       <Field label="단위 (개 / g / 공기 / 모)" value={draft.unit} onChangeText={change('unit')} />
       <Field label="현재 수량에 해당하는 구매 금액 (원, 선택)" keyboardType="number-pad" value={draft.remainingCost} onChangeText={change('remainingCost')} placeholder="모르면 비워 두세요"/>
@@ -64,10 +64,12 @@ export default function InventoryForm({ item, shopping }) {
       <Field label="구매일 (YYYY-MM-DD)" placeholder="예: 2026-10-08"
         maxLength={10} autoCorrect={false} value={draft.purchasedAt} onChangeText={change('purchasedAt')} />
       <Choices label="보관 방법" options={STORAGE_METHODS} value={draft.storageMethod} onChange={change('storageMethod')} />
+      <Field label="개봉일 (선택, YYYY-MM-DD)" value={draft.openedAt} onChangeText={change("openedAt")} maxLength={10}/><Text style={styles.muted}>개봉일이 비어 있으면 개봉 여부 미확인이에요. 냉동·개봉 시 날짜가 자동 연장되지 않아요.</Text>
+      {draft.category==="household"&&<Field label="잔량 확인 주기 (일)" keyboardType="number-pad" value={draft.reviewDays} onChangeText={change("reviewDays")}/>}
       <Choices label="날짜 유형" options={DATE_TYPES} value={draft.dateType} onChange={change('dateType')} />
       <Field label={`${dateLabel} (YYYY-MM-DD)`} maxLength={10} autoCorrect={false}
         value={draft.expiresAt} onChangeText={change('expiresAt')} />
-      <ReferenceNotice/>
+      <ReferenceNotice dateType={draft.dateType}/><Text style={styles.muted}>검증된 보관 자료가 연결되기 전까지 자동 소진일 추정은 제공하지 않아요. 제품 표시 또는 직접 확인한 참고일을 입력해 주세요.</Text>
       {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
       <Button title={busy?"저장 중…":"저장"} disabled={busy} onPress={save} />
       {item && <Button secondary title="일부 수량 폐기하기" disabled={busy} onPress={()=>router.replace(`/inventory/discard/${item.id}`)}/>}

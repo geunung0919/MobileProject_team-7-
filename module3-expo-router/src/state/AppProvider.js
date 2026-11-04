@@ -6,6 +6,7 @@ import { mergeShopping, shoppingItem, registerPurchased } from '../domain/shoppi
 import { shortages } from '../domain/inventory.mjs';
 import { applyMeal, applyDiscard, undoLatest } from '../domain/transactions.mjs';
 import { createPersistentStore } from './persistentStore.mjs';
+import {defaultConditions,defaultAlertSettings,conditions,alertSettings,saveInventory,useInventory,logChange} from '../domain/nonAi.mjs';
 const Context = createContext(null);
 const KEY = 'module3.state.v1';
 export const newId = () => `${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -18,7 +19,7 @@ export function AppProvider({ children }) {
   AsyncStorage.getItem(KEY).then(raw => {
    const value = raw ? JSON.parse(raw) : initialState();
    if (!Array.isArray(value.inventory) || !Array.isArray(value.meals) || !Array.isArray(value.shopping)) throw new Error('invalid');
-   const migrated = { ...value, discards: value.discards || [], undo: value.undo || null, processedIds: value.processedIds || [] };
+   const migrated = { ...value, inventoryEvents:value.inventoryEvents||[],usages:value.usages||[],conditions:{...defaultConditions,...value.conditions},alertSettings:{...defaultAlertSettings,...value.alertSettings}, discards: value.discards || [], undo: value.undo || null, processedIds: value.processedIds || [] };
    if (!active) return;
    store.current = createPersistentStore(migrated, next => AsyncStorage.setItem(KEY,JSON.stringify(next)), next => { if(active) setState(next); });
    setState(migrated);
@@ -30,13 +31,17 @@ export function AppProvider({ children }) {
   catch(e) { setError(e.message || '저장하지 못했어요. 다시 시도해 주세요.'); throw e; }
  }
  const api = { state, error,
-  saveItem: item => update(s => ({ ...s, undo:null, inventory:s.inventory.some(i=>i.id===item.id)?s.inventory.map(i=>i.id===item.id?item:i):[...s.inventory,item] })),
-  deleteItem: id => update(s => ({ ...s, undo:null, inventory:s.inventory.filter(i=>i.id!==id) })),
+  saveItem: item => update(s=>saveInventory(s,item,newId())),
+  saveConditions: input=>update(s=>({...s,conditions:conditions(input)})),
+  saveAlertSettings: input=>update(s=>({...s,alertSettings:alertSettings(input)})),
+  useItem:(id,amount,requestId)=>update(s=>useInventory(s,id,amount,requestId)),
+  confirmHousehold:id=>update(s=>{const item=s.inventory.find(i=>i.id===id);if(!item)throw new Error('재고가 없어요.');return saveInventory(s,{...item,lastConfirmedAt:new Date().toISOString()},newId());}),
+  deleteItem: id => update(s => logChange({ ...s, undo:null, inventory:s.inventory.filter(i=>i.id!==id) },'delete',s.inventory.find(i=>i.id===id),null,newId())),
   recordMeal: (recipe,usage,id) => update(s => applyMeal(s,recipe,usage,id)),
   discardItem: (batchId,amount,reason,id) => update(s => applyDiscard(s,batchId,amount,reason,id)),
-  undoLatest: id => update(s => undoLatest(s,id)),
+  undoLatest: id => update(s => {const next=undoLatest(s,id);return logChange(next,'undo',null,{id:s.undo.id,kind:s.undo.kind},newId());}),
   addShopping: items => update(s => ({...s,shopping:mergeShopping(s.shopping,items,newId)})),
-  registerShopping: (shoppingId,item) => update(s=>registerPurchased(s,shoppingId,item)),
+  registerShopping: (shoppingId,item) => update(s=>{const now=new Date().toISOString(),record={...item,createdAt:now,updatedAt:now};return logChange(registerPurchased(s,shoppingId,record),'create',null,record,newId(),now);}),
   editShopping: (id,input) => update(s=>{
    const original=s.shopping.find(i=>i.id===id);
    if(!original || original.inventoryId) throw new Error('수정할 수 없는 품목이에요.');

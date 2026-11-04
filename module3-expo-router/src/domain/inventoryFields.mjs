@@ -14,6 +14,9 @@ export const DATE_TYPES = [
 // 과거 데이터의 구매일/날짜 출처를 추측하지 않습니다.
 export function inventoryDraft(item, today = dayKey()) {
   return {
+    category:item?.category||'food',
+    openedAt:item?.openedAt||'',
+    reviewDays:String(item?.reviewDays||7),
     name: item?.name ?? '',
     quantity: item ? String(item.quantity) : '',
     unit: item?.unit ?? '개',
@@ -31,10 +34,13 @@ export function validateInventoryDraft(draft, today = dayKey()) {
   if (!draft.unit.trim()) return '단위를 입력해 주세요.';
   if (!validDate(draft.purchasedAt)) return '구매일을 YYYY-MM-DD 형식의 올바른 날짜로 입력해 주세요.';
   if (draft.purchasedAt > today) return '구매일은 오늘 이후로 설정할 수 없어요.';
-  if (!validDate(draft.expiresAt)) return '소비기한 또는 보관 참고일을 올바른 날짜로 입력해 주세요.';
+  if ((draft.category!=='household'||draft.expiresAt) && !validDate(draft.expiresAt)) return '소비기한 또는 보관 참고일을 올바른 날짜로 입력해 주세요.';
   if (!STORAGE_METHODS.some(option => option.value === draft.storageMethod)) return '보관 방법을 선택해 주세요.';
   if (!DATE_TYPES.some(option => option.value === draft.dateType)) return '날짜 유형을 선택해 주세요.';
   if (draft.remainingCost != null && draft.remainingCost !== '' && (!/^\d+$/.test(String(draft.remainingCost)) || !Number.isSafeInteger(Number(draft.remainingCost)))) return '구매 금액은 0 이상의 정수(원)로 입력해 주세요.';
+  if(draft.category && !['food','household'].includes(draft.category)) return '분류를 확인해 주세요.';
+  if(draft.openedAt && (!validDate(draft.openedAt)||draft.openedAt>today||draft.openedAt<draft.purchasedAt))return '개봉일은 구매일부터 오늘 사이의 날짜여야 해요.';
+  if(draft.reviewDays!=null&&(!/^\d+$/.test(String(draft.reviewDays))||Number(draft.reviewDays)<1||Number(draft.reviewDays)>365))return '확인 주기는 1~365일로 입력해 주세요.';
   // 기한이 지난 재고도 등록 가능하며 자동 폐기하지 않습니다.
   return '';
 }
@@ -42,5 +48,5 @@ export function validateInventoryDraft(draft, today = dayKey()) {
 export function inventoryRecord(draft, id, previous = {}) {
   const error = validateInventoryDraft(draft);
   if (error) throw new Error(error);
-  return { ...previous, ...draft, id, name: draft.name.trim(), unit: draft.unit.trim(), quantity: Number(draft.quantity), remainingCost: draft.remainingCost == null || draft.remainingCost === '' ? null : Number(draft.remainingCost) };
+  return { ...previous, ...draft, id, reviewDays:Number(draft.reviewDays||7), name: draft.name.trim(), unit: draft.unit.trim(), quantity: Number(draft.quantity), remainingCost: draft.remainingCost == null || draft.remainingCost === '' ? null : Number(draft.remainingCost) };
 }

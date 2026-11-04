@@ -2,16 +2,18 @@ import React,{useMemo,useState} from 'react';
 import {Text,Switch,View} from 'react-native';
 import {router,useFocusEffect} from 'expo-router';
 import {Page,Card,Button,Field,styles} from '../../components/UI';
+import {useDayClock} from '../../hooks/useDayClock';
 import ReferenceNotice from '../../components/ReferenceNotice';
 import {useApp} from '../../state/AppProvider';
 import {recipes} from '../../data/seed';
 import {searchRecipes} from '../../domain/recipeSearch.mjs';
 export default function Recipe(){
- const {state}=useApp();
+ const {state}=useApp();const clock=useDayClock();
  const [query,setQuery]=useState(''),[maxMinutes,setMaxMinutes]=useState(0),[readyOnly,setReadyOnly]=useState(false),[sort,setSort]=useState('recommended'),[day,setDay]=useState('');
  useFocusEffect(React.useCallback(()=>{setDay(new Date().toDateString());},[]));
- const result=useMemo(()=>searchRecipes(recipes,state.inventory,{query,maxMinutes,readyOnly,sort}),[state.inventory,query,maxMinutes,readyOnly,sort,day]);
+ const result=useMemo(()=>searchRecipes(recipes,state.inventory,{query,maxMinutes,readyOnly,sort,conditions:state.conditions}),[state.inventory,query,maxMinutes,readyOnly,sort,day,state.conditions,clock.today,clock.zone]);
  return <Page title="레시피 검색" subtitle="앱에 등록된 예시 레시피를 검색해요. 추천 순서는 재고와 날짜를 기준으로 정해요.">
+  <Button secondary title="조리 도구 · 예산 · 체력 · 제외 재료 설정" onPress={()=>router.push("/recipe/conditions")}/><Text style={styles.muted}>저장된 조리 조건과 아래 검색 필터를 함께 적용해요. 결과가 없으면 설정에서 조건을 변경해 주세요.</Text>
   <Field label="요리 이름 또는 재료" value={query} onChangeText={setQuery} placeholder="예: 볶음밥, 계란, 두부 김치" returnKeyType="search"/>
   <View style={{flexDirection:'row',gap:8,flexWrap:'wrap'}}>{[0,10,15,30].map(n=><Button key={n} secondary={maxMinutes!==n} title={n?`${n}분 이내`:'시간 전체'} onPress={()=>setMaxMinutes(n)}/>)}</View>
   <View style={{flexDirection:'row',alignItems:'center',justifyContent:'space-between'}}><Text>현재 재고로 가능한 요리만</Text><Switch accessibilityLabel="현재 재고로 가능한 요리만" value={readyOnly} onValueChange={setReadyOnly}/></View>

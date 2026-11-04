@@ -1,7 +1,9 @@
 export function shoppingItem(input) {
  const name=String(input.name || '').trim(), unit=String(input.unit || '').trim(), quantity=Number(input.quantity);
  if(!name || name.length>80 || !unit || unit.length>20 || !Number.isFinite(quantity) || quantity<=0 || quantity>1000000) throw new Error('재료명과 단위, 0보다 큰 수량을 확인해 주세요.');
- return {...input,name,unit,quantity};
+ const estimatedUnitPrice=input.estimatedUnitPrice==null||input.estimatedUnitPrice===''?null:Number(input.estimatedUnitPrice);
+ if(estimatedUnitPrice!==null&&(!Number.isSafeInteger(estimatedUnitPrice)||estimatedUnitPrice<0||!Number.isSafeInteger(Math.round(estimatedUnitPrice*quantity))))throw new Error('예상 단가는 0 이상의 정수로 입력해 주세요.');
+ return {...input,name,unit,quantity,estimatedUnitPrice};
 }
 export function mergeShopping(existing, items, makeId) {
  const next=existing.map(i=>({...i}));

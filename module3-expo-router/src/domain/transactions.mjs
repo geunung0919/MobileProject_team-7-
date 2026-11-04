@@ -35,7 +35,7 @@ export function planMeal(inventory, rows, today = dayKey()) {
  const changes = [];
  for (const row of usage) {
   let remaining = row.quantity;
-  const batches = next.filter(i => i.name === row.name && i.unit === row.unit && daysLeft(i.expiresAt,today) >= 0)
+  const batches = next.filter(i => i.category !== 'household' && i.name === row.name && i.unit === row.unit && daysLeft(i.expiresAt,today) >= 0)
    .sort((a,b) => a.expiresAt.localeCompare(b.expiresAt));
   for (const batch of batches) {
    if (remaining <= 0) break;
@@ -76,6 +76,7 @@ export function undoLatest(state, id) {
  if (!state.undo || state.undo.id !== id) throw new Error('이 작업은 더 이상 되돌릴 수 없어요.');
  return { ...state, inventory: state.undo.inventory, undo: null,
   meals: state.undo.kind === 'meal' ? state.meals.filter(m => m.id !== id) : state.meals,
+  usages: state.undo.kind === 'use' ? (state.usages||[]).filter(u=>u.id!==id) : (state.usages||[]),
   discards: state.undo.kind === 'discard' ? state.discards.filter(d => d.id !== id) : state.discards,
  };
 }

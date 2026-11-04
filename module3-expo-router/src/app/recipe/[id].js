@@ -7,6 +7,7 @@ import UndoCard from '../../components/UndoCard';
 import {useApp,newId} from '../../state/AppProvider';
 import {available,shortages} from '../../domain/inventory.mjs';
 import {planMeal,money} from '../../domain/transactions.mjs';
+import {matchesConditions} from '../../domain/nonAi.mjs';
 import {recipes} from '../../data/seed';
 export default function Detail(){
  const {id}=useLocalSearchParams();const r=recipes.find(x=>x.id===id);
@@ -15,6 +16,7 @@ export default function Detail(){
  const [message,setMessage]=useState(''),[busy,setBusy]=useState(false);
  const lock=useRef(false),transactionId=useRef(null);
  if(!r)return <Page title="레시피를 찾을 수 없어요."/>;
+ if(!matchesConditions(r,state.conditions))return <Page title="조리 조건에 맞지 않는 레시피예요"><Text>도구·시간·제외 재료·예산 조건을 확인해 주세요.</Text><Button title="조리 조건 확인" onPress={()=>router.push('/recipe/conditions')}/></Page>;
  const missing=shortages(state.inventory,r);
  let preview=null,problem='';
  if(step==='cooking'){try{preview=planMeal(state.inventory,usage);}catch(e){problem=e.message;}}
