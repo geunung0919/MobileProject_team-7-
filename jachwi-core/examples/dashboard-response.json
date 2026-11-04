@@ -1,0 +1,93 @@
+{
+  "schema_version": "1.0",
+  "generated_at": "2026-09-21T00:35:12.615801Z",
+  "profile": {
+    "living_months": 2,
+    "cooking_days_per_week": 2,
+    "cooking_tools": [
+      "microwave"
+    ],
+    "monthly_budget_krw": 300000,
+    "region_code": null,
+    "priority": "reduce_waste",
+    "initial_inventory_state": "needs_registration"
+  },
+  "diagnosis": {
+    "rule_version": "1.0",
+    "experience": "new",
+    "cooking_environment": "microwave_only",
+    "cooking_frequency": "rare",
+    "missing_fields": [
+      "region_code"
+    ],
+    "suggested_actions": [
+      "register_inventory"
+    ]
+  },
+  "modules": {
+    "spending": {
+      "schema_version": "1.0",
+      "source_updated_at": "2026-09-21T00:35:12.561042Z",
+      "data": {
+        "period": "2026-09",
+        "budget_krw": 300000,
+        "spent_krw": 315000,
+        "remaining_krw": -15000
+      }
+    },
+    "inventory": {
+      "schema_version": "1.0",
+      "source_updated_at": "2026-09-21T00:35:12.561042Z",
+      "data": {
+        "items": [
+          {
+            "item_id": "eggs-001",
+            "name": "계란",
+            "quantity": 3.0,
+            "unit": "piece",
+            "storage": "fridge",
+            "target_date": "2026-09-22",
+            "date_source": "estimate"
+          }
+        ]
+      }
+    },
+    "life": {
+      "schema_version": "1.0",
+      "source_updated_at": "2026-09-21T00:35:12.561042Z",
+      "data": {
+        "routines": [
+          {
+            "routine_id": "trash-001",
+            "title": "분리배출",
+            "due_date": "2026-09-21",
+            "completed": false
+          }
+        ],
+        "exhausted": false
+      }
+    }
+  },
+  "module_status": {
+    "spending": "available",
+    "inventory": "available",
+    "life": "available"
+  },
+  "cards": [
+    {
+      "kind": "budget",
+      "title": "이번 달 예산을 초과했어요",
+      "target": "/spending"
+    },
+    {
+      "kind": "inventory",
+      "title": "계란: 추정 소진일 D-1",
+      "target": "/inventory/eggs-001"
+    },
+    {
+      "kind": "routine",
+      "title": "분리배출",
+      "target": "/routines"
+    }
+  ]
+}

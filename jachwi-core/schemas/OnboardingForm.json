@@ -1,0 +1,124 @@
+{
+  "$defs": {
+    "FormField": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "widget": {
+          "enum": [
+            "integer",
+            "single_select",
+            "multi_select",
+            "region_search"
+          ],
+          "title": "Widget",
+          "type": "string"
+        },
+        "option_labels": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Option Labels",
+          "type": "object"
+        },
+        "skip_value": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Skip Value"
+        },
+        "empty_label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Empty Label"
+        },
+        "help_text": {
+          "title": "Help Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "label",
+        "widget",
+        "help_text"
+      ],
+      "title": "FormField",
+      "type": "object"
+    },
+    "FormStep": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "fields": {
+          "items": {
+            "$ref": "#/$defs/FormField"
+          },
+          "title": "Fields",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "fields"
+      ],
+      "title": "FormStep",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "form_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Form Version",
+      "type": "string"
+    },
+    "steps": {
+      "items": {
+        "$ref": "#/$defs/FormStep"
+      },
+      "title": "Steps",
+      "type": "array"
+    },
+    "input_schema": {
+      "additionalProperties": true,
+      "title": "Input Schema",
+      "type": "object"
+    }
+  },
+  "required": [
+    "steps",
+    "input_schema"
+  ],
+  "title": "OnboardingForm",
+  "type": "object"
+}
