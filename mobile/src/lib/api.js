@@ -6,9 +6,12 @@ export function normalizeUrl(value) {
 export function createApi(baseUrl, token) {
   const origin = normalizeUrl(baseUrl);
   if (!token.trim()) throw new Error('개발 토큰을 입력하세요.');
-  return async (path, method = 'GET', body) => {
+  return async (path, method = 'GET', body, options = {}) => {
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 15000);
+    const abort = () => controller.abort();
+    options.signal?.addEventListener('abort', abort, { once: true });
+    if (options.signal?.aborted) controller.abort();
+    const timer = setTimeout(abort, options.timeoutMs ?? 15000);
     try {
       const response = await fetch(origin + '/api/v1/' + path, {
         method, signal: controller.signal,
@@ -38,9 +41,10 @@ export function createApi(baseUrl, token) {
       }
       return data;
     } catch (error) {
+      if (options.signal?.aborted) throw new Error('분석을 취소했어요.');
       if (error.name === 'AbortError') throw new Error('서버 응답 시간이 초과됐어요. 서버와 Wi-Fi 연결을 확인하세요.');
       throw error;
-    } finally { clearTimeout(timer); }
+    } finally { clearTimeout(timer); options.signal?.removeEventListener('abort', abort); }
   };
 }
 export const won = value => value == null ? '미설정' : value.toLocaleString('ko-KR') + '원';
