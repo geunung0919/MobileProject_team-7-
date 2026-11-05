@@ -47,3 +47,10 @@ test('malformed error details and null bodies retain server error status', async
   await assert.rejects(()=>createApi('http://localhost:8000','token')('me/onboarding'),e=>e.status===422&&Array.isArray(e.details));
  }}finally {globalThis.fetch=old;}
 });
+
+test('caller cancellation aborts the upload and is distinct from a timeout',async()=>{
+ const old=globalThis.fetch;const controller=new AbortController();let signal;
+ globalThis.fetch=async(url,options)=>{signal=options.signal;controller.abort();throw Object.assign(Error('aborted'),{name:'AbortError'})};
+ try {await assert.rejects(()=>createApi('http://localhost:8000','token')('me/spending/receipts/analyze','POST',{}, {signal:controller.signal,timeoutMs:45000}),/취소/);assert.equal(signal.aborted,true);}
+ finally{globalThis.fetch=old;}
+});

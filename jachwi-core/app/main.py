@@ -17,6 +17,7 @@ from .schemas import InventoryWrite, InventoryState, NotificationSettings
 from .schemas import Onboarding, OnboardingResult, OnboardingPreview, SpendingSnapshot, InventorySnapshot, LifeSnapshot, IntegratedView
 from .services import diagnose, integrate, preview_onboarding
 from .fintech import register_fintech, LedgerRow, snapshot_for, current_period
+from .receipt_ocr import register_receipt_ocr
 from .onboarding_form import OnboardingForm, get_onboarding_form
 
 load_dotenv()
@@ -177,6 +178,7 @@ def create_app(database_url=None, tokens=None, demo_enabled=None):
         def life(body: LifeSnapshot, user=Depends(current_user), session=Depends(db)):
             return save_snapshot('life', body, user, session)
     register_fintech(app, current_user, db)
+    register_receipt_ocr(app, current_user)
     from pathlib import Path
     from fastapi.responses import FileResponse
     @app.get('/spending', include_in_schema=False)

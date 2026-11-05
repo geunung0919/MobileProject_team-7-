@@ -1,11 +1,11 @@
-import { useEffect, useState } from 'react';
-import { Image, Text, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { Image, Linking, Platform, Text, View } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Button, Card, Field, Page, styles, useTask } from '../components/UI';
 import { parseMoney } from '../lib/api';
 import { recognizeReceiptText, receiptSupport } from '../lib/receiptOcr';
-import { readReceiptImage } from '../lib/receiptFlow.mjs';
+import { analyzeReceiptPhoto } from '../lib/receiptFlow.mjs';
 import { useSession } from '../state/Session';
 import {
   getPendingNotifications,
@@ -42,6 +42,11 @@ function SpendingImportContent({ api }) {
   const [source, setSource] = useState('notification');
   const [rawText, setRawText] = useState('');
   const [imageUri, setImageUri] = useState('');
+  const [photo, setPhoto] = useState(null);
+  const [photoMode, setPhotoMode] = useState(receiptSupport.canRecognize ? 'device' : 'server');
+  const [phase, setPhase] = useState('');
+  const photoRequest = useRef(null);
+  useEffect(() => () => { photoRequest.current?.abort(); }, []);
   const [review, setReview] = useState(null);
   const [candidate, setCandidate] = useState(null);
   const [activeNotificationId, setActiveNotificationId] = useState('');
@@ -97,24 +102,42 @@ function SpendingImportContent({ api }) {
   const change = (key, value) => setCandidate(current => ({ ...current, [key]: value }));
   const preview = () => run(() => analyzeText(rawText, source));
 
-  const handlePickedImage = result => readReceiptImage(result, {
-    canRecognize: receiptSupport.canRecognize,
-    recognize: recognizeReceiptText,
-    onSelected: uri => {
-      setActiveNotificationId(''); setImageUri(uri); setSource('ocr');
-      setRawText(''); setReview(null); setCandidate(null); setError('');
-    },
-    onText: setRawText,
-    analyze: api ? text => analyzeText(text, 'ocr') : null,
+  const handlePickedImage = result => {
+    if (result.canceled || !result.assets?.length) return;
+    const asset = result.assets[0];
+    if (!asset.uri) throw new Error('사진을 확인할 수 없어요. 다시 선택해 주세요.');
+    setPhoto(asset); setImageUri(asset.uri); setSource('ocr');
+    setRawText(''); setReview(null); setCandidate(null); setActiveNotificationId('');
+    setPhase('사진 준비 완료 · 내용을 확인한 뒤 분석해 주세요.');
+  };
+
+  const analyzePhoto = () => run(async () => {
+    const controller = new AbortController(); photoRequest.current = controller;
+    setReview(null); setCandidate(null);
+    try {
+      const result = await analyzeReceiptPhoto(photo, {
+        mode: photoMode, api, recognize: recognizeReceiptText, onText: setRawText,
+        onPhase: setPhase, signal: controller.signal,
+      });
+      if (controller.signal.aborted) return;
+      setReview(result);
+      setCandidate({ ...result.candidate, amount_krw: result.candidate.amount_krw == null ? '' : String(result.candidate.amount_krw) });
+      setPhase('분석 완료 · 아래 결과를 확인하고 저장해 주세요.');
+    } catch (e) {
+      setPhase(controller.signal.aborted ? '분석 취소 · 사진을 유지했어요.' : '분석 실패 · 사진을 다시 분석하거나 원문을 입력해 주세요.');
+      throw e;
+    } finally { if (photoRequest.current === controller) photoRequest.current = null; }
   });
 
   const takeReceiptPhoto = () => run(async () => {
     const permission = await ImagePicker.requestCameraPermissionsAsync();
-    if (!permission.granted) throw new Error('영수증 촬영을 위해 카메라 권한이 필요해요.');
+    if (!permission.granted) throw new Error(permission.canAskAgain ? '영수증 촬영을 위해 카메라 권한이 필요해요. 다시 촬영을 누르거나 앨범에서 선택해 주세요.' : '카메라 권한이 꺼져 있어요. 기기 설정에서 허용하거나 사진첩에서 선택해 주세요.');
     const result = await ImagePicker.launchCameraAsync({
       mediaTypes: ['images'],
-      allowsEditing: false,
-      quality: 1,
+      allowsEditing: Platform.OS === 'android',
+      base64: true,
+      exif: false,
+      quality: 0.85,
     });
     await handlePickedImage(result);
   });
@@ -122,8 +145,10 @@ function SpendingImportContent({ api }) {
   const pickReceiptImage = () => run(async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
-      allowsEditing: false,
-      quality: 1,
+      allowsEditing: Platform.OS === 'android',
+      base64: true,
+      exif: false,
+      quality: 0.85,
     });
     await handlePickedImage(result);
   });
@@ -165,16 +190,28 @@ function SpendingImportContent({ api }) {
       <Text style={styles.text}>{receiptSupport.message}</Text>
       <View style={styles.row}>
         <Button title={busy ? '처리 중…' : '영수증 촬영'} disabled={busy} onPress={takeReceiptPhoto} />
-        <Button title="앨범에서 선택" disabled={busy} onPress={pickReceiptImage} />
+        <Button title="사진첩에서 영수증 업로드" disabled={busy} onPress={pickReceiptImage} />
       </View>
       {!!imageUri && <Image source={{ uri: imageUri }} style={{ width: '100%', height: 320, borderRadius: 12, backgroundColor: '#eef3f0' }} resizeMode="contain" />}
-      <Text style={styles.small}>Android는 Google ML Kit 한국어 모델, iOS는 Apple Vision 한국어 인식을 사용해요. OCR 자체는 기기에서 처리됩니다.</Text>
-      {!!imageUri && <><Text style={styles.small}>사진 선택 완료. 사진이 보이는 것과 OCR 인식 완료는 달라요.</Text>
-        {receiptSupport.canRecognize && <Button title="이 사진 글자 다시 읽기" disabled={busy} onPress={() => run(async () => {
-          setReview(null); setCandidate(null);
-          const text = await recognizeReceiptText(imageUri); setRawText(text);
-          if (api) await analyzeText(text, 'ocr');
-        })} />}</>}
+      {!!photo && <>
+        <Text style={styles.small}>사진 확인 → 분석 → 결과 수정 → 저장</Text>
+        {!!phase && <Text accessibilityLiveRegion="polite" style={styles.text}>{phase}</Text>}
+        <Text style={styles.small}>영수증 글자와 합계가 선명한지 확인해 주세요. 분석 전에는 지출이나 재고에 저장되지 않아요.</Text>
+        {receiptSupport.canRecognize && <View style={styles.row}>
+          <Button title={(photoMode === 'device' ? '✓ ' : '') + '기기에서 인식'} disabled={busy} onPress={() => setPhotoMode('device')} />
+          <Button title={(photoMode === 'server' ? '✓ ' : '') + '서버에서 인식'} disabled={busy} onPress={() => setPhotoMode('server')} />
+        </View>}
+        <Text style={styles.small}>{photoMode === 'server'
+          ? '아래 분석 버튼을 누르면 선택한 사진을 연결된 서버로 전송해요. 사진은 분석용 임시 파일로만 처리하고 분석 후 삭제하며, 저장을 확정하기 전에는 지출을 만들지 않아요.'
+          : '사진은 기기에서 인식하고 추출한 글자만 연결된 서버로 전송해요.'}</Text>
+        <Button title={busy ? '분석 중…' : photoMode === 'server' ? '사진 전송에 동의하고 분석하기' : '이 사진 분석하기'} disabled={busy || !api} onPress={analyzePhoto} />
+        {busy && <Button title="사진 분석 취소" onPress={() => photoRequest.current?.abort()} />}
+        <Button title="선택한 사진 지우기" disabled={busy} onPress={() => {
+          setPhoto(null); setImageUri(''); setRawText(''); setReview(null); setCandidate(null); setPhase(''); setError('');
+        }} />
+      </>}
+      <Text style={styles.small}>JPG·PNG 사진을 권장해요. 서버 전송은 8MB 이하이며 PDF·여러 장 일괄 분석은 아직 지원하지 않아요.</Text>
+      {!!error && <Button title="카메라 권한 설정 열기" disabled={busy} onPress={() => run(() => Linking.openSettings())} />}
     </Card>
 
     <Card>
@@ -188,6 +225,7 @@ function SpendingImportContent({ api }) {
           onPress={() => {
             setSource(key);
             setActiveNotificationId('');
+            setPhoto(null);
             setImageUri('');
             setReview(null);
             setCandidate(null);
