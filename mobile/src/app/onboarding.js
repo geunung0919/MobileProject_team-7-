@@ -7,7 +7,7 @@ import { onboardingBody,answerLabel,stepErrors,formErrors,serverFieldErrors,firs
 import { DiagnosisSummary } from '../components/DiagnosisSummary';
 export default function Onboarding(){
  const {returnTo}=useLocalSearchParams();
- const destination=returnTo==='mypage'?'/mypage':'/spending';
+ const destination=returnTo==='mypage'?'/mypage':returnTo==='dashboard'?'/dashboard':'/spending';
  const {api}=useSession(),{busy,error,run,setError}=useTask();
  const [form,setForm]=useState(null),[profile,setProfile]=useState({}),[preview,setPreview]=useState(null),[saved,setSaved]=useState(null),[stepIndex,setStepIndex]=useState(0),[fieldErrors,setFieldErrors]=useState({});
  const load=()=>run(async()=>{const f=await api('onboarding/form');let p={};try{p=(await api('me/onboarding')).profile}catch(e){if(e.status!==404)throw e}setForm(f);setProfile(p);setPreview(null);setStepIndex(0);setFieldErrors({})});
@@ -22,7 +22,7 @@ export default function Onboarding(){
  </Card>
  <Button title="통합 현황 보기" onPress={()=>router.replace('/dashboard')}/>
  <Button title="생활 설정 다시 수정" onPress={()=>{setProfile(saved.profile);setSaved(null);setPreview(null);setStepIndex(0)}}/>
- <Button title={destination==='/mypage'?'마이페이지로':'소비 관리로'} onPress={()=>router.replace(destination)}/>
+ <Button title={destination==='/mypage'?'마이페이지로':destination==='/dashboard'?'통합 현황으로':'소비 관리로'} onPress={()=>router.replace(destination)}/>
  </Page>;
  const change=(key,value)=>{setProfile(p=>({...p,[key]:value}));setPreview(null);setFieldErrors(errors=>{const next={...errors};delete next[key];return next})};
  const body=()=>onboardingBody(form,profile);
@@ -56,5 +56,5 @@ export default function Onboarding(){
  {stepIndex>0&&<Button title="이전" disabled={busy} onPress={()=>move(stepIndex-1)}/>}
  {review&&<Button title="저장 전 미리보기" disabled={busy} onPress={previewAll}/>}
  {preview&&<><Text style={styles.text}>저장 전 미리보기 · 아직 저장되지 않았어요.</Text><DiagnosisSummary result={preview}/><Card><Button title="확인하고 저장" disabled={busy} onPress={()=>run(async()=>{const result=await request('me/onboarding','PUT',preview.profile);setSaved(result)})}/></Card></>}
- </>}<Button title={destination==='/mypage'?'취소하고 마이페이지로':'취소하고 소비 관리로'} disabled={busy} onPress={()=>router.replace(destination)}/></Page>
+ </>}<Button title={destination==='/mypage'?'취소하고 마이페이지로':destination==='/dashboard'?'나중에 하고 통합 현황으로':'취소하고 소비 관리로'} disabled={busy} onPress={()=>router.replace(destination)}/></Page>
 }
