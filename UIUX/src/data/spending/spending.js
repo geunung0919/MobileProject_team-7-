@@ -35,6 +35,12 @@ export const spendingData = {
       icon: 'camera-outline',
     },
     {
+      id: 'gallery',
+      title: '사진에서 선택하기',
+      description: '앨범의 영수증 사진으로 소비를 기록해요.',
+      icon: 'image-outline',
+    },
+    {
       id: 'manual',
       title: '직접 입력하기',
       description: '구매 품목, 가격, 날짜를 입력해요.',
