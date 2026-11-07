@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -13,13 +13,34 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import BackHeader from '../components/BackHeader';
 import IconBox from '../components/IconBox';
+import AiSayCard from '../components/AiSayCard';
 import { aiManagerData, getReply } from '../data/lifeInfo/aiManager';
+import { spendingData } from '../data/spending/spending';
+import { fridgeData } from '../data/fridge/fridge';
+import { reportTexts } from '../data/lifeInfo/reports';
+import { useAppData } from '../store/AppDataContext';
+import { getMonthlyReport } from '../utils/reportSummary';
+import { toDateString } from '../utils/format';
 import { colors, fonts, spacing } from '../theme';
 
 // 생활정보 > AI 자취 매니저 (채팅 화면)
 export default function AiManagerScreen({ navigation }) {
   const insets = useSafeAreaInsets();
-  const { title, notice, greeting, inputPlaceholder, suggestionsLabel, suggestions } = aiManagerData;
+  const { title, notice, greeting, inputPlaceholder, suggestionsLabel, suggestions, reportButtons } =
+    aiManagerData;
+  const { transactions, fridgeItems } = useAppData();
+  // 상단 "AI 한마디": 소비·냉장고 데이터를 요약한 한두 문장 (utils/reportSummary.js)
+  const report = useMemo(() => {
+    const now = new Date();
+    return getMonthlyReport({
+      transactions,
+      fridgeItems,
+      budget: spendingData.budget,
+      now,
+      baseDate: toDateString(now),
+      urgentWithinDays: fridgeData.urgentWithinDays,
+    });
+  }, [transactions, fridgeItems]);
   const [messages, setMessages] = useState([{ id: 'greeting', from: 'ai', text: greeting }]);
   const [input, setInput] = useState('');
   const [typing, setTyping] = useState(false);
@@ -67,8 +88,12 @@ export default function AiManagerScreen({ navigation }) {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={styles.listContent}
-        onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
+        onContentSizeChange={() => {
+          if (messages.length > 1 || typing) scrollRef.current?.scrollToEnd({ animated: true });
+        }}
       >
+        <AiSayCard label={reportTexts.detail.aiLabel} text={report.comment} style={styles.sayCard} />
+
         {messages.map((m) =>
           m.from === 'user' ? (
             <View key={m.id} style={styles.userRow}>
@@ -138,6 +163,25 @@ export default function AiManagerScreen({ navigation }) {
         ) : null}
       </ScrollView>
 
+      <View style={styles.reportRow}>
+        <Pressable
+          onPress={() => navigation.navigate('ReportDetail')}
+          accessibilityRole="button"
+          style={({ pressed }) => [styles.reportButton, styles.reportPrimary, pressed && styles.pressed]}
+        >
+          <Ionicons name="document-text-outline" size={18} color={colors.green} />
+          <Text style={styles.reportText}>{reportButtons.detail}</Text>
+        </Pressable>
+        <Pressable
+          onPress={() => navigation.navigate('ReportList')}
+          accessibilityRole="button"
+          style={({ pressed }) => [styles.reportButton, styles.reportSecondary, pressed && styles.pressed]}
+        >
+          <Ionicons name="time-outline" size={18} color={colors.green} />
+          <Text style={styles.reportText}>{reportButtons.past}</Text>
+        </Pressable>
+      </View>
+
       <View style={[styles.inputBar, { paddingBottom: Math.max(insets.bottom, 12) }]}>
         <View style={styles.inputBox}>
           <TextInput
@@ -186,6 +230,37 @@ const styles = StyleSheet.create({
   },
   list: {
     flex: 1,
+  },
+  sayCard: {
+    marginBottom: 18,
+  },
+  reportRow: {
+    flexDirection: 'row',
+    gap: 10,
+    paddingHorizontal: spacing.screenX,
+    paddingTop: 10,
+  },
+  reportButton: {
+    flex: 1,
+    height: 46,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    borderRadius: 23,
+  },
+  reportPrimary: {
+    backgroundColor: colors.tabActiveBg,
+  },
+  reportSecondary: {
+    borderWidth: 1.5,
+    borderColor: colors.badgeBg,
+    backgroundColor: colors.white,
+  },
+  reportText: {
+    fontFamily: fonts.bold,
+    fontSize: 14.5,
+    color: colors.green,
   },
   listContent: {
     paddingHorizontal: spacing.screenX,
