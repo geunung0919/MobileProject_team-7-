@@ -1,3 +1,4 @@
+import { formatBudgetInput } from './api.js';
 export function onboardingBody(form, profile) {
   return Object.fromEntries(form.steps.flatMap(step => step.fields).map(field => {
     const value = profile[field.name];
@@ -11,6 +12,7 @@ export function onboardingBody(form, profile) {
 }
 export function answerLabel(field, value) {
   if (value == null) return '나중에 입력';
+  if (field.name === 'monthly_budget_krw') return formatBudgetInput(value) + '원';
   if (Array.isArray(value)) return value.length ? value.map(key => field.option_labels[key] || key).join(', ') : (field.empty_label || '없음');
   return field.option_labels[value] || String(value);
 }

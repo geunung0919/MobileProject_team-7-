@@ -1,3 +1,4 @@
+import { budgetInputDigits, formatBudgetInput } from '../lib/api';
 import { useEffect,useState } from 'react';
 import { Text,View } from 'react-native';
 import { Redirect,router,useLocalSearchParams } from 'expo-router';
@@ -44,7 +45,7 @@ export default function Onboarding(){
  return <Page key={`step-${stepIndex}`} title="나에게 맞는 생활 설정">{!!error&&<Text style={styles.error}>{error}</Text>}{!form?<Button title="다시 불러오기" disabled={busy} onPress={load}/>:<>
  <Text style={styles.small}>{review?'입력 내용 확인':`${stepIndex+1} / ${form.steps.length}단계 · ${form.steps[stepIndex].title}`}</Text>
  {!review&&[form.steps[stepIndex]].map(step=><Card key={step.id}><Text style={styles.title}>{step.title}</Text>{step.fields.map(f=><View key={f.name} style={{gap:8}}>
- {(f.widget==='integer'||f.widget==='region_search')?<Field label={f.label} value={profile[f.name]==null?'':String(profile[f.name])} keyboardType="number-pad" editable={!busy} onChangeText={v=>change(f.name,v||null)}/>:<><Text style={styles.text}>{f.label}</Text><View style={styles.row}>
+ {(f.widget==='integer'||f.widget==='region_search')?<Field label={f.label} value={f.name==='monthly_budget_krw'?formatBudgetInput(profile[f.name]):String(profile[f.name]??'')} keyboardType="number-pad" editable={!busy} onChangeText={v=>change(f.name,(f.name==='monthly_budget_krw'?budgetInputDigits(v):v)||null)}/>:<><Text style={styles.text}>{f.label}</Text><View style={styles.row}>
  <Button disabled={busy} title={(profile[f.name]==null||profile[f.name]===f.skip_value?'✓ ':'')+'나중에 입력'} onPress={()=>change(f.name,f.skip_value??null)}/>
  {f.widget==='multi_select'&&<Button disabled={busy} title={(Array.isArray(profile[f.name])&&!profile[f.name].length?'✓ ':'')+'없음'} onPress={()=>change(f.name,[])}/>}
  {Object.entries(f.option_labels).filter(([v])=>v!==f.skip_value).map(([v,label])=>{const multi=f.widget==='multi_select',selected=multi?(profile[f.name]||[]).includes(v):profile[f.name]===v;return <Button key={v} disabled={busy} title={(selected?'✓ ':'')+label} onPress={()=>change(f.name,multi?(selected?profile[f.name].filter(x=>x!==v):[...(profile[f.name]||[]),v]):v)}/>})}</View></>}

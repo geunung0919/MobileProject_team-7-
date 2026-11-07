@@ -47,6 +47,8 @@ export function createApi(baseUrl, token) {
     } finally { clearTimeout(timer); options.signal?.removeEventListener('abort', abort); }
   };
 }
+export const formatBudgetInput = value => String(value ?? '').replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+export const budgetInputDigits = text => text.replace(/,/g, '').replace(/^0+(?=\d)/, '');
 export const won = value => value == null ? '미설정' : value.toLocaleString('ko-KR') + '원';
 export const koreaToday = () => new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Seoul' }).format(new Date());
 export function parseMoney(text, allowZero = true) {
