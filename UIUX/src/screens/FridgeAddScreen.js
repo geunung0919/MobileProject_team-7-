@@ -50,7 +50,7 @@ export default function FridgeAddScreen({ navigation, route }) {
   // 더미 데이터는 expiry 대신 "오늘로부터 며칠 뒤(daysFromToday)"만 있어서 날짜로 바꿔 줍니다.
   const [expiryDate, setExpiryDate] = useState(
     existing
-      ? fromDateString(existing.expiry ?? addDays(toDateString(new Date()), existing.daysFromToday ?? 0))
+      ? existing.expiry ? fromDateString(existing.expiry) : null
       : null,
   );
 

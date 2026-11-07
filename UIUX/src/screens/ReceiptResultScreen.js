@@ -72,8 +72,8 @@ export default function ReceiptResultScreen({ navigation, route }) {
   const scrollRef = useRef(null);
   const nextKey = useRef(1);
 
-  const [draft, setDraft] = useState(() => toDraft(route.params?.receipt ?? sampleReceipt));
-  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(() => toDraft(route.params?.receipt ?? {items:[]}));
+  const [editing, setEditing] = useState(Boolean(route.params?.ocrText));
   const [snapshot, setSnapshot] = useState(null); // 수정을 시작할 때의 값 (취소하면 되돌립니다)
   // 열려 있는 날짜 시트가 다루는 칸: null(닫힘) | 'purchase'(구매일) | 품목 key(그 품목의 유통기한)
   const [dateTarget, setDateTarget] = useState(null);
@@ -206,6 +206,7 @@ export default function ReceiptResultScreen({ navigation, route }) {
         }}
       >
         <Text style={styles.title}>{t.title}</Text>
+        {!!route.params?.ocrText && <View><Text>OCR 원문 · 품목을 확인·추가해 주세요. 자동 입력된 보관일은 추정값이므로 포장지 날짜를 확인해 주세요.</Text><Text selectable>{route.params.ocrText}</Text><Text>{(route.params.warnings || []).join("\n")}</Text></View>}
         <Text style={styles.subtitle}>{editing ? t.editSubtitle : t.subtitle}</Text>
 
         {editing ? (

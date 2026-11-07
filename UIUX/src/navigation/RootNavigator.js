@@ -1,4 +1,6 @@
 import React from 'react';
+import { View, Text, Pressable } from 'react-native';
+import { useAppData } from '../store/AppDataContext';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import TabNavigator from './TabNavigator';
 import ManualEntryScreen from '../screens/ManualEntryScreen';
@@ -20,13 +22,27 @@ import ProfileScreen from '../screens/ProfileScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import HelpScreen from '../screens/HelpScreen';
 
+import { useAuth } from '../store/AuthContext';
+import LoginScreen from '../screens/LoginScreen';
+import OnboardingScreen from '../screens/OnboardingScreen';
+import ReceiptCaptureScreen from '../screens/ReceiptCaptureScreen';
+
 const Stack = createNativeStackNavigator();
 
 // 탭 바가 없는 화면(상세, 입력 등)은 여기에 등록합니다.
 export default function RootNavigator() {
+  const { session, onboarding, logout } = useAuth();
+  const { ready, saveError } = useAppData();
+  if (!session) return <LoginScreen />;
+  if (!ready) return <View style={{padding:40,paddingTop:80}}><Text>{saveError || '데이터 불러오는 중…'}</Text><Pressable onPress={logout}><Text>로그아웃</Text></Pressable></View>;
+  if (!onboarding) return <OnboardingScreen />;
   return (
+    <View style={{flex:1}}>
+    {!!saveError && <Text accessibilityLiveRegion="polite" style={{padding:12,color:"#B3261E"}}>{saveError}</Text>}
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="Tabs" component={TabNavigator} />
+      <Stack.Screen name="Onboarding" component={OnboardingScreen} />
+      <Stack.Screen name="ReceiptCapture" component={ReceiptCaptureScreen} />
       <Stack.Screen name="ManualEntry" component={ManualEntryScreen} />
       <Stack.Screen name="FridgeAdd" component={FridgeAddScreen} />
       <Stack.Screen name="RecipeList" component={RecipeListScreen} />
@@ -51,5 +67,6 @@ export default function RootNavigator() {
       <Stack.Screen name="Settings" component={SettingsScreen} />
       <Stack.Screen name="Help" component={HelpScreen} />
     </Stack.Navigator>
+    </View>
   );
 }

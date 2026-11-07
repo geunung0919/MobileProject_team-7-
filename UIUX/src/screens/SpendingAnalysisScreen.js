@@ -8,8 +8,8 @@ import SegmentedControl from '../components/SegmentedControl';
 import DonutChart from '../components/DonutChart';
 import MonthlyBarChart from '../components/MonthlyBarChart';
 import { analysisConfig, analysisTexts } from '../data/spending/spendingAnalysis';
-import { spendingData } from '../data/spending/spending';
 import { useAppData } from '../store/AppDataContext';
+import { useAuth } from '../store/AuthContext';
 import { getCategoryTotals, getMonthlyTotals, getTickStep } from '../utils/spendingAnalysis';
 import { formatNumber } from '../utils/format';
 import { colors, fonts, spacing } from '../theme';
@@ -28,7 +28,9 @@ export default function SpendingAnalysisScreen({ navigation, route }) {
   const [tab, setTab] = useState('category');
   const { transactions } = useAppData();
   const t = analysisTexts;
-  const { budget } = spendingData;
+  // 1번 모듈 연결: 예산은 온보딩 월 예산(monthly_budget_krw). 미입력은 null 이고 요약 카드가 '미설정'으로 표시합니다.
+  const { onboarding } = useAuth();
+  const budget = onboarding?.monthly_budget_krw ?? null;
 
   const now = new Date();
   const year = route.params?.year ?? now.getFullYear();

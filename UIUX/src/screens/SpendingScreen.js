@@ -20,8 +20,8 @@ const RECENT_LIMIT = 10;
 
 export default function SpendingScreen({ navigation }) {
   const insets = useSafeAreaInsets();
-  const { budget, addOptions } = spendingData;
-  const { transactions } = useAppData();
+  const { addOptions } = spendingData;
+  const { transactions, budget } = useAppData();
   // 처음에는 오늘이 속한 달을 보여줍니다.
   const [period, setPeriod] = useState(() => {
     const now = new Date();
@@ -46,12 +46,12 @@ export default function SpendingScreen({ navigation }) {
     if (id === 'gallery') {
       // TODO: 앨범에서 사진을 고르는 기능(expo-image-picker 등)을 붙이고, 인식 결과를 navigate('ReceiptResult', { receipt }) 로 넘기세요.
       // 지금은 샘플 결과 화면을 바로 보여줍니다.
-      navigation.navigate('ReceiptResult');
+      navigation.navigate('ReceiptCapture', { source: id });
     }
     if (id === 'receipt') {
       // TODO: 카메라 화면이 완성되면 'ReceiptCamera' 로 이동하고, 인식 결과를 navigate('ReceiptResult', { receipt }) 로 넘기세요.
       // (형식: src/data/spending/receipt.js) 지금은 카메라가 없어서 샘플 결과 화면을 바로 보여줍니다.
-      navigation.navigate('ReceiptResult');
+      navigation.navigate('ReceiptCapture', { source: id });
     }
   };
 

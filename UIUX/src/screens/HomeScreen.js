@@ -23,18 +23,18 @@ import { colors, fonts, spacing } from '../theme';
 export default function HomeScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const { hero, spending, fridge, tasks } = homeData;
-  const { transactions, fridgeItems, todos, routines } = useAppData();
+  const { transactions, fridgeItems, todos, routines, budget } = useAppData();
 
   // 홈의 숫자는 저장소 데이터로 계산합니다 (다른 탭에서 바꾸면 홈에 바로 반영).
   const now = new Date();
   const baseDate = toDateString(now);
   const summary = useMemo(
     () => ({
-      spending: getSpendingSummary(transactions, spendingData.budget, new Date()),
+      spending: getSpendingSummary(transactions, budget, new Date()),
       fridge: getFridgeSummary(fridgeItems, baseDate, fridgeData.urgentWithinDays),
       tasks: getTaskSummaries(routines, todos, baseDate),
     }),
-    [transactions, fridgeItems, todos, routines, baseDate]
+    [transactions, fridgeItems, todos, routines, baseDate, budget]
   );
   const { fridge: fridgeSummary, spending: spendingSummary } = summary;
   const first = fridgeSummary.first;

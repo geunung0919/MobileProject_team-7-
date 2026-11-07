@@ -4,8 +4,8 @@ import { addDays, daysBetween } from './format';
 export function getFridgeEntries(items, baseDate, urgentWithinDays) {
   return items
     .map((item) => {
-      const expiry = item.expiry ?? addDays(baseDate, item.daysFromToday);
-      const daysLeft = daysBetween(baseDate, expiry);
+      const expiry = item.expiry ?? (Number.isFinite(item.daysFromToday) ? addDays(baseDate, item.daysFromToday) : null);
+      const daysLeft = expiry ? daysBetween(baseDate, expiry) : Infinity;
       return { ...item, expiry, daysLeft, urgent: daysLeft <= urgentWithinDays };
     })
     .sort((a, b) => a.daysLeft - b.daysLeft);
@@ -32,8 +32,8 @@ export function analyzeRecipe(recipe, entries) {
 
 // 배너 칩용: "1일 지남" / "오늘까지" / "1일"
 export const shortDueLabel = (daysLeft) =>
-  daysLeft < 0 ? `${-daysLeft}일 지남` : daysLeft === 0 ? '오늘까지' : `${daysLeft}일`;
+  !Number.isFinite(daysLeft) ? '날짜 미입력' : daysLeft < 0 ? `${-daysLeft}일 지남` : daysLeft === 0 ? '오늘까지' : `${daysLeft}일`;
 
 // 카드 배지용 (냉장고, 레시피, 홈 공용): "1일 지남" / "오늘까지" / "2일 남음"
 export const badgeDueLabel = (daysLeft) =>
-  daysLeft < 0 ? `${-daysLeft}일 지남` : daysLeft === 0 ? '오늘까지' : `${daysLeft}일 남음`;
+  !Number.isFinite(daysLeft) ? '날짜 미입력' : daysLeft < 0 ? `${-daysLeft}일 지남` : daysLeft === 0 ? '오늘까지' : `${daysLeft}일 남음`;

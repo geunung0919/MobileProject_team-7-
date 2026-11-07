@@ -68,6 +68,7 @@ export const addCheckedItemsToFridge = (items, purchaseDate, addFridgeItem) => {
         unit: FRIDGE_UNIT,
         purchaseDate,
         expiry: it.expiry,
+        date_source: "estimate",
       }),
     );
 };

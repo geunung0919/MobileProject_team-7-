@@ -5,7 +5,7 @@ export const formatNumber = (n) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',
 export const formatMonthDay = (dateStr) => dateStr.slice(5).replace('-', '.');
 
 // "2026-11-02" -> "2026.11.02"
-export const formatDotDate = (dateStr) => dateStr.replace(/-/g, '.');
+export const formatDotDate = (dateStr) => dateStr ? dateStr.replace(/-/g, '.') : '미입력';
 
 // 7 -> "07" (두 자리로 맞추기)
 export const pad = (n) => String(n).padStart(2, '0');

@@ -1,4 +1,5 @@
 import React from 'react';
+import { useAuth } from '../store/AuthContext';
 import { View, ScrollView, Pressable, Alert, StyleSheet } from 'react-native';
 import Text from '../components/AppText';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -15,6 +16,7 @@ import { colors, fonts, radius, spacing } from '../theme';
 const MENU_ROUTES = { profile: 'Profile', settings: 'Settings', help: 'Help' };
 
 export default function MoreScreen({ navigation }) {
+  const { logout } = useAuth();
   const insets = useSafeAreaInsets();
   const { subtitle, accountSection, accountMenus, logoutLabel, lifeData, appSection, appMenus } =
     moreData;
@@ -28,7 +30,7 @@ export default function MoreScreen({ navigation }) {
   const handleLogout = () => {
     Alert.alert('로그아웃할까요?', '', [
       { text: '취소', style: 'cancel' },
-      { text: '로그아웃', style: 'destructive', onPress: () => {} },
+      { text: '로그아웃', style: 'destructive', onPress: logout },
     ]);
   };
 
@@ -62,7 +64,7 @@ export default function MoreScreen({ navigation }) {
 
         {/* 생활 데이터 수정 카드 */}
         <Pressable
-          onPress={() => {}}
+          onPress={() => navigation.navigate('Onboarding')}
           accessibilityRole="button"
           style={({ pressed }) => [styles.lifeCard, pressed && styles.pressed]}
         >

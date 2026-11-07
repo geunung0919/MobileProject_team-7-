@@ -4,7 +4,7 @@
 
 export const aiManagerData = {
   title: 'AI 자취 매니저',
-  notice: 'AI 답변은 참고용이에요. 위급한 상황은 119·112로 먼저 연락하세요.',
+  notice: '현재는 UI 시연용 사전 작성 답변입니다. 실제 LLM은 연결 전입니다. 위급한 상황은 119·112로 먼저 연락하세요.',
   greeting: '안녕하세요! 혼자 살면서 궁금했던 일, 편하게 물어보세요.',
   inputPlaceholder: '궁금한 점을 입력하세요',
   suggestionsLabel: '이런 걸 물어볼 수 있어요',

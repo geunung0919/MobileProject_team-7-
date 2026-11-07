@@ -8,6 +8,8 @@ import React, {
   useState,
 } from 'react';
 import { AppState } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useAuth } from './AuthContext';
 import { spendingData } from '../data/spending/spending';
 import { fridgeData } from '../data/fridge/fridge';
 import { todoData } from '../data/lifeInfo/todos';
@@ -24,6 +26,11 @@ import { clearRoutineChecks } from '../utils/time';
 const AppDataContext = createContext(null);
 
 export function AppDataProvider({ children }) {
+  const { session, onboarding, api } = useAuth();
+  const revision = useRef('');
+  const [ready, setReady] = useState(false);
+  const [saveError, setSaveError] = useState('');
+  const budget = onboarding?.monthly_budget_krw ?? 0;
   const nextId = useRef(1);
   const makeId = (prefix) => `${prefix}-new-${Date.now()}-${nextId.current++}`;
 
@@ -71,6 +78,47 @@ export function AppDataProvider({ children }) {
   const [profile, setProfile] = useState(profileData.initial);
   const [settings, setSettings] = useState(settingsData.initial);
 
+  useEffect(() => {
+    let cancelled = false;
+    setReady(false); setSaveError('');
+    if (!session) return;
+    const load = async () => {
+      try {
+        const saved = session.demo
+          ? JSON.parse(await AsyncStorage.getItem('jachwi:ui:demo') || 'null')
+          : await api('/api/v1/me/ui-state');
+        if (cancelled) return;
+        const data = saved || {};
+        revision.current = data.revision || '';
+        setTransactions(data.transactions || []);
+        setFridgeItems(data.fridgeItems || []);
+        setTodos(data.todos || []); setRoutines(data.routines || []);
+        setProfile({...profileData.initial, email: session.email || '', ...data.profile});
+        setSettings(data.settings || settingsData.initial);
+        setReady(true);
+      } catch(e) { if (!cancelled) setSaveError('데이터 불러오기 실패: '+e.message+' / 로그아웃 후 다시 연결해 주세요.'); }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, [session]);
+
+  // Serialize saves so an older request cannot overwrite a newer edit.
+  const saveQueue = useRef(Promise.resolve());
+  useEffect(() => {
+    if (!ready || !session) return;
+    const body = {transactions, fridgeItems, todos, routines, profile, settings};
+    const currentApi = api;
+    {
+      saveQueue.current = saveQueue.current.catch(() => {}).then(async () => {
+        try {
+          if (session.demo) await AsyncStorage.setItem('jachwi:ui:demo', JSON.stringify(body));
+          else { const result = await currentApi('/api/v1/me/ui-state', 'PUT', {...body, revision: revision.current}); revision.current = result.revision; }
+          setSaveError('');
+        } catch(e) { setSaveError('저장 실패: '+e.message+' (화면 데이터는 유지됩니다. 수정하면 다시 저장합니다.)'); }
+      });
+    }
+  }, [ready, session, transactions, fridgeItems, todos, routines, profile, settings, budget]);
+
   // 소비 추가: { title, amount, date: 'YYYY-MM-DD', category?, icon?, source?, items? }
   const addTransaction = useCallback(({ title, amount, date, category, icon, source, items }) => {
     const entry = {
@@ -98,7 +146,7 @@ export function AppDataProvider({ children }) {
   }, []);
 
   // 식재료 추가: { name, quantity(숫자), unit, purchaseDate: 'YYYY-MM-DD'|null, expiry: 'YYYY-MM-DD' }
-  const addFridgeItem = useCallback(({ name, quantity, unit, purchaseDate, expiry }) => {
+  const addFridgeItem = useCallback(({ name, quantity, unit, purchaseDate, expiry, date_source = "label" }) => {
     const entry = {
       id: makeId('f'),
       name,
@@ -107,6 +155,7 @@ export function AppDataProvider({ children }) {
       unit,
       purchaseDate,
       expiry,
+      date_source,
       icon: fridgeData.defaultIcon,
     };
     setFridgeItems((prev) => [entry, ...prev]);
@@ -174,6 +223,7 @@ export function AppDataProvider({ children }) {
 
   const value = useMemo(
     () => ({
+      ready, saveError, budget,
       transactions,
       addTransaction,
       updateTransaction,
@@ -194,6 +244,7 @@ export function AppDataProvider({ children }) {
       updateSetting,
     }),
     [
+      ready, saveError, budget,
       transactions,
       addTransaction,
       updateTransaction,
