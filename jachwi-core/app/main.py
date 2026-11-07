@@ -17,6 +17,8 @@ from .schemas import InventoryWrite, InventoryState, NotificationSettings
 from .schemas import Onboarding, OnboardingResult, OnboardingPreview, SpendingSnapshot, InventorySnapshot, LifeSnapshot, IntegratedView
 from .services import diagnose, integrate, preview_onboarding
 from .fintech import register_fintech, LedgerRow, snapshot_for, current_period
+from .ui_state import register_ui_state
+from .google_auth import register_google_auth, session_user
 from .receipt_ocr import register_receipt_ocr
 from .onboarding_form import OnboardingForm, get_onboarding_form
 
@@ -27,7 +29,7 @@ def create_app(database_url=None, tokens=None, demo_enabled=None):
     url = database_url or os.getenv('DATABASE_URL', 'sqlite:///./core.db')
     identities = tokens if tokens is not None else json.loads(os.getenv('DEV_TOKENS_JSON', '{}'))
     enabled = demo_enabled if demo_enabled is not None else os.getenv('ENABLE_DEMO_ENDPOINTS', 'false').lower() == 'true'
-    if not identities or any(len(k) < 16 or not isinstance(v, str) or not 1 <= len(v) <= 64 for k, v in identities.items()):
+    if any(len(k) < 16 or not isinstance(v, str) or not 1 <= len(v) <= 64 for k, v in identities.items()):
         raise RuntimeError('DEV_TOKENS_JSON에 16자 이상의 개발 토큰과 사용자 ID를 설정하세요. README 참고.')
     engine, sessions = connect(url)
     @asynccontextmanager
@@ -45,7 +47,10 @@ def create_app(database_url=None, tokens=None, demo_enabled=None):
             for token, user in identities.items():
                 if secrets.compare_digest(token, credentials.credentials):
                     return user
-        raise HTTPException(401, '유효한 개발 토큰이 필요합니다.', headers={'WWW-Authenticate': 'Bearer'})
+            google_user = session_user(sessions, credentials.credentials)
+            if google_user:
+                return google_user
+        raise HTTPException(401, '로그인이 필요하거나 세션이 만료되었습니다.', headers={'WWW-Authenticate': 'Bearer'})
     def db():
         with sessions() as session:
             yield session
@@ -178,6 +183,8 @@ def create_app(database_url=None, tokens=None, demo_enabled=None):
         def life(body: LifeSnapshot, user=Depends(current_user), session=Depends(db)):
             return save_snapshot('life', body, user, session)
     register_fintech(app, current_user, db)
+    register_ui_state(app, current_user, sessions)
+    register_google_auth(app, sessions)
     register_receipt_ocr(app, current_user)
     from pathlib import Path
     from fastapi.responses import FileResponse
