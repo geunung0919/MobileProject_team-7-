@@ -4,12 +4,13 @@ import { getFridgeEntries, badgeDueLabel } from './recipes';
 // 홈 화면의 요약 값을 저장소 데이터로 계산합니다.
 
 // 이번 달 소비 요약 (소비 탭과 같은 기준): { month, spent, budget, remaining }
+// budget 이 null(온보딩 예산 미입력)이면 remaining 도 null 입니다. 0원 예산과 구분합니다.
 export function getSpendingSummary(transactions, budget, now) {
   const monthKey = `${now.getFullYear()}-${pad(now.getMonth() + 1)}`;
   const spent = transactions
     .filter((t) => t.date.startsWith(monthKey))
     .reduce((sum, t) => sum + t.amount, 0);
-  return { month: now.getMonth() + 1, spent, budget, remaining: budget - spent };
+  return { month: now.getMonth() + 1, spent, budget, remaining: budget == null ? null : budget - spent };
 }
 
 // 냉장고 요약: { total, urgentCount, first }. first 는 유통기한이 가장 빠른 식재료 (없으면 null)

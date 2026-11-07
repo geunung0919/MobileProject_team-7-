@@ -3,11 +3,11 @@ import { ScrollView, Text, TextInput, Pressable, Linking, StyleSheet } from 'rea
 import { useAuth } from '../store/AuthContext';
 import { request } from '../services/client';
 export default function LoginScreen() {
-  const { login } = useAuth();
+  const { login, restoreError } = useAuth();
   const [base, setBase] = useState('');
   const [token, setToken] = useState('');
   const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState('');
+  const [message, setMessage] = useState(restoreError || '');
   const active = useRef(true);
   useEffect(() => () => { active.current = false; }, []);
   const run = async (fn) => { setBusy(true); setMessage(''); try { await fn(); } catch(e) { if(active.current) setMessage(e.message); } finally { if(active.current) setBusy(false); } };

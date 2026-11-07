@@ -30,7 +30,8 @@ export function AppDataProvider({ children }) {
   const revision = useRef('');
   const [ready, setReady] = useState(false);
   const [saveError, setSaveError] = useState('');
-  const budget = onboarding?.monthly_budget_krw ?? 0;
+  // 온보딩 월 예산. 미입력은 null(미설정)로 두고, 사용자가 입력한 0원과 구분합니다.
+  const budget = onboarding?.monthly_budget_krw ?? null;
   const nextId = useRef(1);
   const makeId = (prefix) => `${prefix}-new-${Date.now()}-${nextId.current++}`;
 

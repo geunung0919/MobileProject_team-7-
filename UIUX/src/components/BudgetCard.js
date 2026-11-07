@@ -5,11 +5,15 @@ import { colors, fonts, radius } from '../theme';
 import { formatNumber } from '../utils/format';
 
 // 소비 화면 상단의 "이번 달 남은 예산" 카드 (진행 바 포함)
+// budget 이 null 이면 온보딩에서 월 예산을 입력하지 않은 상태(미설정)입니다. 0원 예산과 구분합니다.
 export default function BudgetCard({ budget, spent }) {
-  const remaining = budget - spent;
+  const unset = budget == null;
+  const remaining = unset ? null : budget - spent;
   // 예산이 0 이하이면 쓴 돈이 있을 때만 100% 로 보여 줍니다.
   const usedPercent =
-    budget > 0
+    unset
+      ? 0
+      : budget > 0
       ? Math.min(100, Math.max(0, Math.round((spent / budget) * 100)))
       : spent > 0
         ? 100
@@ -20,13 +24,15 @@ export default function BudgetCard({ budget, spent }) {
     <View style={styles.card}>
       <Text style={styles.label}>이번 달 남은 예산</Text>
       <View style={styles.bigRow}>
-        <Text style={styles.bigText}>{formatNumber(remaining)}</Text>
-        <Text style={styles.bigUnit}>원</Text>
+        <Text style={styles.bigText}>{unset ? '미설정' : formatNumber(remaining)}</Text>
+        {!unset && <Text style={styles.bigUnit}>원</Text>}
       </View>
 
       <View style={styles.progressLabels}>
-        <Text style={styles.progressText}>예산의 {usedPercent}%를 사용했어요</Text>
-        <Text style={styles.leftText}>{leftPercent}% 남음</Text>
+        <Text style={styles.progressText}>
+          {unset ? '더보기 > 생활 데이터 수정에서 월 예산을 입력해 주세요' : `예산의 ${usedPercent}%를 사용했어요`}
+        </Text>
+        {!unset && <Text style={styles.leftText}>{leftPercent}% 남음</Text>}
       </View>
       <View style={styles.track}>
         <View style={[styles.fill, { width: `${usedPercent}%` }]} />
@@ -41,7 +47,7 @@ export default function BudgetCard({ budget, spent }) {
         </View>
         <View style={styles.right}>
           <Text style={styles.subLabel}>이번 달 예산</Text>
-          <Text style={styles.budgetValue}>{formatNumber(budget)}원</Text>
+          <Text style={styles.budgetValue}>{unset ? '미설정' : `${formatNumber(budget)}원`}</Text>
         </View>
       </View>
     </View>

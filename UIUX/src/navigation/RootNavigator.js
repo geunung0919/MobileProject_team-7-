@@ -31,11 +31,13 @@ const Stack = createNativeStackNavigator();
 
 // 탭 바가 없는 화면(상세, 입력 등)은 여기에 등록합니다.
 export default function RootNavigator() {
-  const { session, onboarding, logout } = useAuth();
+  const { session, onboarding, firstDiagnosis, restoring, logout } = useAuth();
   const { ready, saveError } = useAppData();
+  if (restoring) return <View style={{padding:40,paddingTop:80}}><Text>저장된 로그인 확인 중…</Text></View>;
   if (!session) return <LoginScreen />;
   if (!ready) return <View style={{padding:40,paddingTop:80}}><Text>{saveError || '데이터 불러오는 중…'}</Text><Pressable onPress={logout}><Text>로그아웃</Text></Pressable></View>;
-  if (!onboarding) return <OnboardingScreen />;
+  // 첫 실행: 온보딩 입력 → 저장 → 진단 결과 확인 → 홈
+  if (!onboarding || firstDiagnosis) return <OnboardingScreen />;
   return (
     <View style={{flex:1}}>
     {!!saveError && <Text accessibilityLiveRegion="polite" style={{padding:12,color:"#B3261E"}}>{saveError}</Text>}
