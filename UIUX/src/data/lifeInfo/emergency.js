@@ -4,11 +4,6 @@
 export const emergencyData = {
   eyebrow: '생활정보',
   title: '비상매뉴얼',
-  contactsLabel: '긴급 연락처',
-  contacts: [
-    { id: '119', number: '119', label: '화재·구조·구급' },
-    { id: '112', number: '112', label: '범죄·위협' },
-  ],
   searchPlaceholder: '누수, 정전 등 상황을 검색하세요',
   question: '어떤 상황인가요?',
   groups: [
@@ -35,6 +30,10 @@ export const emergencyData = {
       ],
     },
   ],
+  // 긴급·안전(id: safety) 항목은 하단 "미리 대비하기" 상자에 보여줍니다.
+  prepare: {
+    title: '재난 시 행동요령\n미리 확인해서 대비하기',
+  },
   aiAsk: {
     label: 'AI에게 물어보기',
   },
