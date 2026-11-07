@@ -40,6 +40,8 @@ def create_app(database_url=None, tokens=None, demo_enabled=None):
     app = FastAPI(title='자취 가이드 중앙 코어', version='0.1.0', lifespan=lifespan)
     app.state.sessions = sessions
     app.add_middleware(CORSMiddleware, allow_origins=os.getenv('CORS_ORIGINS', 'http://localhost:5173,http://127.0.0.1:5173,http://localhost:8081,http://127.0.0.1:8081').split(','),
+                       # 선택: Snack 웹 미리보기처럼 주소가 바뀌는 출처는 정규식으로 허용 (비우면 사용 안 함)
+                       allow_origin_regex=os.getenv('CORS_ORIGIN_REGEX') or None,
                        allow_methods=['GET', 'PUT', 'POST', 'DELETE'], allow_headers=['Authorization', 'Content-Type'])
     bearer = HTTPBearer(auto_error=False)
     def current_user(credentials: HTTPAuthorizationCredentials | None = Depends(bearer)):
