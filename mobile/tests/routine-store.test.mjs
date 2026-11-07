@@ -7,6 +7,7 @@ import {
   makeRoutine,
   parseRoutineState,
   removeRoutine,
+  recentRoutineHistory,
   routinesForDate,
   routineStorageKey,
   toggleRoutineComplete,
@@ -56,4 +57,26 @@ test('저장소 업데이트는 영속 저장 후 상태를 공개한다', async
   assert.equal(saved.routines.length, 1);
   await store.update(state => removeRoutine(state, 'r1'));
   assert.equal(store.getState().routines.length, 0);
+});
+
+test('최근 7일은 연도 경계를 넘으며 현재 요일과 관계없이 실제 완료를 집계한다', () => {
+  const item = { ...routine({ days: [1] }), completedDates: [
+    '2025-12-25', '2025-12-26', '2025-12-26', '2026-01-01', '2026-01-02',
+  ] };
+  const state = addRoutine(emptyRoutineState(), item);
+  const history = recentRoutineHistory(state, '2026-01-01');
+  assert.equal(history.length, 7);
+  assert.equal(history[0].date, '2026-01-01');
+  assert.equal(history[6].date, '2025-12-26');
+  assert.deepEqual(history.filter(day => day.completed.length).map(day => [day.date, day.completed.length]),
+    [['2026-01-01', 1], ['2025-12-26', 1]]);
+  assert.deepEqual(history[0].completed, [{ id: 'r1', title: '설거지 5분' }]);
+});
+
+test('완료 취소는 최근 기록에도 바로 반영된다', () => {
+  const state = addRoutine(emptyRoutineState(), routine());
+  const date = '2026-10-22';
+  const completed = toggleRoutineComplete(state, 'r1', date);
+  assert.equal(recentRoutineHistory(completed, date)[0].completed.length, 1);
+  assert.equal(recentRoutineHistory(toggleRoutineComplete(completed, 'r1', date), date)[0].completed.length, 0);
 });

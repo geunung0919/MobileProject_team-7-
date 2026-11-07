@@ -96,6 +96,22 @@ export function routinesForDate(state, date, batteryMode = false) {
     .sort((a, b) => (a.reminderTime || '99:99').localeCompare(b.reminderTime || '99:99') || a.title.localeCompare(b.title, 'ko'));
 }
 
+export function recentRoutineHistory(state, today) {
+  if (!validRoutineDate(today)) throw new Error('기록 기준 날짜를 확인해 주세요.');
+  const start = new Date(today + 'T00:00:00Z').getTime();
+  const days = Array.from({ length: 7 }, (_, offset) => ({
+    date: new Date(start - offset * 86_400_000).toISOString().slice(0, 10),
+    completed: [],
+  }));
+  const byDate = new Map(days.map(day => [day.date, day]));
+  for (const routine of state.routines) {
+    for (const date of new Set(routine.completedDates)) {
+      byDate.get(date)?.completed.push({ id: routine.id, title: routine.title });
+    }
+  }
+  return days;
+}
+
 export function repeatLabel(days) {
   if (days.length === 7) return '매일';
   if ([1, 2, 3, 4, 5].every(day => days.includes(day)) && days.length === 5) return '평일';
