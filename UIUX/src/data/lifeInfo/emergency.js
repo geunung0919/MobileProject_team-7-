@@ -35,8 +35,7 @@ export const emergencyData = {
       ],
     },
   ],
-  footer: {
-    title: '원하는 상황을 찾지 못했나요?',
-    link: '전체 상황 둘러보기',
+  aiAsk: {
+    label: 'AI에게 물어보기',
   },
 };
