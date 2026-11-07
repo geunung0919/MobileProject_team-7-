@@ -13,6 +13,7 @@ import SpendingDetailScreen from '../screens/SpendingDetailScreen';
 import SpendingAllScreen from '../screens/SpendingAllScreen';
 import EmergencyDetailScreen from '../screens/EmergencyDetailScreen';
 import AiManagerScreen from '../screens/AiManagerScreen';
+import EmergencyAiScreen from '../screens/EmergencyAiScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import HelpScreen from '../screens/HelpScreen';
@@ -39,6 +40,7 @@ export default function RootNavigator() {
       {/* params: { id, title } */}
       <Stack.Screen name="EmergencyDetail" component={EmergencyDetailScreen} />
       <Stack.Screen name="AiManager" component={AiManagerScreen} />
+      <Stack.Screen name="EmergencyAi" component={EmergencyAiScreen} />
       {/* 더보기 하위 화면 */}
       <Stack.Screen name="Profile" component={ProfileScreen} />
       <Stack.Screen name="Settings" component={SettingsScreen} />
