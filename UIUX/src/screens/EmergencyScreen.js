@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import EmergencyContactCard from '../components/EmergencyContactCard';
 import SituationCard from '../components/SituationCard';
 import SearchBar from '../components/SearchBar';
-import InfoBanner from '../components/InfoBanner';
+import AiAskCard from '../components/AiAskCard';
 import BackButton from '../components/BackButton';
 import { TAB_BAR_HEIGHT } from '../components/TabBar';
 import { emergencyData } from '../data/lifeInfo/emergency';
@@ -30,7 +30,7 @@ const toRows = (items) => {
 export default function EmergencyScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const [query, setQuery] = useState('');
-  const { eyebrow, title, contactsLabel, contacts, searchPlaceholder, question, groups, footer } =
+  const { eyebrow, title, contactsLabel, contacts, searchPlaceholder, question, groups, aiAsk } =
     emergencyData;
 
   const trimmed = query.trim();
@@ -129,11 +129,10 @@ export default function EmergencyScreen({ navigation }) {
           <Text style={styles.empty}>'{trimmed}'에 맞는 상황이 없어요.</Text>
         ) : null}
 
-        <InfoBanner
+        <AiAskCard
           style={styles.banner}
-          title={footer.title}
-          linkLabel={footer.link}
-          onPress={() => openDetail({ id: 'general', title: '이럴 땐 이렇게' })}
+          label={aiAsk.label}
+          onPress={() => navigation.navigate('AiManager')}
         />
       </ScrollView>
     </View>
