@@ -1,7 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { View, Text, ScrollView, Alert, Linking, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import EmergencyContactCard from '../components/EmergencyContactCard';
 import SituationCard from '../components/SituationCard';
 import SearchBar from '../components/SearchBar';
 import AiAskCard from '../components/AiAskCard';
@@ -12,7 +11,6 @@ import { colors, fonts, emergencyColors as c } from '../theme';
 
 // 이 화면은 PNG 기준 좌우 여백이 20 입니다. (theme.spacing.screenX 는 24)
 const SCREEN_X = 20;
-const CONTACT_GAP = 10;
 const GRID_GAP = 9;
 
 // 제목 또는 검색용 단어에 검색어가 들어 있으면 통과
@@ -30,35 +28,50 @@ const toRows = (items) => {
 export default function EmergencyScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const [query, setQuery] = useState('');
-  const { eyebrow, title, contactsLabel, contacts, searchPlaceholder, question, groups, aiAsk } =
-    emergencyData;
+  const { eyebrow, title, searchPlaceholder, question, groups, aiAsk, prepare } = emergencyData;
 
   const trimmed = query.trim();
-  const visibleGroups = useMemo(
-    () =>
-      groups
-        .map((group) => ({
-          ...group,
-          items: trimmed ? group.items.filter((item) => matches(item, trimmed)) : group.items,
-        }))
-        .filter((group) => group.items.length > 0),
-    [groups, trimmed],
-  );
+  // 생활 문제(위)와 긴급·안전(아래 "미리 대비하기")을 나눠서, 검색어에 맞는 항목만 남깁니다.
+  const { lifeGroup, safetyGroup } = useMemo(() => {
+    const filter = (id) => {
+      const group = groups.find((g) => g.id === id);
+      return { ...group, items: trimmed ? group.items.filter((item) => matches(item, trimmed)) : group.items };
+    };
+    return { lifeGroup: filter('life'), safetyGroup: filter('safety') };
+  }, [groups, trimmed]);
 
   // 뒤로 가기 (이전 기록이 없으면 생활정보 탭으로 이동)
   const handleBack = () => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('LifeInfo'));
 
-  // 실수로 눌러 119/112 에 걸리지 않도록 한 번 확인합니다.
-  const handleCall = ({ number, label }) => {
-    Alert.alert(`${number}에 전화할까요?`, label, [
-      { text: '취소', style: 'cancel' },
-      { text: '전화 걸기', onPress: () => Linking.openURL(`tel:${number}`) },
-    ]);
-  };
-
   // 상황별 대처 화면으로 이동. id 는 data/lifeInfo/emergencyGuides.js 의 키와 같아야 합니다.
   const openDetail = ({ id, title: detailTitle, tone }) =>
     navigation.navigate('EmergencyDetail', { id, title: detailTitle, tone });
+
+  const renderRows = (group) =>
+    toRows(group.items).map((row, rowIndex) => (
+      <View key={rowIndex} style={[styles.gridRow, rowIndex > 0 && styles.gridRowNext]}>
+        {row.map((item) => (
+          <SituationCard
+            key={item.id}
+            title={item.title}
+            icon={item.icon}
+            family={item.family}
+            tone={group.tone}
+            onPress={() => openDetail({ id: item.id, title: item.title, tone: group.tone })}
+          />
+        ))}
+        {row.length === 1 ? <View style={styles.spacer} /> : null}
+      </View>
+    ));
+
+  const renderGroup = (group) => (
+    <View>
+      <Text style={[styles.groupTitle, group.tone === 'accent' && styles.groupTitleAccent]}>
+        {group.title}
+      </Text>
+      {renderRows(group)}
+    </View>
+  );
 
   return (
     <View style={styles.container}>
@@ -79,61 +92,30 @@ export default function EmergencyScreen({ navigation }) {
           </View>
         </View>
 
-        <Text style={styles.contactsLabel}>{contactsLabel}</Text>
-        <View style={styles.contactsRow}>
-          {contacts.map((contact) => (
-            <EmergencyContactCard
-              key={contact.id}
-              {...contact}
-              onPress={() => handleCall(contact)}
-            />
-          ))}
-        </View>
-
         <View style={styles.searchWrap}>
           <SearchBar value={query} onChangeText={setQuery} placeholder={searchPlaceholder} />
         </View>
 
         <Text style={styles.question}>{question}</Text>
 
-        {visibleGroups.map((group, groupIndex) => (
-          <View key={group.id}>
-            <Text
-              style={[
-                styles.groupTitle,
-                groupIndex > 0 && styles.groupTitleNext,
-                group.tone === 'accent' && styles.groupTitleAccent,
-              ]}
-            >
-              {group.title}
-            </Text>
-            {toRows(group.items).map((row, rowIndex) => (
-              <View key={rowIndex} style={[styles.gridRow, rowIndex > 0 && styles.gridRowNext]}>
-                {row.map((item) => (
-                  <SituationCard
-                    key={item.id}
-                    title={item.title}
-                    icon={item.icon}
-                    family={item.family}
-                    tone={group.tone}
-                    onPress={() => openDetail({ id: item.id, title: item.title, tone: group.tone })}
-                  />
-                ))}
-                {row.length === 1 ? <View style={styles.spacer} /> : null}
-              </View>
-            ))}
-          </View>
-        ))}
+        {lifeGroup.items.length > 0 ? renderGroup(lifeGroup) : null}
 
-        {visibleGroups.length === 0 ? (
+        {lifeGroup.items.length === 0 && safetyGroup.items.length === 0 ? (
           <Text style={styles.empty}>'{trimmed}'에 맞는 상황이 없어요.</Text>
         ) : null}
 
         <AiAskCard
-          style={styles.banner}
+          style={styles.aiCard}
           label={aiAsk.label}
-          onPress={() => navigation.navigate('AiManager')}
+          onPress={() => navigation.navigate('EmergencyAi')}
         />
+
+        {safetyGroup.items.length > 0 ? (
+          <View style={styles.prepareBox}>
+            <Text style={styles.prepareTitle}>{prepare.title}</Text>
+            {renderRows(safetyGroup)}
+          </View>
+        ) : null}
       </ScrollView>
     </View>
   );
@@ -167,18 +149,6 @@ const styles = StyleSheet.create({
     lineHeight: 34,
     color: c.text,
   },
-  contactsLabel: {
-    marginTop: 18,
-    marginBottom: 4,
-    fontFamily: fonts.regular,
-    fontSize: 12,
-    lineHeight: 18,
-    color: c.textSecondary,
-  },
-  contactsRow: {
-    flexDirection: 'row',
-    gap: CONTACT_GAP,
-  },
   searchWrap: {
     marginTop: 16,
   },
@@ -196,9 +166,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     color: c.text,
-  },
-  groupTitleNext: {
-    marginTop: 18,
   },
   groupTitleAccent: {
     color: c.accent,
@@ -220,7 +187,22 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: c.textSecondary,
   },
-  banner: {
+  aiCard: {
     marginTop: 18,
+  },
+  // 긴급·안전 항목을 "미리 대비하기" 상자로 묶어 하단에 둡니다.
+  prepareBox: {
+    marginTop: 28,
+    padding: 16,
+    borderRadius: 24,
+    backgroundColor: '#F1F4F4',
+  },
+  prepareTitle: {
+    marginBottom: 14,
+    paddingHorizontal: 4,
+    fontFamily: fonts.bold,
+    fontSize: 18,
+    lineHeight: 26,
+    color: c.text,
   },
 });
