@@ -7,6 +7,11 @@ import { useRoutines } from '../features/routine/state/RoutineProvider';
 import { koreaDate } from '../features/routine/domain/notifications.mjs';
 import { WEEK_DAYS,addRoutine,makeRoutine,removeRoutine,recentRoutineHistory,repeatLabel,routinesForDate,toggleRoutineComplete,editRoutine,toggleRoutineReminder } from '../features/routine/domain/routines.mjs';
 const EVERY_DAY=[0,1,2,3,4,5,6],WEEKDAYS=[1,2,3,4,5],WEEKEND=[0,6];
+const TEMPLATES=[
+ {title:'설거지 5분',days:EVERY_DAY,energy:'low'},
+ {title:'분리수거하기',days:WEEKEND,energy:'normal'},
+ {title:'냉장고 소비기한 확인',days:[0],energy:'low'},
+];
 const newForm=()=>({title:'',reminderTime:'',energy:'normal',days:EVERY_DAY});
 export default function Routine(){
  const {api,routineKey}=useSession();
@@ -19,6 +24,11 @@ function RoutineContent(){
   updateRoutine,enableRoutineReminders,refreshRoutineNotifications,retryRoutineLoad,routineNotificationsSupported}=useRoutines();
  const [form,setForm]=useState(newForm),[editing,setEditing]=useState(null),[batteryMode,setBatteryMode]=useState(false),[notice,setNotice]=useState('');
  const [showDone,setShowDone]=useState(false),[historyDate,setHistoryDate]=useState(null);
+ const [deleteId,setDeleteId]=useState(null);
+ const applyTemplate=template=>{
+  setForm({...newForm(),...template,days:[...template.days]});
+  setNotice('추천 루틴을 채웠어요. 요일과 알림 시간을 확인하고 저장해 주세요.');
+ };
  const change=(key,value)=>setForm(current=>({...current,[key]:value}));
  const sameDays=values=>form.days.length===values.length&&values.every(day=>form.days.includes(day));
  const toggleDay=day=>change('days',form.days.includes(day)?form.days.filter(value=>value!==day):[...form.days,day]);
@@ -82,6 +92,11 @@ function RoutineContent(){
    <Text style={styles.small}>한국 날짜 기준이에요. 현재 등록된 루틴의 완료 기록을 표시해요.</Text>
   </Card>}
   <Card><Text style={styles.title}>{editing?'반복 루틴 수정':'반복 루틴 추가'}</Text>
+   {!editing&&<><Text style={styles.small}>추천 루틴을 고르면 입력란을 채워요. 알림이 필요하면 시간을 넣어 주세요.</Text>
+    <View style={styles.row}>{TEMPLATES.map(template=><Button key={template.title} title={template.title}
+     disabled={busy||!state||!!form.title.trim()||!!form.reminderTime.trim()} onPress={()=>applyTemplate(template)}/>)}</View>
+    {(form.title.trim()||form.reminderTime.trim())&&<Button title="입력 초기화" disabled={busy} onPress={()=>{reset();setNotice('');}}/>}
+   </>}
    <Field label="루틴 이름" value={form.title} maxLength={60} editable={!busy} placeholder="예: 설거지 5분" onChangeText={value=>change('title',value)}/>
    <Field label="알림 시간 (선택, 한국 시간 HH:MM)" value={form.reminderTime} maxLength={5} editable={!busy} keyboardType="numbers-and-punctuation" placeholder="21:30" onChangeText={value=>change('reminderTime',value)}/>
    <Text style={styles.text}>반복 요일</Text><View style={styles.row}>{[['매일',EVERY_DAY],['평일',WEEKDAYS],['주말',WEEKEND]].map(([name,days])=><Button key={name} title={(sameDays(days)?'✓ ':'')+name} disabled={busy} onPress={()=>change('days',days)}/>)}</View>
@@ -96,7 +111,13 @@ function RoutineContent(){
     <Text style={styles.text}>{item.title}</Text><Text style={styles.small}>{repeatLabel(item.days)} · {item.energy==='low'?'5분 이하':'보통'}{item.reminderTime?` · ${item.reminderTime} · 항목 알림 ${item.remindersEnabled===false?'OFF':'ON'}`:' · 알림 시간 없음'}</Text>
     <Button title="이름 / 요일 / 시간 수정" disabled={busy} onPress={()=>{setEditing(item.id);setForm({title:item.title,days:[...item.days],energy:item.energy,reminderTime:item.reminderTime||''});setNotice('위 수정란에서 변경해 주세요.');}}/>
     {!!item.reminderTime&&<Button title={item.remindersEnabled===false?'이 항목 알림 켜기':'이 항목 알림 끄기'} disabled={busy} onPress={()=>run(()=>updateRoutine(current=>toggleRoutineReminder(current,item.id)))}/>}
-    <Button title="삭제" disabled={busy} onPress={()=>run(async()=>{await updateRoutine(current=>removeRoutine(current,item.id));if(editing===item.id)reset();setNotice('루틴을 삭제했어요. 기기 알림 정리 결과는 위 알림 상태를 확인해 주세요.');})}/>
+    {deleteId===item.id?<><Text style={styles.error}>삭제하면 이 루틴의 완료 기록도 사라져요.</Text>
+     <View style={styles.row}><Button title="삭제 확인" disabled={busy} onPress={()=>run(async()=>{
+      await updateRoutine(current=>removeRoutine(current,item.id));
+      setDeleteId(null);if(editing===item.id)reset();
+      setNotice('루틴을 삭제했어요. 기기 알림 정리 결과는 위 알림 상태를 확인해 주세요.');
+     })}/><Button title="삭제 취소" disabled={busy} onPress={()=>setDeleteId(null)}/></View>
+    </>:<Button title="삭제" disabled={busy} onPress={()=>setDeleteId(item.id)}/>}
    </View>)}
   </Card>
  </Page>;
