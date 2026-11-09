@@ -255,15 +255,16 @@ _OCR_TOTALS = (
 def extract_receipt_amount(text):
     for labels in _OCR_TOTALS:
         spaced = '|'.join(r'\s*'.join(label) for label in labels.split('|'))
-        pattern = re.compile(r'^(?:' + spaced + r')\s*[:：]?\s*([0-9][0-9,]*)\s*원?$')
+        pattern = re.compile(r'^(?:' + spaced + r')\s*(?:[:：]|->|→)?\s*'
+                             r'((?:[0-9]{1,3}(?:[,.][0-9]{3})+|[0-9]+))\s*원?$')
         amounts = {
             amount for line in text.splitlines()
             if (match := pattern.fullmatch(line))
-            and (amount := _amount_value(match.group(1))) is not None
+            and (amount := _amount_value(match.group(1).replace('.', ','))) is not None
         }
         if amounts:
             return next(iter(amounts)) if len(amounts) == 1 else None
-    return extract_amount(text)
+    return None
 
 
 def extract_receipt_merchant(text):
@@ -279,6 +280,8 @@ def extract_receipt_merchant(text):
         if re.search(r'POS|사업자|전화|주소|영수증|고객|교환|환불|구매|카드|단말기|거래번호|매출전표', compact, re.I):
             continue
         heading = re.split(r'\s+(?=\(?0\d{1,2}(?:\)|-)|TEL\b)', line, maxsplit=1, flags=re.I)[0]
+        if re.fullmatch(r'STARBUCKS[®*\s]*|스타벅스', heading, re.I):
+            return '스타벅스', False
         if re.search(r'(?:점|마트|상회|편의점|식당|카페)$', heading) and not re.search(r'^[0-9]', heading):
             return _clean_merchant(heading), False
 
@@ -315,12 +318,29 @@ def receipt_block_reason(text):
     return None
 
 
+def extract_receipt_date(text):
+    dates, labeled = set(), set()
+    for line in text.splitlines():
+        compact = re.sub(r'\s+', '', line)
+        if re.search(r'유효|만료|적립|교환|환불|쿠폰|이벤트|기간|리워드|포인트', compact):
+            continue
+        normalized = re.sub(r'(?<=\d)[ \t]*([./-])[ \t]*(?=\d)', r'\1', line)
+        for match in _FULL_DATE_RE.finditer(normalized):
+            parsed = _safe_date(*map(int, match.groups()))
+            if parsed:
+                dates.add(parsed)
+                if re.search(r'구매|거래일|결제일|승인일', compact):
+                    labeled.add(parsed)
+    candidates = labeled or dates
+    return next(iter(candidates)) if len(candidates) == 1 else None
+
+
 def parse_import_candidate(raw_text, source='unknown', today=None):
     text = normalize_import_text(raw_text)
     if source == 'ocr':
         amount = extract_receipt_amount(text)
-        date_text = re.sub(r'(?<=\d)[ \t]*([./-])[ \t]*(?=\d)', r'\1', text)
-        spent_on, date_inferred = extract_date(date_text, today=today)
+        spent_on = extract_receipt_date(text)
+        date_inferred = spent_on is None
         title, title_inferred = extract_receipt_merchant(text)
     else:
         amount = extract_amount(text)
@@ -337,7 +357,7 @@ def parse_import_candidate(raw_text, source='unknown', today=None):
     if amount is None:
         warnings.append('금액을 자동 추출하지 못했어요.')
     if date_inferred:
-        warnings.append('날짜가 없어 오늘 날짜로 채웠어요.')
+        warnings.append('구매일을 확인해 입력해 주세요.' if source == 'ocr' else '날짜가 없어 오늘 날짜로 채웠어요.')
     if title_inferred:
         warnings.append('사용처를 자동 추출하지 못했어요.')
 
@@ -352,7 +372,7 @@ def parse_import_candidate(raw_text, source='unknown', today=None):
         'candidate': {
             'title': title,
             'amount_krw': amount,
-            'spent_on': spent_on.isoformat(),
+            'spent_on': spent_on.isoformat() if spent_on else '',
             'category': category,
         },
         'source': source,

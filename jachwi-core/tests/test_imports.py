@@ -164,3 +164,26 @@ def test_ocr_collage_is_blocked_but_store_refund_policy_is_not():
     assert '한 장' in collage['blocked_reason']
     assert collage['candidate']['amount_krw'] is None
     assert parse_import_candidate(store + '\n결제 취소: 123,000', 'ocr')['blocked_reason']
+
+
+def test_ocr_normalizes_digital_and_paper_receipts_to_same_fields():
+    from app.fintech import parse_import_candidate
+
+    digital = parse_import_candidate(
+        'e-Receipt / History\nSTARBUCKS®\n2018-12-13 12:18:54\n'
+        '합계 -> 4,900\n결제금액 4,900\n부가세 445원\n적립기간 2018/12/31', 'ocr'
+    )['candidate']
+    paper = parse_import_candidate(
+        '[구 매]2017-06-02 21:13 POS:1021-5338\n'
+        '상품명 단가 수량 금액\n부가세 4,145원\n결 제 대 상 금 액 73,550', 'ocr'
+    )['candidate']
+    assert digital == dict(title='스타벅스', spent_on='2018-12-13', amount_krw=4900, category='food')
+    assert paper == dict(title='사용처 확인 필요', spent_on='2017-06-02', amount_krw=73550, category='other')
+
+
+def test_ocr_does_not_promote_rewards_date_or_tax_to_purchase_fields():
+    from app.fintech import parse_import_candidate
+
+    candidate = parse_import_candidate('STARBUCKS\n적립기간 2018/12/31\n부가세 445원', 'ocr')['candidate']
+    assert candidate['spent_on'] == ''
+    assert candidate['amount_krw'] is None
