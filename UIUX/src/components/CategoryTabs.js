@@ -1,8 +1,7 @@
 import React from 'react';
-import { View, Pressable, StyleSheet } from 'react-native';
-import Text from './AppText';
+import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { colors, fonts } from '../theme';
+import { fonts, emergencyColors as c } from '../theme';
 
 // 자취생존맵 상단의 카테고리 선택 (선택된 항목은 연한 초록 배경 + 초록 아이콘/글씨).
 export default function CategoryTabs({ categories, selectedId, onSelect }) {
@@ -10,7 +9,7 @@ export default function CategoryTabs({ categories, selectedId, onSelect }) {
     <View style={styles.row}>
       {categories.map((cat) => {
         const active = cat.id === selectedId;
-        const color = active ? colors.accent : colors.textSecondary;
+        const color = active ? c.accent : c.textSecondary;
         return (
           <Pressable
             key={cat.id}
@@ -36,13 +35,13 @@ const styles = StyleSheet.create({
   },
   item: {
     flex: 1,
-    minHeight: 66,
+    height: 66,
     borderRadius: 12,
     paddingTop: 10,
     alignItems: 'center',
   },
   itemActive: {
-    backgroundColor: colors.accentBg,
+    backgroundColor: '#E5F4F0',
   },
   label: {
     marginTop: 4,

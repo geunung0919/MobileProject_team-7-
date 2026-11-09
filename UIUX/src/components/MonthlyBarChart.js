@@ -1,6 +1,5 @@
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
-import Text from './AppText';
+import { View, Text, StyleSheet } from 'react-native';
 import { colors, fonts } from '../theme';
 
 const PLOT_HEIGHT = 140; // 0 ~ 최댓값 눈금까지의 높이

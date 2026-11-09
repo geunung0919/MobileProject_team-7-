@@ -1,6 +1,5 @@
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
-import Text from './AppText';
+import { View, Text, StyleSheet } from 'react-native';
 import IconBox from './IconBox';
 import { colors, fonts, radius } from '../theme';
 

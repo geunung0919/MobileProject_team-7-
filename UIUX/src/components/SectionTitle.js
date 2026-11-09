@@ -1,6 +1,5 @@
 import React from 'react';
-import { StyleSheet } from 'react-native';
-import Text from './AppText';
+import { Text, StyleSheet } from 'react-native';
 import { colors, fonts } from '../theme';
 
 // 화면 안의 섹션 제목 (예: "계정 관리", "앱 이용 안내")

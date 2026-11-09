@@ -1,8 +1,7 @@
 import React from 'react';
-import { View, Pressable, StyleSheet } from 'react-native';
-import Text from './AppText';
+import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
-import { colors, fonts } from '../theme';
+import { colors, fonts, emergencyColors as c } from '../theme';
 
 export const PLACE_SHEET_MIN_HEIGHT = 138;
 
@@ -26,10 +25,10 @@ export default function PlaceSheet({
         accessibilityLabel={title}
         style={styles.header}
       >
-        <MaterialCommunityIcons name="format-list-bulleted" size={18} color={colors.textSecondary} />
+        <MaterialCommunityIcons name="format-list-bulleted" size={18} color={c.textSecondary} />
         <Text style={styles.headerText}>{title}</Text>
         <View style={styles.flex} />
-        <Ionicons name="chevron-up" size={20} color={colors.textSecondary} />
+        <Ionicons name="chevron-up" size={20} color={c.textSecondary} />
       </Pressable>
 
       {place ? (
@@ -70,7 +69,7 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     paddingHorizontal: 18,
     paddingBottom: 18,
-    shadowColor: colors.shadow,
+    shadowColor: '#1F2D3A',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 16,
@@ -89,7 +88,7 @@ const styles = StyleSheet.create({
     fontFamily: fonts.medium,
     fontSize: 13,
     lineHeight: 20,
-    color: colors.textSecondary,
+    color: c.textSecondary,
   },
   row: {
     marginTop: 12,
@@ -104,25 +103,25 @@ const styles = StyleSheet.create({
     fontFamily: fonts.bold,
     fontSize: 20,
     lineHeight: 28,
-    color: colors.textPrimary,
+    color: c.text,
   },
   meta: {
     fontFamily: fonts.regular,
     fontSize: 14,
     lineHeight: 20,
-    color: colors.textSecondary,
+    color: c.textSecondary,
   },
   address: {
     fontFamily: fonts.regular,
     fontSize: 13,
     lineHeight: 18,
-    color: colors.textSecondary,
+    color: c.textSecondary,
   },
   button: {
     width: 68,
     height: 64,
     borderRadius: 12,
-    backgroundColor: colors.accent,
+    backgroundColor: c.accent,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -141,6 +140,6 @@ const styles = StyleSheet.create({
     fontFamily: fonts.regular,
     fontSize: 14,
     lineHeight: 20,
-    color: colors.textSecondary,
+    color: c.textSecondary,
   },
 });

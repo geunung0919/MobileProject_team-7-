@@ -1,6 +1,5 @@
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
-import Text from './AppText';
+import { View, Text, StyleSheet } from 'react-native';
 import { colors, fonts } from '../theme';
 
 // 시트 입력 칸 위의 라벨 + 작은 태그 (예: "할 일 내용 필수"). required 면 태그가 초록색, style 은 바깥 여백용

@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "자취 도우미",
+    "name": "project-js",
     "slug": "project-js",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -12,15 +12,7 @@
       "backgroundColor": "#FFFFFF"
     },
     "ios": {
-      "supportsTablet": false,
-      "bundleIdentifier": "com.example.jachwi",
-      "buildNumber": "1",
-      "infoPlist": {
-        "NSCameraUsageDescription": "영수증을 촬영해 소비를 기록하는 데 카메라를 사용해요.",
-        "NSPhotoLibraryUsageDescription": "앨범의 영수증 사진으로 소비를 기록하는 데 사진을 사용해요.",
-        "NSLocationWhenInUseUsageDescription": "내 주변의 마트, 병원, 약국 같은 장소를 지도에 보여주는 데 현재 위치를 사용해요.",
-        "ITSAppUsesNonExemptEncryption": false
-      }
+      "supportsTablet": false
     },
     "android": {
       "adaptiveIcon": {

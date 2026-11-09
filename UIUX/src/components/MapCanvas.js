@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
-import { View, StyleSheet } from 'react-native';
-import Text from './AppText';
+import { View, Text, StyleSheet } from 'react-native';
 import { fonts, mapColors as m } from '../theme';
 
 // 예시 지도 (그림). 실제 지도 SDK 를 붙이기 전까지 디자인을 보여 주는 용도입니다.

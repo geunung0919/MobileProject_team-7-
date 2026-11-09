@@ -145,3 +145,22 @@ def test_ocr_receipt_conflicting_payable_totals_require_manual_review():
 
     result = parse_import_candidate('결제금액 73,550\n승인금액 74,000\n합 계 73,550', 'ocr')
     assert result['candidate']['amount_krw'] is None
+
+
+def test_ocr_collage_is_blocked_but_store_refund_policy_is_not():
+    from app.fintech import parse_import_candidate
+
+    store = ('지구마트 압구정점 (02)0815~1009\n'
+             '결제 취소시 영수증이 없으면 교환/환불 불가\n'
+             '2025-12-10 17:45\n상품코드 단가 수량 금액\n'
+             '합 계 123,000\n카드결제: 123,000\n주차 안내')
+    single = parse_import_candidate(store, 'ocr')
+    assert single['blocked_reason'] is None
+    assert single['candidate'] == {
+        'title': '지구마트 압구정점', 'amount_krw': 123000,
+        'spent_on': '2025-12-10', 'category': 'groceries',
+    }
+    collage = parse_import_candidate(store + '\n[영화입장권]\n[계산서]\n받을금액: 54000', 'ocr')
+    assert '한 장' in collage['blocked_reason']
+    assert collage['candidate']['amount_krw'] is None
+    assert parse_import_candidate(store + '\n결제 취소: 123,000', 'ocr')['blocked_reason']

@@ -1,19 +1,18 @@
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
-import TextInput from './AppTextInput';
+import { View, TextInput, StyleSheet } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { colors, fonts } from '../theme';
+import { fonts, emergencyColors as c } from '../theme';
 
 // 돋보기 아이콘이 있는 검색 입력창 (비상매뉴얼 화면).
 export default function SearchBar({ value, onChangeText, placeholder }) {
   return (
     <View style={styles.box}>
-      <MaterialCommunityIcons name="magnify" size={20} color={colors.textSecondary} />
+      <MaterialCommunityIcons name="magnify" size={20} color={c.textSecondary} />
       <TextInput
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
-        placeholderTextColor={colors.textSecondary}
+        placeholderTextColor={c.textSecondary}
         style={styles.input}
         returnKeyType="search"
         clearButtonMode="while-editing"
@@ -26,11 +25,11 @@ export default function SearchBar({ value, onChangeText, placeholder }) {
 
 const styles = StyleSheet.create({
   box: {
-    minHeight: 48,
+    height: 48,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: colors.divider,
-    backgroundColor: colors.cardBg,
+    borderColor: c.border,
+    backgroundColor: c.surface,
     flexDirection: 'row',
     alignItems: 'center',
     paddingLeft: 14,
@@ -38,11 +37,11 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    minHeight: 48,
+    height: 48,
     padding: 0,
     marginLeft: 10,
     fontFamily: fonts.regular,
     fontSize: 14,
-    color: colors.textPrimary,
+    color: c.text,
   },
 });

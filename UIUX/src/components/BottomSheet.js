@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
   Modal,
   View,
+  Text,
   Pressable,
   Animated,
   Easing,
@@ -10,12 +11,12 @@ import {
   Platform,
   StyleSheet,
 } from 'react-native';
-import Text from './AppText';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, fonts } from '../theme';
 
 const SCREEN_HEIGHT = Dimensions.get('window').height;
+const OVERLAY_COLOR = 'rgba(31, 46, 40, 0.4)';
 
 // 아래에서 올라오는 시트 (핸들 + 제목 + 닫기 버튼 + 내용).
 // onClose: 배경이나 X 를 눌렀을 때, onClosed: 닫힘 애니메이션이 끝난 뒤 (닫은 뒤 화면을 이동할 때 사용)
@@ -99,7 +100,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   overlay: {
-    backgroundColor: colors.overlay,
+    backgroundColor: OVERLAY_COLOR,
   },
   sheet: {
     backgroundColor: colors.white,
@@ -113,7 +114,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 4,
     borderRadius: 2,
-    backgroundColor: colors.sheetHandle,
+    backgroundColor: '#DDE3DF',
   },
   header: {
     marginTop: 18,

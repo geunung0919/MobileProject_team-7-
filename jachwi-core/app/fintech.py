@@ -248,6 +248,7 @@ def suggest_category(title, raw_text):
 _OCR_TOTALS = (
     r'결제대상금액|결제금액|총결제금액|승인금액|받을금액',
     r'총합계|합계|총액',
+    r'카드결제|카드청구액',
 )
 
 
@@ -277,10 +278,41 @@ def extract_receipt_merchant(text):
             break
         if re.search(r'POS|사업자|전화|주소|영수증|고객|교환|환불|구매|카드|단말기|거래번호|매출전표', compact, re.I):
             continue
-        if re.search(r'(?:점|마트|상회|편의점|식당|카페)$', line) and not re.search(r'^[0-9]', line):
-            return _clean_merchant(line), False
+        heading = re.split(r'\s+(?=\(?0\d{1,2}(?:\)|-)|TEL\b)', line, maxsplit=1, flags=re.I)[0]
+        if re.search(r'(?:점|마트|상회|편의점|식당|카페)$', heading) and not re.search(r'^[0-9]', heading):
+            return _clean_merchant(heading), False
 
     return '사용처 확인 필요', True
+
+
+_RECEIPT_POLICY = re.compile(
+    r'(?:취소|교환|환불)(?:시|안내|문의|규정|은|는)|영수증(?:지참|이없으면)|환불은|환불불가'
+)
+_RECEIPT_TOTAL_MARKERS = re.compile(
+    r'(?:결제대상금액|카드청구액|카드결제|받을금액|총합계|합계)'
+    r'\s*[:：]?\s*((?:\d{1,3}(?:[,.]\d{3})+|\d+))(?![\d,.])'
+)
+
+
+def receipt_block_reason(text):
+    compact = re.sub(r'\s+', '', text)
+    ticket = bool(re.search(r'영화입장권|전체발권|관람가', compact))
+    bill = bool(re.search(r'\[계산서\]|테이블:', compact))
+    retail = bool(re.search(r'상품명|상품코드|품목명|카드청구액|카드결제|(?:마트|MART).*?점', compact, re.I))
+    totals = {
+        amount for match in _RECEIPT_TOTAL_MARKERS.finditer(text)
+        if (amount := _amount_value(match.group(1).replace('.', ','))) is not None and amount >= 100
+    }
+    if sum((ticket, bill, retail)) > 1 or len(totals) >= 3:
+        return '여러 영수증이나 티켓이 섞여 있어요. 저장할 영수증 한 장만 잘라 다시 올려 주세요.'
+    for line in text.splitlines():
+        compact_line = re.sub(r'\s+', '', line)
+        if re.search(r'승인취소|결제취소|취소완료|승인거절|결제실패|환불완료|환불금액', compact_line) and (
+            not _RECEIPT_POLICY.search(compact_line)
+            or re.match(r'^\[?(?:승인취소|결제취소|취소완료|승인거절|결제실패|환불완료|환불금액)\]?(?:[:：]|\d|$)', compact_line)
+        ):
+            return '취소·거절·실패·환불 내역은 새 지출로 가져올 수 없어요.'
+    return None
 
 
 def parse_import_candidate(raw_text, source='unknown', today=None):
@@ -296,8 +328,11 @@ def parse_import_candidate(raw_text, source='unknown', today=None):
         title, title_inferred = extract_merchant(text)
 
     warnings = []
-    if is_non_purchase_event(text):
-        warnings.append('취소·거절·실패·환불 내역은 새 지출로 가져올 수 없어요.')
+    blocked_reason = receipt_block_reason(text) if source == 'ocr' else (
+        '취소·거절·실패·환불 내역은 새 지출로 가져올 수 없어요.' if is_non_purchase_event(text) else None
+    )
+    if blocked_reason:
+        warnings.append(blocked_reason)
         amount = None
     if amount is None:
         warnings.append('금액을 자동 추출하지 못했어요.')
@@ -306,7 +341,7 @@ def parse_import_candidate(raw_text, source='unknown', today=None):
     if title_inferred:
         warnings.append('사용처를 자동 추출하지 못했어요.')
 
-    category = suggest_category(title, text)
+    category = suggest_category(title, "" if source == "ocr" else text)
     confidence = 0.0
     confidence += 0.45 if amount is not None else 0
     confidence += 0.25 if not date_inferred else 0.1
@@ -325,6 +360,7 @@ def parse_import_candidate(raw_text, source='unknown', today=None):
         'confidence': round(min(confidence, 0.99), 2),
         'needs_review': bool(warnings) or confidence < 0.8,
         'warnings': warnings,
+        'blocked_reason': blocked_reason,
     }
 
 
@@ -475,8 +511,9 @@ def register_fintech(app, current_user, db):
         user=Depends(current_user),
         session=Depends(db),
     ):
-        if is_non_purchase_event(body.raw_text):
-            raise HTTPException(422, '취소·거절·실패·환불 내역은 새 지출로 가져올 수 없어요.')
+        blocked_reason = parse_import_candidate(body.raw_text, body.source)['blocked_reason']
+        if blocked_reason:
+            raise HTTPException(422, blocked_reason)
         row = ensure(session, user)
         fingerprint = import_fingerprint(body.source, body.raw_text)
         imported = row.payload.get('imported_fingerprints', [])

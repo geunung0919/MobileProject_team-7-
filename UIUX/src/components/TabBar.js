@@ -1,9 +1,8 @@
 import React from 'react';
-import { View, Pressable, StyleSheet } from 'react-native';
-import Text from './AppText';
+import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors, fonts, fontScale } from '../theme';
+import { colors, fonts } from '../theme';
 
 // 라우트 이름 -> 라벨/아이콘 (탭을 바꿀 때 여기만 수정)
 const TAB_CONFIG = {
@@ -61,15 +60,9 @@ export default function TabBar({ state, navigation }) {
                 <Icon
                   name={iconName}
                   size={28}
-                  color={focused ? colors.green : colors.tabInactive}
+                  color={focused ? colors.greenLight : colors.tabInactive}
                 />
-                <Text
-                  style={[styles.label, focused && styles.labelActive]}
-                  maxFontSizeMultiplier={fontScale.chrome}
-                  numberOfLines={1}
-                >
-                  {config.label}
-                </Text>
+                <Text style={[styles.label, focused && styles.labelActive]}>{config.label}</Text>
               </View>
             </Pressable>
           );
@@ -95,7 +88,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 7,
     backgroundColor: colors.white,
     borderRadius: 34,
-    shadowColor: colors.shadow,
+    shadowColor: '#1F3A30',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.14,
     shadowRadius: 14,
@@ -119,10 +112,10 @@ const styles = StyleSheet.create({
   label: {
     marginTop: 2,
     fontFamily: fonts.regular,
-    fontSize: 12,
+    fontSize: 11,
     color: colors.tabInactive,
   },
   labelActive: {
-    color: colors.green,
+    color: colors.greenLight,
   },
 });

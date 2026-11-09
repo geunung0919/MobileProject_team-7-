@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   View,
+  Text,
   ScrollView,
   Pressable,
   Keyboard,
@@ -8,7 +9,6 @@ import {
   Dimensions,
   StyleSheet,
 } from 'react-native';
-import Text from './AppText';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import CalendarPicker from './CalendarPicker';
 import BottomSheet from './BottomSheet';

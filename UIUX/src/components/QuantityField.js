@@ -1,7 +1,5 @@
 import React from 'react';
-import { View, Pressable, StyleSheet } from 'react-native';
-import Text from './AppText';
-import TextInput from './AppTextInput';
+import { View, Text, TextInput, Pressable, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, fonts } from '../theme';
 
@@ -66,7 +64,7 @@ const styles = StyleSheet.create({
   },
   inputBox: {
     flex: 1,
-    minHeight: 58,
+    height: 58,
     justifyContent: 'center',
     backgroundColor: colors.cardBg,
     borderRadius: 20,
@@ -81,7 +79,7 @@ const styles = StyleSheet.create({
   },
   unitButton: {
     width: 128,
-    minHeight: 58,
+    height: 58,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',

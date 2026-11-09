@@ -1,6 +1,5 @@
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
-import Text from './AppText';
+import { View, Text, StyleSheet } from 'react-native';
 import { colors, fonts } from '../theme';
 
 // 목록 화면 맨 위의 연한 초록 요약 카드 (할 일, 생활 루틴 공통). label / title / description

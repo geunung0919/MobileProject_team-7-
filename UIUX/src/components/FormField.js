@@ -1,7 +1,5 @@
 import React from 'react';
-import { View, Pressable, StyleSheet } from 'react-native';
-import Text from './AppText';
-import TextInput from './AppTextInput';
+import { View, Text, TextInput, Pressable, StyleSheet } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, fonts } from '../theme';
 
@@ -73,7 +71,7 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   box: {
-    minHeight: 58,
+    height: 58,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.cardBg,

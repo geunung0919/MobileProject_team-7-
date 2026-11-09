@@ -44,6 +44,7 @@ function SpendingImportContent({ api, storageScope }) {
     : params.notificationId;
   const { busy, error, run, setError } = useTask();
   const [source, setSource] = useState('notification');
+  const [showRaw, setShowRaw] = useState(false);
   const [rawText, setRawText] = useState('');
   const [imageUri, setImageUri] = useState('');
   const [photo, setPhoto] = useState(null);
@@ -166,6 +167,7 @@ function SpendingImportContent({ api, storageScope }) {
   const ingredients = candidate && source === 'ocr' ? receiptIngredients(rawText) : [];
   const confirm = () => run(async () => {
     if (!api) throw new Error('소비내역 저장에는 서버 연결이 필요해요.');
+    if (review?.blocked_reason) throw new Error(review.blocked_reason);
     if (!candidate) throw new Error('먼저 자동 추출을 실행해 주세요.');
     const title = candidate.title.trim();
     if (!title || title === '사용처 확인 필요') throw new Error('사용처를 확인해서 입력해 주세요.');
@@ -237,11 +239,12 @@ function SpendingImportContent({ api, storageScope }) {
           setPhoto(null); setImageUri(''); setRawText(''); setReview(null); setCandidate(null); setPhase(''); setError('');
         }} />
       </>}
-      <Text style={styles.small}>JPG·PNG 사진을 권장해요. 서버 전송은 8MB 이하이며 PDF·여러 장 일괄 분석은 아직 지원하지 않아요.</Text>
+      <Text style={styles.small}>영수증 한 장만 사진에 담아 주세요. 여러 장이 같이 있으면 사진첩에서 한 장씩 잘라 올려 주세요. JPG·PNG 사진을 권장해요. 서버 전송은 8MB 이하이며 PDF·여러 장 일괄 분석은 아직 지원하지 않아요.</Text>
       {!!error && <Button title="카메라 권한 설정 열기" disabled={busy} onPress={() => run(() => Linking.openSettings())} />}
     </Card>
 
-    <Card>
+    {source === 'ocr' && !!rawText && <Button title={showRaw ? 'OCR 원문 접기' : 'OCR 원문 확인 · 수정'} disabled={busy} onPress={() => setShowRaw(!showRaw)} />}
+    {(source !== 'ocr' || !rawText || showRaw) && <Card>
       <Text style={styles.title}>결제 원문 직접 입력</Text>
       <Text style={styles.text}>카드 알림·문자·카톡 결제내역·쇼핑몰 텍스트도 같은 파이프라인으로 분석할 수 있어요.</Text>
       <View style={styles.row}>
@@ -277,12 +280,13 @@ function SpendingImportContent({ api, storageScope }) {
       <Button title={busy ? '분석 중…' : '자동 추출'} disabled={busy || !api} onPress={preview} />
       <Text style={styles.small}>추출 점수는 규칙의 충족 정도이며 실제 정확도 확률이 아니에요.</Text>
       <Text style={styles.small}>자동수집/OCR 결과도 원문 칸에 들어오므로 잘못 읽힌 내용을 고친 뒤 다시 분석할 수 있어요.</Text>
-    </Card>
+    </Card>}
 
     {candidate && <Card>
       <Text style={styles.title}>추출 결과 확인</Text>
       <Text style={styles.small}>규칙 기반 추출 점수 {Math.round((review?.confidence || 0) * 100)}점 · {review?.needs_review ? '확인 필요' : '자동 추출 양호'}</Text>
       {review?.warnings?.map((warning, index) => <Text key={index} style={styles.error}>• {warning}</Text>)}
+      {!review?.blocked_reason && <>
       <Field label="사용처·내용" value={candidate.title} editable={!busy} maxLength={100} onChangeText={value => change('title', value)} />
       <Field label="금액 (원)" value={candidate.amount_krw} editable={!busy} keyboardType="number-pad" onChangeText={value => change('amount_krw', value)} />
       <Field label="날짜 (YYYY-MM-DD)" value={candidate.spent_on} editable={!busy} onChangeText={value => change('spent_on', value)} />
@@ -299,6 +303,7 @@ function SpendingImportContent({ api, storageScope }) {
         ? '냉장고에 함께 등록: ' + ingredients.map(item => item.name + ' × ' + item.quantity).join(', ') + ' · 소비기한 미확인'
         : '확실히 읽힌 식재료가 없어 소비만 저장해요.'}</Text>}
       <Button title={busy ? '저장 중…' : '확인하고 저장'} disabled={busy} onPress={confirm} />
+      </>}
       <Button title="원문 다시 분석" disabled={busy || !api} onPress={preview} />
     </Card>}
 

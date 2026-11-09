@@ -1,6 +1,5 @@
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
-import Text from './AppText';
+import { View, Text, StyleSheet } from 'react-native';
 import { colors, fonts } from '../theme';
 
 // 탭 화면 상단 제목 영역. rightText(오른쪽 회색 글씨), right(임의 요소, rightText 보다 우선), subtitle(아래 한 줄 설명)

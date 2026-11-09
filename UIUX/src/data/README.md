@@ -8,7 +8,7 @@
 | `home/` | 홈 | `home.js` | 홈 화면의 AI 한마디, 카드 제목 |
 | `spending/` | 소비 | `spending.js` | 소비 내역(더미), 예산, 카테고리 |
 | | | `spendingDetail.js` | 지출 상세 화면 문구 |
-| | | `spendingAnalysis.js` | 소비 분석 화면 문구, 카테고리 색상, 월별 비교 개월 수 |
+| | | `spendingAnalysis.js` | 소비 분석 화면 데이터 |
 | | | `spendingAll.js` | 소비 전체보기 화면 문구 |
 | | | `receipt.js` | 영수증 인식 결과 형식과 샘플 |
 | `fridge/` | 냉장고 | `fridge.js` | 식재료 목록(더미), 단위 목록, 임박 기준일 |
@@ -83,6 +83,7 @@
 
 | 화면 | 파일 | 설명 |
 | --- | --- | --- |
+| 소비 분석 | `spending/spendingAnalysis.js` | 화면에 "예시 데이터" 라벨이 붙은 고정 값입니다. 실제 지출 내역(`transactions`)으로 계산하거나 서버 값으로 교체하세요. |
 | 월 예산 | `spending/spending.js` 의 `budget` | 소비 탭과 홈이 같이 씁니다. 사용자마다 예산이 다르다면 저장소로 옮기세요. |
 | 영수증 인식 | `spending/receipt.js` | 카메라 화면이 아직 없어서 샘플 결과를 보여줍니다. 카메라가 인식한 결과를 `navigate('ReceiptResult', { receipt })` 로 넘기면 됩니다. |
 | AI 레시피 추천 | `fridge/recipes.js` | 정적 레시피 데이터입니다. |

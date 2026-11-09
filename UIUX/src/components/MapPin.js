@@ -1,8 +1,7 @@
 import React from 'react';
-import { View, Pressable, StyleSheet } from 'react-native';
-import Text from './AppText';
+import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { colors, fonts, mapColors as m } from '../theme';
+import { colors, fonts, emergencyColors as c, mapColors as m } from '../theme';
 
 // 지도 위 장소 핀 (x, y 는 핀 중심 좌표). 기본: 흰 원 + 초록 테두리 / selected: 초록 물방울 + 이름 말풍선
 export default function MapPin({ x, y, icon = 'silverware-fork-knife', label, selected, onPress }) {
@@ -15,7 +14,7 @@ export default function MapPin({ x, y, icon = 'silverware-fork-knife', label, se
         accessibilityLabel={label}
         style={[styles.pin, { left: x - 16, top: y - 16 }]}
       >
-        <MaterialCommunityIcons name={icon} size={20} color={colors.accent} />
+        <MaterialCommunityIcons name={icon} size={20} color={c.accent} />
       </Pressable>
     );
   }
@@ -55,7 +54,7 @@ export function UserDot({ x, y }) {
 }
 
 const shadow = {
-  shadowColor: colors.shadow,
+  shadowColor: '#1F2D3A',
   shadowOffset: { width: 0, height: 2 },
   shadowOpacity: 0.12,
   shadowRadius: 6,
@@ -69,7 +68,7 @@ const styles = StyleSheet.create({
     height: 32,
     borderRadius: 16,
     borderWidth: 2,
-    borderColor: colors.accent,
+    borderColor: c.accent,
     backgroundColor: colors.white,
     alignItems: 'center',
     justifyContent: 'center',
@@ -88,7 +87,7 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: colors.accent,
+    backgroundColor: c.accent,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -103,7 +102,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 7,
     borderLeftColor: 'transparent',
     borderRightColor: 'transparent',
-    borderTopColor: colors.accent,
+    borderTopColor: c.accent,
   },
   bubbleWrap: {
     position: 'absolute',
@@ -123,7 +122,7 @@ const styles = StyleSheet.create({
     fontFamily: fonts.bold,
     fontSize: 14,
     lineHeight: 20,
-    color: colors.accent,
+    color: c.accent,
   },
   halo: {
     position: 'absolute',

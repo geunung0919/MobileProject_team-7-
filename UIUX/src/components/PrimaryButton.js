@@ -1,6 +1,5 @@
 import React from 'react';
-import { Pressable, StyleSheet } from 'react-native';
-import Text from './AppText';
+import { Text, Pressable, StyleSheet } from 'react-native';
 import { colors, fonts } from '../theme';
 
 // 진한 초록색 가로 전체 버튼 ("저장하기", "선택 완료" 등)
@@ -18,7 +17,7 @@ export default function PrimaryButton({ label, onPress, style }) {
 
 const styles = StyleSheet.create({
   button: {
-    minHeight: 56,
+    height: 56,
     borderRadius: 28,
     backgroundColor: colors.green,
     alignItems: 'center',

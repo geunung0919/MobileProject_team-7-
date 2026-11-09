@@ -1,6 +1,5 @@
 import React from 'react';
-import { Pressable, StyleSheet } from 'react-native';
-import Text from './AppText';
+import { Text, Pressable, StyleSheet } from 'react-native';
 import { colors, fonts } from '../theme';
 
 // 필터 칩 (예: "전체 6", "유통기한 임박 3")
@@ -22,7 +21,7 @@ export default function Chip({ label, count, selected, onPress }) {
 
 const styles = StyleSheet.create({
   chip: {
-    minHeight: 44,
+    height: 44,
     paddingHorizontal: 18,
     borderRadius: 22,
     backgroundColor: colors.cardBg,

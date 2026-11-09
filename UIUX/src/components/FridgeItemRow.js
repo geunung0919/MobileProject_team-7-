@@ -1,6 +1,5 @@
 import React from 'react';
-import { View, Pressable, StyleSheet } from 'react-native';
-import Text from './AppText';
+import { View, Text, Pressable, StyleSheet } from 'react-native';
 import IconBox from './IconBox';
 import { colors, fonts } from '../theme';
 import { formatDotDate } from '../utils/format';
@@ -82,7 +81,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.warnBg,
   },
   badgeNormal: {
-    backgroundColor: colors.calmBg,
+    backgroundColor: colors.cardBg,
   },
   badgeText: {
     fontFamily: fonts.medium,

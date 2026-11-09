@@ -1,6 +1,5 @@
 import React from 'react';
-import { Pressable, StyleSheet } from 'react-native';
-import Text from './AppText';
+import { Text, Pressable, StyleSheet } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, fonts } from '../theme';
 
@@ -20,7 +19,7 @@ export default function AddItemButton({ label, onPress, style }) {
 
 const styles = StyleSheet.create({
   button: {
-    minHeight: 46,
+    height: 46,
     borderRadius: 23,
     backgroundColor: colors.tabActiveBg,
     flexDirection: 'row',

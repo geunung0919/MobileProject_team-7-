@@ -1,6 +1,5 @@
 import React from 'react';
-import { View, Switch, StyleSheet } from 'react-native';
-import Text from './AppText';
+import { View, Text, Switch, StyleSheet } from 'react-native';
 import { colors, fonts } from '../theme';
 
 // 제목 + 설명 + 오른쪽 스위치로 이루어진 설정 한 줄 (앱 설정 화면).
