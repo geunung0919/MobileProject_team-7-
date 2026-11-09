@@ -3,15 +3,21 @@ import { createInventorySync } from '../domain/sync.mjs';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { Text, View, ActivityIndicator } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { createStore, fridgeActions } from '../domain/store.mjs';
+import { createStore, fridgeActions, importExpense } from '../domain/store.mjs';
 const Context = createContext(null);
 const stores = new Map();
 export const newId = () => `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+function accountFridgeStore(storageKey) {
+  if (!storageKey) throw new Error('냉장고 계정을 확인해 주세요.');
+  if (!stores.has(storageKey)) stores.set(storageKey, createStore(AsyncStorage, storageKey));
+  return stores.get(storageKey);
+}
+export function registerReceiptIngredients(storageKey, expense, items) {
+  return accountFridgeStore(storageKey).update(state =>
+    state.importedExpenseIds.includes(expense.id) ? state : importExpense(state, expense, items));
+}
 export function AppProvider({ children, storageKey }) {
-  const [store] = useState(() => {
-    if (!stores.has(storageKey)) stores.set(storageKey, createStore(AsyncStorage, storageKey));
-    return stores.get(storageKey);
-  });
+  const [store] = useState(() => accountFridgeStore(storageKey));
   const {api:serverApi}=useSession();
   const controller=useMemo(()=>createInventorySync(store,serverApi),[store,serverApi]);
   const [syncPending,setSyncPending]=useState(0);

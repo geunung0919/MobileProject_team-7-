@@ -54,6 +54,7 @@ export function importExpense(state, expense, items) {
     inventory: [...state.inventory, ...items.map((item, index) => ({
       id: `expense-${expense.id}-${index}`, name: item.name.trim(), quantity: item.quantity,
       unit: item.unit.trim(), expiresAt: item.expiresAt, sourceExpenseId: expense.id,
+      ...(item.dateType === 'unknown' ? { dateType: 'unknown' } : {}),
     }))],
     importedExpenseIds: [...state.importedExpenseIds, expense.id],
   };

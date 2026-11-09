@@ -6,6 +6,8 @@ import { Button, Card, Field, Page, styles, useTask } from '../components/UI';
 import { parseMoney } from '../lib/api';
 import { recognizeReceiptText, receiptSupport } from '../lib/receiptOcr';
 import { analyzeReceiptPhoto } from '../lib/receiptFlow.mjs';
+import { receiptIngredients } from '../features/fridge/domain/receiptIngredients.mjs';
+import { registerReceiptIngredients } from '../features/fridge/state/AppProvider';
 import { useSession } from '../state/Session';
 import {
   getPendingNotifications,
@@ -30,10 +32,12 @@ const categories = {
 
 export default function SpendingImport() {
   const { api, storageScope } = useSession();
-  return <SpendingImportContent key={storageScope || 'disconnected'} api={api} />;
+  return <SpendingImportContent key={storageScope || 'disconnected'} api={api} storageScope={storageScope} />;
 }
 
-function SpendingImportContent({ api }) {
+function SpendingImportContent({ api, storageScope }) {
+  const [pendingInventory, setPendingInventory] = useState(null);
+  const [savedInventoryCount, setSavedInventoryCount] = useState(null);
   const params = useLocalSearchParams();
   const routeNotificationId = Array.isArray(params.notificationId)
     ? params.notificationId[0]
@@ -153,7 +157,14 @@ function SpendingImportContent({ api }) {
     await handlePickedImage(result);
   });
 
-  const confirm = (registerIngredients = false) => run(async () => {
+  const addReceiptInventory = async ({ expense, items }) => {
+    await registerReceiptIngredients(storageScope, expense, items);
+    setPendingInventory(null);
+    setSavedInventoryCount(items.length);
+  };
+
+  const ingredients = candidate && source === 'ocr' ? receiptIngredients(rawText) : [];
+  const confirm = () => run(async () => {
     if (!api) throw new Error('소비내역 저장에는 서버 연결이 필요해요.');
     if (!candidate) throw new Error('먼저 자동 추출을 실행해 주세요.');
     const title = candidate.title.trim();
@@ -174,12 +185,24 @@ function SpendingImportContent({ api }) {
         // 서버 저장 성공을 로컬 수집함 정리 실패 때문에 취소하지 않는다.
       }
     }
-    if (registerIngredients && saved.import_source === 'ocr') {
-      router.replace({ pathname: '/fridge/from-expense', params: { expenseId: saved.id, period: saved.spent_on.slice(0, 7) } });
+    if (saved.import_source === 'ocr' && ingredients.length) {
+      const job = { expense: saved, items: ingredients };
+      setPendingInventory(job);
+      await addReceiptInventory(job);
     } else {
       router.replace('/spending');
     }
   });
+
+  if (pendingInventory || savedInventoryCount !== null) return <Page title="소비 내역 저장 완료">
+    {pendingInventory ? <>
+      <Text style={styles.text}>결제는 저장됐어요. 식재료만 냉장고에 등록하고 있어요.</Text>
+      {!!error && <Text accessibilityRole="alert" style={styles.error}>{error}</Text>}
+      <Button title="냉장고 등록만 다시 시도" disabled={busy} onPress={() => run(() => addReceiptInventory(pendingInventory))} />
+    </> : <Text style={styles.text}>식재료 {savedInventoryCount}개 품목을 냉장고에 등록했어요.</Text>}
+    <Button title="소비 내역 보기" disabled={busy} onPress={() => router.replace('/spending')} />
+    <Button title="냉장고 보기" disabled={busy} onPress={() => router.replace('/fridge/inventory')} />
+  </Page>;
 
   return <Page title="영수증 · 결제 자동입력">
     {!!error && <Text accessibilityRole="alert" style={styles.error}>{error}</Text>}
@@ -272,11 +295,10 @@ function SpendingImportContent({ api }) {
           onPress={() => change('category', key)}
         />)}
       </View>
-      <Button title={busy ? '저장 중…' : '확인하고 소비내역 저장'} disabled={busy} onPress={() => confirm()} />
-      {source === 'ocr' && <>
-        <Text style={styles.small}>영수증 전체는 소비에 저장돼요. 식재료가 있다면 아래에서 따로 등록할 수 있어요.</Text>
-        <Button title="소비 저장 후 식재료 등록" disabled={busy} onPress={() => confirm(true)} />
-      </>}
+      {source === 'ocr' && <Text style={styles.small}>{ingredients.length
+        ? '냉장고에 함께 등록: ' + ingredients.map(item => item.name + ' × ' + item.quantity).join(', ') + ' · 소비기한 미확인'
+        : '확실히 읽힌 식재료가 없어 소비만 저장해요.'}</Text>}
+      <Button title={busy ? '저장 중…' : '확인하고 저장'} disabled={busy} onPress={confirm} />
       <Button title="원문 다시 분석" disabled={busy || !api} onPress={preview} />
     </Card>}
 
