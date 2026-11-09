@@ -58,3 +58,11 @@ test('corrupt persisted data is not silently replaced', async () => {
   await assert.rejects(store.update(s => importExpense(s, expense, [item])));
   assert.equal(writes, 0);
 });
+
+test('혼합 영수증은 소비 분류와 무관하게 확인해 입력한 재료만 재고로 등록한다', () => {
+  const receipt = { ...expense, category: 'living', import_source: 'ocr', title: '마트 결제' };
+  const result = importExpense(emptyState(), receipt, [item]);
+  assert.deepEqual(result.inventory.map(entry => entry.name), [item.name]);
+  assert.equal(result.inventory[0].sourceExpenseId, receipt.id);
+  assert.equal(receipt.category, 'living');
+});

@@ -153,13 +153,13 @@ function SpendingImportContent({ api }) {
     await handlePickedImage(result);
   });
 
-  const confirm = () => run(async () => {
+  const confirm = (registerIngredients = false) => run(async () => {
     if (!api) throw new Error('소비내역 저장에는 서버 연결이 필요해요.');
     if (!candidate) throw new Error('먼저 자동 추출을 실행해 주세요.');
     const title = candidate.title.trim();
     if (!title || title === '사용처 확인 필요') throw new Error('사용처를 확인해서 입력해 주세요.');
     if (!/^\d{4}-\d{2}-\d{2}$/.test(candidate.spent_on)) throw new Error('날짜를 YYYY-MM-DD 형식으로 입력해 주세요.');
-    await api('me/spending/imports/confirm', 'POST', {
+    const saved = await api('me/spending/imports/confirm', 'POST', {
       raw_text: rawText.trim(),
       source,
       title,
@@ -174,7 +174,11 @@ function SpendingImportContent({ api }) {
         // 서버 저장 성공을 로컬 수집함 정리 실패 때문에 취소하지 않는다.
       }
     }
-    router.replace('/spending');
+    if (registerIngredients && saved.import_source === 'ocr') {
+      router.replace({ pathname: '/fridge/from-expense', params: { expenseId: saved.id, period: saved.spent_on.slice(0, 7) } });
+    } else {
+      router.replace('/spending');
+    }
   });
 
   return <Page title="영수증 · 결제 자동입력">
@@ -268,7 +272,11 @@ function SpendingImportContent({ api }) {
           onPress={() => change('category', key)}
         />)}
       </View>
-      <Button title={busy ? '저장 중…' : '확인하고 소비내역 저장'} disabled={busy} onPress={confirm} />
+      <Button title={busy ? '저장 중…' : '확인하고 소비내역 저장'} disabled={busy} onPress={() => confirm()} />
+      {source === 'ocr' && <>
+        <Text style={styles.small}>영수증 전체는 소비에 저장돼요. 식재료가 있다면 아래에서 따로 등록할 수 있어요.</Text>
+        <Button title="소비 저장 후 식재료 등록" disabled={busy} onPress={() => confirm(true)} />
+      </>}
       <Button title="원문 다시 분석" disabled={busy || !api} onPress={preview} />
     </Card>}
 
