@@ -1,0 +1,10 @@
+#!/bin/sh
+
+allowed_branch="geunung_map/chat"
+current_branch=$(git branch --show-current)
+
+if [ "$current_branch" != "$allowed_branch" ]; then
+  echo "커밋이 차단되었습니다: '$allowed_branch' 브랜치에서만 커밋할 수 있습니다."
+  echo "현재 브랜치: '$current_branch'"
+  exit 1
+fi
