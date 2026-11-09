@@ -24,3 +24,19 @@ test('keeps plain milk and fruit separate from similarly named drinks and snacks
   const text = names.map((name, i) => `${i + 1} ${name} 3,000 1 3,000`).join('\n');
   assert.deepEqual(receiptIngredients(text).map(item => item.name), names.slice(0, 4));
 });
+
+test('reads unnumbered e-receipt products and barcode continuation without importing discounts', () => {
+  const text = [
+    '+ 오이맛고추 (팩) 1,980 1 1,980', '2500000014567',
+    '반숙계란 20구(팩) 9,480 1 9,480', '8801496106786',
+    '(03) 그릴드닭가슴살 140g', '880914894309 2.900 1 2,900',
+    '-행사 할인 -900', '04 닭가슴살 도시락 4,500 1 4,500',
+    '05 삼립 단팥우유호빵 8,980 1 8,980',
+    '06 혼합과자 18,900 1 18,900',
+    '07 대파 500g', '합계 92,000',
+    '8809123456 6,000 1 6,000',
+  ].join('\n');
+  assert.deepEqual(receiptIngredients(text).map(item => item.name), [
+    '오이맛고추 (팩)', '반숙계란 20구(팩)', '그릴드닭가슴살 140g',
+  ]);
+});
