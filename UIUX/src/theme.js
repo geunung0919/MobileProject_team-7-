@@ -4,17 +4,18 @@
 export const colors = {
   background: '#FFFFFF',
   textPrimary: '#1F3A30',
-  textSecondary: '#7B817E',
-  placeholder: '#A3A9A5',
-  green: '#2F8A5B',
+  textSecondary: '#666D69', // 흰색 5.3:1 / 카드 4.9:1 (WCAG AA 4.5:1 이상)
+  placeholder: '#6B726E', // 흰색 4.9:1 / 입력창(cardBg) 4.5:1 이상
+  green: '#26784F', // 흰 글자 5.4:1, 연한 초록 배경 위 글자 4.6:1 이상
   greenLight: '#5CC79A',
   heroBg: '#EEF6F1',
   badgeBg: '#DFF0E6',
   cardBg: '#F5F6F4',
   divider: '#E6E8E5',
+  calmBg: '#EEF0ED', // 기한 여유 태그 배경 (textSecondary 글자 4.6:1)
   progressTrack: '#DCEBE1',
   warnBg: '#FCEBE1',
-  warnText: '#C0623A',
+  warnText: '#A84E27', // warnBg 위 4.8:1
   tabActiveBg: '#E1F3E9',
   tabInactive: '#5F6B66',
   white: '#FFFFFF',
@@ -45,7 +46,7 @@ export const radius = {
 // (위의 colors 는 스크린샷 추정값이라 이 화면과 팔레트가 다릅니다.)
 export const emergencyColors = {
   text: '#203346',
-  textSecondary: '#74818B',
+  textSecondary: '#5F6C76', // 흰색 5.4:1
   danger: '#C34242',
   dangerBg: '#FFF5F4',
   dangerBorder: '#F2DAD7',
