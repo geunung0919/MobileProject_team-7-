@@ -64,7 +64,7 @@ _FULL_DATE_RE = re.compile(
     r'(?<!\d)(20\d{2})[./-](0?[1-9]|1[0-2])[./-](0?[1-9]|[12]\d|3[01])(?!\d)'
 )
 _SHORT_DATE_RE = re.compile(
-    r'(?<!\d)(0?[1-9]|1[0-2])[/-](0?[1-9]|[12]\d|3[01])(?!\d)'
+    r'(?<![\d./-])(0?[1-9]|1[0-2])[/-](0?[1-9]|[12]\d|3[01])(?!\d)'
 )
 _KO_DATE_RE = re.compile(
     r'(?:(20\d{2})년\s*)?(0?[1-9]|1[0-2])월\s*(0?[1-9]|[12]\d|3[01])일'
@@ -245,11 +245,55 @@ def suggest_category(title, raw_text):
     return 'other'
 
 
+_OCR_TOTALS = (
+    r'결제대상금액|결제금액|총결제금액|승인금액|받을금액',
+    r'총합계|합계|총액',
+)
+
+
+def extract_receipt_amount(text):
+    for labels in _OCR_TOTALS:
+        spaced = '|'.join(r'\s*'.join(label) for label in labels.split('|'))
+        pattern = re.compile(r'^(?:' + spaced + r')\s*[:：]?\s*([0-9][0-9,]*)\s*원?$')
+        amounts = {
+            amount for line in text.splitlines()
+            if (match := pattern.fullmatch(line))
+            and (amount := _amount_value(match.group(1))) is not None
+        }
+        if amounts:
+            return next(iter(amounts)) if len(amounts) == 1 else None
+    return extract_amount(text)
+
+
+def extract_receipt_merchant(text):
+    for line in text.splitlines():
+        match = re.match(r'^(?:상호(?:명)?|가맹점(?:명)?|매장명|사용처)\s*[:：]\s*(.+)$', line)
+        if match and re.search(r'[가-힣A-Za-z]', match.group(1)):
+            return _clean_merchant(match.group(1)), False
+
+    for line in text.splitlines():
+        compact = re.sub(r'\s+', '', line)
+        if re.search(r'상품명|품목명|단가수량|\d{4}[./-]\d{1,2}[./-]\d{1,2}', compact):
+            break
+        if re.search(r'POS|사업자|전화|주소|영수증|고객|교환|환불|구매|카드|단말기|거래번호|매출전표', compact, re.I):
+            continue
+        if re.search(r'(?:점|마트|상회|편의점|식당|카페)$', line) and not re.search(r'^[0-9]', line):
+            return _clean_merchant(line), False
+
+    return '사용처 확인 필요', True
+
+
 def parse_import_candidate(raw_text, source='unknown', today=None):
     text = normalize_import_text(raw_text)
-    amount = extract_amount(text)
-    spent_on, date_inferred = extract_date(text, today=today)
-    title, title_inferred = extract_merchant(text)
+    if source == 'ocr':
+        amount = extract_receipt_amount(text)
+        date_text = re.sub(r'(?<=\d)[ \t]*([./-])[ \t]*(?=\d)', r'\1', text)
+        spent_on, date_inferred = extract_date(date_text, today=today)
+        title, title_inferred = extract_receipt_merchant(text)
+    else:
+        amount = extract_amount(text)
+        spent_on, date_inferred = extract_date(text, today=today)
+        title, title_inferred = extract_merchant(text)
 
     warnings = []
     if is_non_purchase_event(text):
