@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, ScrollView, KeyboardAvoidingView, Pressable, Platform, StyleSheet } from 'react-native';
+import { View, ScrollView, KeyboardAvoidingView, Pressable, Platform, StyleSheet } from 'react-native';
+import Text from '../components/AppText';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import BackHeader from '../components/BackHeader';
 import FormField from '../components/FormField';

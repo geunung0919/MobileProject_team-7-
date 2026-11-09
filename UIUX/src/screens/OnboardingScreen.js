@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { ScrollView, Text, TextInput, Pressable, View } from 'react-native';
+import { ScrollView, TextInput, Pressable, View } from 'react-native';
+import Text from '../components/AppText';
 import { useAuth } from '../store/AuthContext';
 import { diagnosisLabels } from '../utils/diagnosis';
 import { styles } from './LoginScreen';

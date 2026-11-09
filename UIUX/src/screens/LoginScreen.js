@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ScrollView, Text, TextInput, Pressable, Linking, Switch, View, StyleSheet } from 'react-native';
+import { ScrollView, TextInput, Pressable, Linking, Switch, View, StyleSheet } from 'react-native';
+import Text from '../components/AppText';
 import { useAuth } from '../store/AuthContext';
 import { request } from '../services/client';
 import { loadRecentAccount, saveRecentAccount, clearRecentAccount, maskEmail } from '../services/recentAccount';
