@@ -19,6 +19,7 @@ import {
 import MapView, { Marker } from 'react-native-maps';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+const TAB_BAR_HEIGHT = 68; // 하단 탭 높이: 실제 탭 설정에 따라 조정
 
 import SearchBar from '../components/SearchBar';
 import CategoryTabs from '../components/CategoryTabs';
@@ -193,6 +194,7 @@ export default function SurvivalMapScreen() {
 
   // 상세정보 바텀시트
   const [sheetExpanded, setSheetExpanded] = useState(false);
+  const [mapAreaHeight, setMapAreaHeight] = useState(0);
 
   // 즐겨찾기
   const [favorites, setFavorites] = useState([]);
@@ -247,6 +249,12 @@ export default function SurvivalMapScreen() {
   );
 
   const bottomOffset = Math.max(insets.bottom, 12) + 8;
+  // 하단 탭 바는 absolute 배치이므로 상세 카드가 탭 바 위에 오도록 별도 여백 확보
+  const detailBottomOffset = Math.max(insets.bottom, 12) + TAB_BAR_HEIGHT + 12;
+  const detailAvailableHeight = Math.max(0, mapAreaHeight - detailBottomOffset - 12);
+  const detailSheetHeight = sheetExpanded
+    ? detailAvailableHeight
+    : Math.min(detailAvailableHeight, Math.round(mapAreaHeight * 0.6));
 
   const searchPlaceIds = new Set(
     places.map((place) => place.id)
@@ -1532,7 +1540,10 @@ export default function SurvivalMapScreen() {
       </View>
 
       {/* 지도 */}
-      <View style={styles.mapArea}>
+      <View
+        style={styles.mapArea}
+        onLayout={(event) => setMapAreaHeight(event.nativeEvent.layout.height)}
+      >
         <MapView
           ref={mapRef}
           style={styles.map}
@@ -1918,9 +1929,9 @@ export default function SurvivalMapScreen() {
             style={[
               styles.detailOverlay,
               {
-                bottom: bottomOffset,
-                height: sheetExpanded ? '99%' : '60%',
-                maxHeight: undefined,
+                bottom: detailBottomOffset,
+                height: detailSheetHeight,
+                maxHeight: detailAvailableHeight,
               },
             ]}
           >
