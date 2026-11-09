@@ -2,6 +2,24 @@
 
 처음 실행하면 로그인 → 최초 사용자 온보딩 → 팀원이 제작한 홈/소비/냉장고/생활정보/더보기 UI로 이동합니다.
 
+## 팀원 안내: 다른 모듈 파일을 고친 부분 (각자 최신 작업으로 덮어써도 됩니다)
+1번 모듈(이현동)을 연결하면서 아래 파일을 함께 고쳤습니다. 담당자가 더 최신으로 작업한 버전이 있으면 **그대로 덮어써 주세요.**
+
+| 담당 | 파일 (`src/` 기준) | 통합 때 바꾼 내용 |
+|---|---|---|
+| 김선웅 (소비·OCR) | `screens/SpendingScreen.js`, `screens/SpendingAnalysisScreen.js`, `components/BudgetCard.js`, `components/AnalysisSummaryCard.js` | 예산을 온보딩 월 예산(`monthly_budget_krw`)으로 바꾸고 미입력은 '미설정' 표시 |
+| 김선웅 (소비·OCR) | `screens/ReceiptCaptureScreen.js`(새 파일), `screens/ReceiptResultScreen.js`, `utils/purchaseItems.js` | 촬영 → 서버 OCR 연결, 샘플 영수증 대신 빈 영수증. **필요 없으면 지워도 됩니다** |
+| 최연규 (홈) | `screens/HomeScreen.js`, `utils/homeSummary.js` | 예산 '미설정' 표시 |
+| 양민혁 (냉장고) | `screens/FridgeAddScreen.js`, `utils/recipes.js` | 소비기한이 없을 때 '날짜 미입력' |
+| 정진혁 (AI) | `data/lifeInfo/aiManager.js` | 안내 문구 1줄 |
+| 공통 | `utils/format.js` | 빈 날짜를 '미입력'으로 표시 |
+
+주의
+- `ReceiptCaptureScreen.js`를 지우면 `navigation/RootNavigator.js`에서 그 화면의 `import` 줄과 `<Stack.Screen name="ReceiptCapture" …/>` 줄도 함께 지워 주세요. 소비 탭 버튼은 원래처럼 `ReceiptResult`로 연결하면 됩니다.
+- 예산을 소비 모듈 값으로 되돌리면 `utils/homeSummary.js`와 예산 카드가 `null`(미설정)을 받지 않게 되니 함께 맞춰 주세요.
+- **`App.js`, `navigation/RootNavigator.js`, `store/AppDataContext.js`, `store/AuthContext.js`는 통째로 덮어쓰지 마세요.** 로그인 → 프로필 → 진단 → 홈 분기와 계정별 저장이 들어 있습니다. 필요한 부분만 고쳐 주세요.
+- 서버 `jachwi-core/app/ui_state.py`는 앱의 소비·냉장고 데이터를 기존 가계부(Ledger)·재고(Inventory) 테이블에도 저장합니다. 소비·냉장고 담당이 저장 방식을 바꾸려면 이현동에게 알려 주세요.
+
 ## Snack에 넣기
 1. 새 Snack을 만들고 SDK 54를 선택합니다. 휴대폰 Expo Go도 SDK 54 호환 버전이어야 합니다.
 2. **이 UIUX 폴더 안의** `App.js`, `package.json`, `src` 전체를 같은 경로로 넣습니다. 기존 파일 위에 일부만 덮어쓰지 마세요.
