@@ -4,6 +4,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useSession } from '../../state/Session';
 import { Page, Card, Field, Button, styles } from '../../features/fridge/components/UI';
 import { useApp } from '../../features/fridge/state/AppProvider';
+import { canRegisterIngredients } from '../../features/fridge/domain/store.mjs';
 import { won } from '../../lib/api';
 const newRow = () => ({ name: '', quantity: '', unit: '개', expiresAt: '' });
 export default function FromExpense() {
@@ -16,7 +17,7 @@ export default function FromExpense() {
   async function fetchExpense() {
     if (typeof expenseId !== 'string' || typeof period !== 'string' || !/^\d{4}-(0[1-9]|1[0-2])$/.test(period)) throw new Error('소비 내역에서 다시 선택해 주세요.');
     const result = await api('me/spending?period=' + period);
-    const found = result.expenses.find(e => e.id === expenseId && e.category === 'groceries');
+    const found = result.expenses.find(e => e.id === expenseId && canRegisterIngredients(e));
     if (!found) throw new Error('지출이 삭제되거나 변경되었어요. 소비 내역에서 다시 선택해 주세요.');
     return found;
   }
@@ -28,7 +29,9 @@ export default function FromExpense() {
   const imported = state.importedExpenseIds.includes(expenseId);
   const field = (index, name, value) => setRows(items => items.map((item, i) => i === index ? { ...item, [name]: value } : item));
   async function save() {
+    if (saving) return;
     setSaving(true);
+    setError('');
     try {
       const current = await fetchExpense();
       if (current.title !== expense.title || current.amount_krw !== expense.amount_krw || current.spent_on !== expense.spent_on) {
@@ -36,12 +39,12 @@ export default function FromExpense() {
       }
       await importPurchase(current, rows.map(row => ({ ...row, quantity: Number(row.quantity) })));
       router.replace('/fridge/inventory');
-    } finally { setSaving(false); }
+    } catch (e) { setError(e.message); } finally { setSaving(false); }
   }
-  return <Page title="구매한 재료 확인" subtitle="이 지출에서 산 재료를 모두 입력해 주세요. 저장하면 이 기기에서 한 번만 등록돼요.">
+  return <Page title="구매한 재료 확인" subtitle="구매한 품목 중 냉장고에 보관할 식재료만 입력해 주세요. 생활용품과 기타 품목은 소비 내역에만 남아요.">
     {!!error && <Text accessibilityRole="alert" style={styles.error}>{error}</Text>}
     {imported ? <Card><Text>이미 등록한 지출이에요. 재료를 추가하거나 고치려면 재고 목록을 이용하세요.</Text><Button title="재고 목록" onPress={() => router.replace('/fridge/inventory')} /></Card> : expense ? <>
-      <Card><Text style={styles.label}>{expense.title} · {won(expense.amount_krw)}</Text><Text>{expense.spent_on}</Text><Text style={styles.muted}>금액으로 수량을 추정하지 않아요. 실제 구매한 양과 표시된 소비기한을 확인해 주세요.</Text></Card>
+      <Card><Text style={styles.label}>{expense.title} · {won(expense.amount_krw)}</Text><Text>{expense.spent_on}</Text><Text style={styles.muted}>이 지출의 전체 금액은 이미 소비에 저장됐어요. 재고에는 여기에 입력하고 확인한 식재료만 등록돼요.</Text></Card>
       {rows.map((row, index) => <Card key={index}>
         <Text style={styles.label}>재료 {index + 1}</Text>
         <Field label="재료명" value={row.name} maxLength={100} editable={!saving} onChangeText={v => field(index, 'name', v)} />

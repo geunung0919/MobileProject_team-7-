@@ -122,3 +122,26 @@ def test_cancellation_preview_and_confirm_do_not_create_spending(client):
         })
         assert response.status_code == 422
     assert client.get(ROOT + '?period=2026-10', headers=A).json()['expenses'] == []
+
+
+def test_ocr_receipt_uses_payable_total_without_guessing_pos_as_merchant():
+    from datetime import date
+    from app.fintech import parse_import_candidate
+
+    result = parse_import_candidate(
+        '[구 매] 2017 - 06 - 02 21:13 POS: 1021-5338\n'
+        '상 품 명 단 가 수 량 금 액\n01 사과 1,680 1 1,680\n'
+        '합 계 74,000\n결 제 대 상 금 액 73,550',
+        'ocr', today=date(2026, 11, 9),
+    )
+    assert result['candidate']['spent_on'] == '2017-06-02'
+    assert result['candidate']['amount_krw'] == 73550
+    assert result['candidate']['title'] == '사용처 확인 필요'
+    assert result['needs_review']
+
+
+def test_ocr_receipt_conflicting_payable_totals_require_manual_review():
+    from app.fintech import parse_import_candidate
+
+    result = parse_import_candidate('결제금액 73,550\n승인금액 74,000\n합 계 73,550', 'ocr')
+    assert result['candidate']['amount_krw'] is None

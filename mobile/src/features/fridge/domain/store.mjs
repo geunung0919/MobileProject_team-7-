@@ -40,8 +40,13 @@ export function parseState(raw) {
   validateSyncMetadata(migrated.inventorySync);
   return migrated;
 }
+export function canRegisterIngredients(expense) {
+  return typeof expense?.id === 'string' &&
+    (expense.category === 'groceries' || expense.import_source === 'ocr');
+}
+
 export function importExpense(state, expense, items) {
-  if (!expense || typeof expense.id !== 'string' || expense.category !== 'groceries') throw new Error('식재료 지출을 다시 조회해 주세요.');
+  if (!canRegisterIngredients(expense)) throw new Error('식재료 지출을 다시 조회해 주세요.');
   if (state.importedExpenseIds.includes(expense.id)) throw new Error('이미 냉장고에 등록한 지출이에요. 재고 목록에서 수정해 주세요.');
   if (!Array.isArray(items) || !items.length || items.length > 30) throw new Error('재료를 1~30개 입력해 주세요.');
   items.forEach(validateItem);
@@ -49,6 +54,7 @@ export function importExpense(state, expense, items) {
     inventory: [...state.inventory, ...items.map((item, index) => ({
       id: `expense-${expense.id}-${index}`, name: item.name.trim(), quantity: item.quantity,
       unit: item.unit.trim(), expiresAt: item.expiresAt, sourceExpenseId: expense.id,
+      ...(item.dateType === 'unknown' ? { dateType: 'unknown' } : {}),
     }))],
     importedExpenseIds: [...state.importedExpenseIds, expense.id],
   };
