@@ -159,7 +159,7 @@ function SpendingImportContent({ api }) {
     const title = candidate.title.trim();
     if (!title || title === '사용처 확인 필요') throw new Error('사용처를 확인해서 입력해 주세요.');
     if (!/^\d{4}-\d{2}-\d{2}$/.test(candidate.spent_on)) throw new Error('날짜를 YYYY-MM-DD 형식으로 입력해 주세요.');
-    await api('me/spending/imports/confirm', 'POST', {
+    const saved = await api('me/spending/imports/confirm', 'POST', {
       raw_text: rawText.trim(),
       source,
       title,
@@ -174,7 +174,7 @@ function SpendingImportContent({ api }) {
         // 서버 저장 성공을 로컬 수집함 정리 실패 때문에 취소하지 않는다.
       }
     }
-    router.replace('/spending');
+    router.dismissTo({ pathname: '/spending', params: { period: saved.spent_on.slice(0, 7), savedExpense: saved.id } });
   });
 
   return <Page title="영수증 · 결제 자동입력">
