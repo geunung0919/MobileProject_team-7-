@@ -40,3 +40,16 @@ test('reads unnumbered e-receipt products and barcode continuation without impor
     '오이맛고추 (팩)', '반숙계란 20구(팩)', '그릴드닭가슴살 140g',
   ]);
 });
+
+test('reads raw cuts without treating prepared pork or discount rows as ingredients', () => {
+  const text = [
+    '01 ★국내산삼겹살구이용', '2429230099964 9.990 1 9,990',
+    '카드할인 -4,000', '결제대상금액 5,990',
+    '* 동물복지닭다리살1.2k 21,980 1 21,980',
+    'BBQ 훈제삼겹살 27,700 1 27,700',
+    '돈육고추장불고기2.5k 21,980 1 21,980',
+  ].join('\n');
+  assert.deepEqual(receiptIngredients(text).map(item => item.name), [
+    '★국내산삼겹살구이용', '동물복지닭다리살1.2k',
+  ]);
+});
