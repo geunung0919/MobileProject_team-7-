@@ -3,7 +3,7 @@ import { ScrollView, Text, TextInput, Pressable, Linking, StyleSheet } from 'rea
 import { useAuth } from '../store/AuthContext';
 import { request } from '../services/client';
 export default function LoginScreen() {
-  const { login, restoreError } = useAuth();
+  const { login, restoreError, canRetryRestore, retryRestore } = useAuth();
   const [base, setBase] = useState('');
   const [token, setToken] = useState('');
   const [busy, setBusy] = useState(false);
@@ -33,6 +33,7 @@ export default function LoginScreen() {
     <Text>서버 주소</Text><TextInput style={styles.input} value={base} onChangeText={setBase} autoCapitalize="none" placeholder="https://서버주소" />
     <Pressable disabled={busy} style={styles.button} onPress={() => run(google)}><Text style={styles.white}>Google 계정으로 로그인</Text></Pressable>
     <Text accessibilityLiveRegion="polite" style={styles.copy}>{message}</Text>
+    {canRetryRestore && <Pressable disabled={busy} style={styles.input} onPress={retryRestore}><Text>저장된 로그인으로 다시 시도</Text></Pressable>}
     {busy && <Text>로그인 확인 중… 브라우저를 닫고 앱으로 돌아와 주세요.</Text>}
     <TextInput style={styles.input} value={token} onChangeText={setToken} secureTextEntry placeholder="팀 개발 토큰 (선택)" autoCapitalize="none" />
     <Pressable disabled={busy} style={styles.button} onPress={() => run(() => login({base: base.trim(), token, userId: 'developer'}))}><Text style={styles.white}>개발 서버 연결</Text></Pressable>

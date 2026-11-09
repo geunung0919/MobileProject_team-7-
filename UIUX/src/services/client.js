@@ -7,7 +7,7 @@ export async function request(base, token, path, method = 'GET', body) {
       headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
       ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
     });
-    const data = await response.json();
+    const data = await response.json().catch(() => ({})); // 오류 페이지가 JSON 이 아니어도 status 를 남김
     if (!response.ok) {
       const error = new Error(data.error?.message || data.detail || '서버 요청 실패');
       error.status = response.status; throw error;

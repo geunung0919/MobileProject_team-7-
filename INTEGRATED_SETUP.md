@@ -34,7 +34,7 @@ ENABLE_DEMO_ENDPOINTS=false
 `.env`/비밀키는 Git과 Snack에 올리지 않습니다.
 
 로그인 동작: 서버가 5분 유효 state/nonce/일회용 polling secret 생성 → Google에서 code 수신 → Google tokeninfo로 ID 토큰 확인(audience/issuer/만료/nonce/email 확인) → 앱이 polling secret으로 세션 1회 수령 → 서버에는 세션 토큰 해시 저장. 세션 24시간 유효, 로그아웃 시 폐기.
-로그인 세션은 기기 AsyncStorage에 저장해 재실행 후에도 유지하고 시작 시 서버에서 다시 확인합니다. AsyncStorage는 암호화 저장소가 아니므로 운영 시 expo-secure-store 등 안전 저장소로 바꿉니다. 대규모 운영 전 요청 제한/배포 HTTPS/접근 로그 정책을 운영 환경에 맞춰 구성합니다.
+로그인 세션은 iOS·Android에서 expo-secure-store(기기 안전 저장소)에 저장해 재실행 후에도 유지하고 시작 시 서버에서 다시 확인합니다(AC-02). 웹 미리보기는 안전 저장소가 없어 브라우저 저장소를 쓰므로 시연용으로만 씁니다. 세션 자동 갱신은 없으며 24시간 만료 후 다시 로그인합니다. 대규모 운영 전 요청 제한/배포 HTTPS/접근 로그 정책을 운영 환경에 맞춰 구성합니다.
 
 ## OCR 서버 설정
 Tesseract와 한국어(`kor`)·영어(`eng`) 언어팩을 서버에 설치합니다.
