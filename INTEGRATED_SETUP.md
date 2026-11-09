@@ -59,3 +59,15 @@ sudo apt-get install tesseract-ocr tesseract-ocr-kor
 Git origin/main acb30d6, 기존 로컬 통합 fbfb209 기준 (2026-11-06 fetch).
 UIUX 디자인/화면을 그대로 기반으로 사용. 최신 main에 이미 포함된 영수증 사진 서버 분석을 연결.
 참고: https://docs.expo.dev/versions/v54.0.0/sdk/imagepicker/ , https://developers.google.com/identity/protocols/oauth2/web-server
+
+## 1번 모듈 회원 API (AC-04~11)
+| 메서드 | 경로 | 설명 |
+|---|---|---|
+| GET | `/api/v1/regions/search?q=청운동` | 읍·면·동 검색 (로그인 불필요) |
+| GET | `/api/v1/nicknames/availability?nickname=` | 닉네임 형식·중복 확인 |
+| GET/PUT | `/api/v1/me/member` | 닉네임·거주 지역(법정동 코드) 조회·저장. 중복 닉네임은 409 |
+| POST | `/api/v1/me/withdrawal/start` | 탈퇴용 Google 재인증 시작 (Google 계정만) |
+| POST | `/api/v1/me/withdrawal/confirm` | 재인증 확인 후 계정·데이터 삭제 (pending/failed/deleted) |
+
+새 테이블 `core_members`, `core_withdrawal_requests`는 서버 시작 시 자동 생성됩니다. 기존 테이블 구조는 바꾸지 않았습니다.
+Google 재인증이 실제로 `auth_time`을 돌려주는지는 실제 OAuth 키로 확인이 필요합니다.

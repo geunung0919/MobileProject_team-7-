@@ -40,25 +40,34 @@ class Poll(BaseModel):
     state: str = Field(min_length=32, max_length=64)
     secret: str = Field(min_length=32, max_length=128)
 
-def register_google_auth(app, sessions):
-    def config():
-        values = [os.getenv(k, '') for k in ('GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET', 'GOOGLE_REDIRECT_URI')]
-        if not all(values):
-            raise HTTPException(503, '서버의 Google OAuth 설정이 필요합니다. 사용설명서를 확인하세요.')
-        return values
+ATTEMPT_SECONDS = 300
 
+def config():
+    values = [os.getenv(k, '') for k in ('GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET', 'GOOGLE_REDIRECT_URI')]
+    if not all(values):
+        raise HTTPException(503, '서버의 Google OAuth 설정이 필요합니다. 사용설명서를 확인하세요.')
+    return values
+
+def begin_attempt(db, reauth=False):
+    """Google 인증 시도를 만든다. reauth=True 이면 max_age=0 으로 비밀번호 재입력을 요구한다(회원 탈퇴용)."""
+    client_id, _, redirect = config()
+    state, secret, nonce = (secrets.token_urlsafe(32) for _ in range(3))
+    db.execute(delete(LoginAttempt).where(LoginAttempt.expires < int(time.time())))
+    db.add(LoginAttempt(state=state, secret_hash=digest(secret), nonce=nonce,
+                        expires=int(time.time())+ATTEMPT_SECONDS, result={}))
+    params = dict(client_id=client_id, redirect_uri=redirect, response_type='code',
+                  scope='openid email profile', state=state, nonce=nonce, prompt='select_account')
+    if reauth:
+        params['max_age'] = '0'
+    return dict(state=state, secret=secret, authorization_url='https://accounts.google.com/o/oauth2/v2/auth?'+urlencode(params))
+
+def register_google_auth(app, sessions):
     @app.post('/api/v1/auth/google/start', tags=['Google 로그인'])
     def start():
-        client_id, _, redirect = config()
-        state, secret, nonce = (secrets.token_urlsafe(32) for _ in range(3))
         with sessions() as db:
-            db.execute(delete(LoginAttempt).where(LoginAttempt.expires < int(time.time())))
-            db.add(LoginAttempt(state=state, secret_hash=digest(secret), nonce=nonce,
-                                expires=int(time.time())+300, result={}))
+            result = begin_attempt(db)
             db.commit()
-        query = urlencode(dict(client_id=client_id, redirect_uri=redirect, response_type='code',
-                               scope='openid email profile', state=state, nonce=nonce, prompt='select_account'))
-        return dict(state=state, secret=secret, authorization_url='https://accounts.google.com/o/oauth2/v2/auth?'+query)
+        return result
 
     @app.get('/api/v1/auth/google/callback', response_class=HTMLResponse, tags=['Google 로그인'])
     async def callback(state: str, code: str = '', error: str = ''):
@@ -91,7 +100,8 @@ def register_google_auth(app, sessions):
                 or claims.get('email_verified') not in (True, 'true') or not claims.get('sub')):
                 raise ValueError('invalid identity')
             result = {'status': 'complete', 'user_id': 'google:' + claims['sub'],
-                      'email': claims.get('email', ''), 'name': claims.get('name', '')}
+                      'email': claims.get('email', ''), 'name': claims.get('name', ''),
+                      'auth_time': int(claims.get('auth_time') or 0)}  # 탈퇴 재인증 확인용
         except (httpx.HTTPError, ValueError, KeyError):
             result = {'status': 'failed'}
         with sessions() as db:

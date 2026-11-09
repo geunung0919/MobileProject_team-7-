@@ -21,6 +21,7 @@ from .ui_state import register_ui_state
 from .google_auth import register_google_auth, session_user
 from .receipt_ocr import register_receipt_ocr
 from .onboarding_form import OnboardingForm, get_onboarding_form
+from .account import register_account
 
 load_dotenv()
 SNAPSHOTS = {'spending': SpendingSnapshot, 'inventory': InventorySnapshot, 'life': LifeSnapshot}
@@ -188,6 +189,7 @@ def create_app(database_url=None, tokens=None, demo_enabled=None):
     register_ui_state(app, current_user, sessions)
     register_google_auth(app, sessions)
     register_receipt_ocr(app, current_user)
+    register_account(app, current_user, sessions)
     from pathlib import Path
     from fastapi.responses import FileResponse
     @app.get('/spending', include_in_schema=False)
