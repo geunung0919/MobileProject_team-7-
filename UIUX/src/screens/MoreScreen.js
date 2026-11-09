@@ -1,6 +1,6 @@
 import React from 'react';
 import { useAuth } from '../store/AuthContext';
-import { View, ScrollView, Pressable, Alert, StyleSheet } from 'react-native';
+import { View, ScrollView, Pressable, StyleSheet } from 'react-native';
 import Text from '../components/AppText';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -10,6 +10,7 @@ import MenuRow from '../components/MenuRow';
 import IconBox from '../components/IconBox';
 import { TAB_BAR_HEIGHT } from '../components/TabBar';
 import { moreData } from '../data/more/more';
+import { confirmAction } from '../utils/confirm';
 import { colors, fonts, radius, spacing } from '../theme';
 
 // 메뉴 id -> 이동할 화면 이름
@@ -26,12 +27,9 @@ export default function MoreScreen({ navigation }) {
     if (screen) navigation.navigate(screen);
   };
 
-  // TODO: 인증을 붙이면 확인 후 실제 로그아웃 처리를 연결하세요.
+  // 로그아웃 (AC-10). 웹에서도 확인 창이 뜨도록 confirmAction 을 씁니다.
   const handleLogout = () => {
-    Alert.alert('로그아웃할까요?', '', [
-      { text: '취소', style: 'cancel' },
-      { text: '로그아웃', style: 'destructive', onPress: logout },
-    ]);
+    confirmAction({ title: '로그아웃할까요?', confirmLabel: '로그아웃', destructive: true, onConfirm: logout });
   };
 
   return (

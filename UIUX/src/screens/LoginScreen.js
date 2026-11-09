@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ScrollView, Text, TextInput, Pressable, Linking, StyleSheet } from 'react-native';
+import { ScrollView, Text, TextInput, Pressable, Linking, Switch, View, StyleSheet } from 'react-native';
 import { useAuth } from '../store/AuthContext';
 import { request } from '../services/client';
+import { loadRecentAccount, saveRecentAccount, clearRecentAccount, maskEmail } from '../services/recentAccount';
 export default function LoginScreen() {
   const { login, restoreError, canRetryRestore, retryRestore } = useAuth();
   const [base, setBase] = useState('');
@@ -10,6 +11,14 @@ export default function LoginScreen() {
   const [message, setMessage] = useState(restoreError || '');
   const active = useRef(true);
   useEffect(() => () => { active.current = false; }, []);
+  // AC-04: 동의한 경우에만 마스킹한 최근 로그인 이메일을 보여 줌. 표시만으로는 로그인되지 않음.
+  const [recent, setRecent] = useState({ enabled: false, masked: '' });
+  useEffect(() => { loadRecentAccount().then((value) => { if (active.current) setRecent(value); }); }, []);
+  const toggleRecent = async (enabled) => {
+    const next = enabled ? { ...recent, enabled } : { enabled: false, masked: '' };
+    setRecent(next); await saveRecentAccount(next);
+  };
+  const forgetRecent = async () => { await clearRecentAccount(recent.enabled); setRecent({ ...recent, masked: '' }); };
   const run = async (fn) => { setBusy(true); setMessage(''); try { await fn(); } catch(e) { if(active.current) setMessage(e.message); } finally { if(active.current) setBusy(false); } };
   const google = async () => {
     if (!/^https:\/\//.test(base.trim())) throw new Error('Google 로그인은 공개 HTTPS 서버 주소를 입력해 주세요.');
@@ -23,6 +32,7 @@ export default function LoginScreen() {
       const result = await request(base.trim(), '', '/api/v1/auth/google/poll', 'POST', { state: data.state, secret: data.secret });
       if (result.status === 'failed') throw new Error('로그인이 취소되었어요. 다시 시도하세요.');
       if (result.status === 'complete') {
+        if (recent.enabled) await saveRecentAccount({ enabled: true, masked: maskEmail(result.email) });
         await login({ base: base.trim(), token: result.access_token, userId: result.user_id, email: result.email, name: result.name }); return;
       }
     }
@@ -31,7 +41,18 @@ export default function LoginScreen() {
   return <ScrollView contentContainerStyle={styles.page} keyboardShouldPersistTaps="handled">
     <Text style={styles.title}>자취메이트</Text><Text style={styles.copy}>나에게 맞는 자취 생활을 시작해요</Text>
     <Text>서버 주소</Text><TextInput style={styles.input} value={base} onChangeText={setBase} autoCapitalize="none" placeholder="https://서버주소" />
+    {recent.enabled && recent.masked ? (
+      <View style={{flexDirection:'row',justifyContent:'space-between',alignItems:'center'}}>
+        <Text>최근 로그인: {recent.masked}</Text>
+        <Pressable accessibilityRole="button" onPress={forgetRecent}><Text style={{textDecorationLine:'underline'}}>기록 지우기</Text></Pressable>
+      </View>
+    ) : null}
     <Pressable disabled={busy} style={styles.button} onPress={() => run(google)}><Text style={styles.white}>Google 계정으로 로그인</Text></Pressable>
+    <View style={{flexDirection:'row',justifyContent:'space-between',alignItems:'center'}}>
+      <Text style={{flex:1}}>이 기기에 최근 로그인 계정 표시 (이메일 일부만 저장)</Text>
+      <Switch value={recent.enabled} onValueChange={toggleRecent} accessibilityLabel="최근 로그인 계정 표시" />
+    </View>
+    <Text style={{color:'#5F6F68'}}>계정 선택과 인증은 항상 Google 로그인 화면에서 해요.</Text>
     <Text accessibilityLiveRegion="polite" style={styles.copy}>{message}</Text>
     {canRetryRestore && <Pressable disabled={busy} style={styles.input} onPress={retryRestore}><Text>저장된 로그인으로 다시 시도</Text></Pressable>}
     {busy && <Text>로그인 확인 중… 브라우저를 닫고 앱으로 돌아와 주세요.</Text>}

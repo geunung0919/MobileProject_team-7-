@@ -26,17 +26,19 @@ import { useAuth } from '../store/AuthContext';
 import LoginScreen from '../screens/LoginScreen';
 import OnboardingScreen from '../screens/OnboardingScreen';
 import ReceiptCaptureScreen from '../screens/ReceiptCaptureScreen';
+import WithdrawalScreen from '../screens/WithdrawalScreen';
 
 const Stack = createNativeStackNavigator();
 
 // 탭 바가 없는 화면(상세, 입력 등)은 여기에 등록합니다.
 export default function RootNavigator() {
-  const { session, onboarding, firstDiagnosis, restoring, logout } = useAuth();
+  const { session, member, onboarding, firstDiagnosis, restoring, logout } = useAuth();
   const { ready, saveError } = useAppData();
   if (restoring) return <View style={{padding:40,paddingTop:80}}><Text>저장된 로그인 확인 중…</Text></View>;
   if (!session) return <LoginScreen />;
   if (!ready) return <View style={{padding:40,paddingTop:80}}><Text>{saveError || '데이터 불러오는 중…'}</Text><Pressable onPress={logout}><Text>로그아웃</Text></Pressable></View>;
-  // 첫 실행: 온보딩 입력 → 저장 → 진단 결과 확인 → 홈
+  // 첫 가입: 프로필(닉네임·지역, AC-05) → 30초 자취 진단 → 진단 결과 → 홈
+  if (!member) return <ProfileScreen setup />;
   if (!onboarding || firstDiagnosis) return <OnboardingScreen />;
   return (
     <View style={{flex:1}}>
@@ -45,6 +47,7 @@ export default function RootNavigator() {
       <Stack.Screen name="Tabs" component={TabNavigator} />
       <Stack.Screen name="Onboarding" component={OnboardingScreen} />
       <Stack.Screen name="ReceiptCapture" component={ReceiptCaptureScreen} />
+      <Stack.Screen name="Withdrawal" component={WithdrawalScreen} />
       <Stack.Screen name="ManualEntry" component={ManualEntryScreen} />
       <Stack.Screen name="FridgeAdd" component={FridgeAddScreen} />
       <Stack.Screen name="RecipeList" component={RecipeListScreen} />
