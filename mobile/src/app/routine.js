@@ -5,8 +5,13 @@ import { Button, Card, Field, Page, styles, useTask } from '../components/UI';
 import { useSession } from '../state/Session';
 import { useRoutines } from '../features/routine/state/RoutineProvider';
 import { koreaDate } from '../features/routine/domain/notifications.mjs';
-import { WEEK_DAYS,addRoutine,makeRoutine,removeRoutine,repeatLabel,routinesForDate,toggleRoutineComplete,editRoutine,toggleRoutineReminder } from '../features/routine/domain/routines.mjs';
+import { WEEK_DAYS,addRoutine,makeRoutine,removeRoutine,recentRoutineHistory,repeatLabel,routinesForDate,toggleRoutineComplete,editRoutine,toggleRoutineReminder } from '../features/routine/domain/routines.mjs';
 const EVERY_DAY=[0,1,2,3,4,5,6],WEEKDAYS=[1,2,3,4,5],WEEKEND=[0,6];
+const TEMPLATES=[
+ {title:'설거지 5분',days:EVERY_DAY,energy:'low'},
+ {title:'분리수거하기',days:WEEKEND,energy:'normal'},
+ {title:'냉장고 소비기한 확인',days:[0],energy:'low'},
+];
 const newForm=()=>({title:'',reminderTime:'',energy:'normal',days:EVERY_DAY});
 export default function Routine(){
  const {api,routineKey}=useSession();
@@ -18,6 +23,12 @@ function RoutineContent(){
  const {routineState:state,notificationPreferences,notificationInfo,notificationBusy,notificationError,loadError,today,
   updateRoutine,enableRoutineReminders,refreshRoutineNotifications,retryRoutineLoad,routineNotificationsSupported}=useRoutines();
  const [form,setForm]=useState(newForm),[editing,setEditing]=useState(null),[batteryMode,setBatteryMode]=useState(false),[notice,setNotice]=useState('');
+ const [showDone,setShowDone]=useState(false),[historyDate,setHistoryDate]=useState(null);
+ const [deleteId,setDeleteId]=useState(null);
+ const applyTemplate=template=>{
+  setForm({...newForm(),...template,days:[...template.days]});
+  setNotice('추천 루틴을 채웠어요. 요일과 알림 시간을 확인하고 저장해 주세요.');
+ };
  const change=(key,value)=>setForm(current=>({...current,[key]:value}));
  const sameDays=values=>form.days.length===values.length&&values.every(day=>form.days.includes(day));
  const toggleDay=day=>change('days',form.days.includes(day)?form.days.filter(value=>value!==day):[...form.days,day]);
@@ -31,11 +42,15 @@ function RoutineContent(){
   }
   reset();setNotice('루틴을 기기에 저장했어요. 아래 알림 연결 상태도 확인해 주세요.');
  });
- const todayItems=state?routinesForDate(state,today,batteryMode):[];
- const completed=todayItems.filter(item=>item.completedDates.includes(today)).length;
+ const scheduledToday=state?routinesForDate(state,today):[];
+ const completed=scheduledToday.filter(item=>item.completedDates.includes(today)).length;
+ const visibleToday=scheduledToday.filter(item=>!batteryMode||item.energy==='low');
+ const todayItems=visibleToday.filter(item=>showDone||!item.completedDates.includes(today));
+ const history=state?recentRoutineHistory(state,today):[];
+ const selectedDay=history.find(day=>day.date===historyDate)??history[0];
  const statuses={scheduled:'예약 반영 완료',disabled:'서버 알림 설정 OFF',permission_denied:'휴대폰 알림 권한이 꺼져 있어요',waiting:'기록·서버 설정 확인 중',error:'기기 예약 반영 실패 · 재시도 필요',unsupported:'웹에서는 휴대폰 알림을 예약할 수 없어요'};
  return <Page title="생활 루틴">
-  <Card><Text style={styles.title}>오늘 {completed}/{todayItems.length}</Text><Text style={styles.text}>반복 일정과 완료 기록은 이 계정의 기기에 저장돼요.</Text>
+  <Card><Text style={styles.title}>오늘 {completed}/{scheduledToday.length} 완료</Text><Text style={styles.text}>반복 일정과 완료 기록은 이 계정의 기기에 저장돼요.</Text>
    <Button title={batteryMode?'✓ 방전모드 ON':'방전모드 OFF'} disabled={busy} onPress={()=>setBatteryMode(value=>!value)}/>
    <Text style={styles.small}>방전모드는 ‘5분 이하’ 루틴만 화면에 보여줘요. 다른 루틴의 알림을 임의로 끄지는 않아요.</Text>
   </Card>
@@ -54,7 +69,8 @@ function RoutineContent(){
   {!!loadError&&<Card><Text style={styles.error}>{loadError}</Text><Button title="루틴 다시 불러오기" disabled={busy} onPress={()=>run(retryRoutineLoad)}/></Card>}
   <Card><Text style={styles.title}>오늘 할 일</Text>
    {!state&&<Text style={styles.text}>루틴을 불러오는 중이에요.</Text>}
-   {state&&!todayItems.length&&<Text style={styles.text}>{batteryMode?'방전모드에서 할 수 있는 오늘 루틴이 없어요.':'오늘 예정된 루틴이 없어요.'}</Text>}
+   <Button title={showDone?'완료 항목 숨기기':'완료 항목도 보기'} disabled={busy||!state} onPress={()=>setShowDone(value=>!value)}/>
+   {state&&!todayItems.length&&<Text style={styles.text}>{!visibleToday.length?(batteryMode?'오늘 예정된 5분 이하 루틴이 없어요.':'오늘 예정된 루틴이 없어요.'):'지금 보이는 루틴을 모두 완료했어요.'}</Text>}
    {todayItems.map(item=>{const done=item.completedDates.includes(today);return <View key={item.id} style={{gap:8,borderBottomWidth:1,borderBottomColor:'#e1eae5',paddingVertical:10}}>
     <Text style={[styles.text,done&&{textDecorationLine:'line-through',opacity:.55}]}>{done?'✓ ':''}{item.title}</Text>
     <Text style={styles.small}>{repeatLabel(item.days)} · {item.energy==='low'?'5분 이하':'보통'}{item.reminderTime?` · ${item.reminderTime} (한국 시간)`:''}</Text>
@@ -64,7 +80,23 @@ function RoutineContent(){
     })}/>
    </View>;})}
   </Card>
+  {state&&<Card>
+   <Text style={styles.title}>최근 7일 완료 기록</Text>
+   <Text style={styles.text}>총 {history.reduce((count,day)=>count+day.completed.length,0)}건 완료</Text>
+   <View style={styles.row}>{history.map(day=><Button key={day.date}
+    title={(selectedDay?.date===day.date?'✓ ':'')+(day.date===today?'오늘':day.date.slice(5).replace('-','/'))+' · '+day.completed.length+'건'}
+    disabled={busy} onPress={()=>setHistoryDate(day.date)}/>)}</View>
+   {!!selectedDay&&<><Text style={styles.text}>{selectedDay.date} 완료 목록</Text>
+    {selectedDay.completed.length?selectedDay.completed.map(item=><Text key={item.id} style={styles.small}>✓ {item.title}</Text>):<Text style={styles.small}>완료 기록이 없어요.</Text>}
+   </>}
+   <Text style={styles.small}>한국 날짜 기준이에요. 현재 등록된 루틴의 완료 기록을 표시해요.</Text>
+  </Card>}
   <Card><Text style={styles.title}>{editing?'반복 루틴 수정':'반복 루틴 추가'}</Text>
+   {!editing&&<><Text style={styles.small}>추천 루틴을 고르면 입력란을 채워요. 알림이 필요하면 시간을 넣어 주세요.</Text>
+    <View style={styles.row}>{TEMPLATES.map(template=><Button key={template.title} title={template.title}
+     disabled={busy||!state||!!form.title.trim()||!!form.reminderTime.trim()} onPress={()=>applyTemplate(template)}/>)}</View>
+    {(form.title.trim()||form.reminderTime.trim())&&<Button title="입력 초기화" disabled={busy} onPress={()=>{reset();setNotice('');}}/>}
+   </>}
    <Field label="루틴 이름" value={form.title} maxLength={60} editable={!busy} placeholder="예: 설거지 5분" onChangeText={value=>change('title',value)}/>
    <Field label="알림 시간 (선택, 한국 시간 HH:MM)" value={form.reminderTime} maxLength={5} editable={!busy} keyboardType="numbers-and-punctuation" placeholder="21:30" onChangeText={value=>change('reminderTime',value)}/>
    <Text style={styles.text}>반복 요일</Text><View style={styles.row}>{[['매일',EVERY_DAY],['평일',WEEKDAYS],['주말',WEEKEND]].map(([name,days])=><Button key={name} title={(sameDays(days)?'✓ ':'')+name} disabled={busy} onPress={()=>change('days',days)}/>)}</View>
@@ -79,7 +111,13 @@ function RoutineContent(){
     <Text style={styles.text}>{item.title}</Text><Text style={styles.small}>{repeatLabel(item.days)} · {item.energy==='low'?'5분 이하':'보통'}{item.reminderTime?` · ${item.reminderTime} · 항목 알림 ${item.remindersEnabled===false?'OFF':'ON'}`:' · 알림 시간 없음'}</Text>
     <Button title="이름 / 요일 / 시간 수정" disabled={busy} onPress={()=>{setEditing(item.id);setForm({title:item.title,days:[...item.days],energy:item.energy,reminderTime:item.reminderTime||''});setNotice('위 수정란에서 변경해 주세요.');}}/>
     {!!item.reminderTime&&<Button title={item.remindersEnabled===false?'이 항목 알림 켜기':'이 항목 알림 끄기'} disabled={busy} onPress={()=>run(()=>updateRoutine(current=>toggleRoutineReminder(current,item.id)))}/>}
-    <Button title="삭제" disabled={busy} onPress={()=>run(async()=>{await updateRoutine(current=>removeRoutine(current,item.id));if(editing===item.id)reset();setNotice('루틴을 삭제했어요. 기기 알림 정리 결과는 위 알림 상태를 확인해 주세요.');})}/>
+    {deleteId===item.id?<><Text style={styles.error}>삭제하면 이 루틴의 완료 기록도 사라져요.</Text>
+     <View style={styles.row}><Button title="삭제 확인" disabled={busy} onPress={()=>run(async()=>{
+      await updateRoutine(current=>removeRoutine(current,item.id));
+      setDeleteId(null);if(editing===item.id)reset();
+      setNotice('루틴을 삭제했어요. 기기 알림 정리 결과는 위 알림 상태를 확인해 주세요.');
+     })}/><Button title="삭제 취소" disabled={busy} onPress={()=>setDeleteId(null)}/></View>
+    </>:<Button title="삭제" disabled={busy} onPress={()=>setDeleteId(item.id)}/>}
    </View>)}
   </Card>
  </Page>;
