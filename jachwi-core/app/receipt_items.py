@@ -46,7 +46,7 @@ _PAYMENT_DETAIL_HINTS = re.compile(
 )
 _FOOD_SERVICE_HINTS = re.compile(
     r"(?:배달\s*주문표|주문번호|주방용|메뉴\s+수량\s+금액|"
-    r"커피빈|HOLLYS|할리스|카페|COFFEE|피자|치킨|버거|레스토랑|식당)",
+    r"커피빈|HOLLYS|할리스|카페|COFFEE|레스토랑|식당)",
     re.I,
 )
 
@@ -100,7 +100,7 @@ _PROCESSED_FOOD_WORDS = (
     "주스", "음료", "탄산", "과자", "스낵", "칩", "캔디", "초콜릿", "아이스크림", "라면",
     "컵라면", "빵", "케이크", "도시락", "김밥", "샌드위치", "햄버거", "커피", "딸기우유",
     "초코우유", "바나나우유", "요구르트", "장아찌", "말랭이", "너겟", "짬뽕", "바게트",
-    "아메리카노", "라떼", "토르트", "피자", "콜라",
+    "아메리카노", "라떼", "토르트", "피자", "콜라", "쥬스", "즙",
 )
 
 # Order matters: specific aliases should be checked before broad words.
