@@ -528,6 +528,19 @@ def apply_learned_receipt_items(result, row):
     result['learned_item_count'] = learned_count
     if learned_count and result.get('candidate', {}).get('category') == 'other':
         result['candidate']['category'] = 'groceries'
+
+    unresolved_barcode = any(
+        item.get('product_code') and item.get('raw_name') == '상품명 확인 필요'
+        and item.get('match_method') != 'learned'
+        for item in updated
+    )
+    if learned_count and not unresolved_barcode:
+        result['warnings'] = [
+            warning for warning in result.get('warnings', [])
+            if '바코드만 인식된 품목' not in warning
+            and '상품명이 보이지 않고 바코드만 인식된 품목' not in warning
+        ]
+        result['needs_review'] = bool(result['warnings']) or result.get('confidence', 0) < 0.8
     return result
 
 
