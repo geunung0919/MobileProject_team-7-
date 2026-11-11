@@ -73,7 +73,11 @@ def classify_receipt_document(raw_text: str) -> dict:
         }
 
     food_hits = sum(bool(_FOOD_SERVICE_HINTS.search(line)) for line in compact_lines)
-    if food_hits >= 2 or re.search(r"배달\s*주문표|주방용", text, re.I):
+    if food_hits >= 2 or re.search(
+        r"배달\s*주문표|주방용|커피빈|HOLLYS|할리스",
+        text,
+        re.I,
+    ):
         return {
             "document_type": "food_service",
             "allow_inventory": False,
@@ -95,6 +99,7 @@ _PROCESSED_FOOD_WORDS = (
     "주스", "음료", "탄산", "과자", "스낵", "칩", "캔디", "초콜릿", "아이스크림", "라면",
     "컵라면", "빵", "케이크", "도시락", "김밥", "샌드위치", "햄버거", "커피", "딸기우유",
     "초코우유", "바나나우유", "요구르트", "장아찌", "말랭이", "너겟", "짬뽕", "바게트",
+    "아메리카노", "라떼", "토르트", "피자", "콜라",
 )
 
 # Order matters: specific aliases should be checked before broad words.
