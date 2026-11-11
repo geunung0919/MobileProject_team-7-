@@ -27,6 +27,15 @@ def test_structured_receipt_rows_extract_mixed_items():
     ]
 
 
+def test_split_name_and_price_lines_are_rejoined_conservatively():
+    items = extract_receipt_items(
+        "서울우유 나100% 1L\n3,200 1 3,200\n합계\n3,200"
+    )
+    assert len(items) == 1
+    assert items[0]["normalized_name"] == "우유"
+    assert items[0]["item_amount_krw"] == 3200
+
+
 def test_processed_food_does_not_false_positive_on_ingredient_word():
     for name in ["사과주스 1L", "감자칩 80g", "딸기우유 200ml", "사과 세제 500ml"]:
         result = classify_product(name)
