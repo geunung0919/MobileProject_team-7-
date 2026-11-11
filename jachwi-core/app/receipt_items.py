@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import re
 import unicodedata
+from difflib import SequenceMatcher
 
 
 _AMOUNT_AT_END = re.compile(r"(?<![-\d,])(?P<amount>\d{1,3}(?:,\d{3})+|\d{3,9})\s*원?\s*$")
@@ -117,6 +118,12 @@ _INGREDIENT_ALIASES = (
     ("당근", ("당근",)),
     ("오이", ("오이",)),
     ("가지", ("가지",)),
+    ("파프리카", ("파프리카",)),
+    ("고추", ("청양고추", "풋고추", "홍고추", "고추")),
+    ("부추", ("부추",)),
+    ("미나리", ("미나리",)),
+    ("양상추", ("양상추",)),
+    ("샐러리", ("셀러리", "샐러리")),
     ("양배추", ("양배추",)),
     ("배추", ("배추",)),
     ("콩나물", ("콩나물",)),
@@ -133,13 +140,36 @@ _INGREDIENT_ALIASES = (
     ("연어", ("자숙연어", "생연어", "연어")),
     ("오리고기", ("자란오리", "생오리", "오리로스", "훈제오리")),
     ("케이퍼", ("케이퍼",)),
-    ("치즈", ("리코타치즈", "모짜렐라치즈", "체다치즈")),
+    ("치즈", ("리코타치즈", "모짜렐라치즈", "체다치즈", "슬라이스치즈")),
+    ("버터", ("무염버터", "가염버터", "버터")),
+    ("생크림", ("휘핑크림", "생크림")),
+    ("마요네즈", ("마요네즈",)),
+    ("케첩", ("토마토케첩", "케찹", "케첩")),
+    ("참치", ("후레시참치", "참치캔", "참치")),
+    ("햄", ("스팸", "런천미트", "슬라이스햄", "햄")),
+    ("소시지", ("비엔나소시지", "후랑크소시지", "소세지", "소시지")),
+    ("베이컨", ("베이컨",)),
+    ("오징어", ("오징어",)),
+    ("고등어", ("고등어",)),
+    ("갈치", ("갈치",)),
+    ("조개", ("바지락", "모시조개", "조개")),
+    ("홍합", ("홍합",)),
+    ("낙지", ("낙지",)),
     ("사과", ("사과",)),
     ("바나나", ("바나나",)),
     ("딸기", ("산딸기", "딸기")),
     ("귤", ("감귤", "귤")),
     ("포도", ("포도",)),
+    ("배", ("배",)),
+    ("복숭아", ("복숭아",)),
+    ("수박", ("수박",)),
+    ("참외", ("참외",)),
+    ("키위", ("골드키위", "그린키위", "키위")),
+    ("레몬", ("레몬",)),
     ("쌀", ("현미", "백미", "쌀")),
+    ("밀가루", ("중력분", "강력분", "박력분", "밀가루")),
+    ("전분", ("감자전분", "옥수수전분", "전분")),
+    ("빵가루", ("빵가루",)),
     ("김치", ("배추김치", "깍두기", "김치")),
     ("간장", ("진간장", "양조간장", "국간장", "간장")),
     ("고추장", ("고추장",)),
@@ -179,6 +209,40 @@ def normalize_product_name(raw_name: str) -> str:
     return name[:120]
 
 
+def _best_fuzzy_ingredient(compact_name: str):
+    """Return (standard_name, alias, score) for OCR-damaged ingredient words."""
+    candidate = re.sub(r'\d+', '', compact_name)
+    if len(candidate) < 3:
+        return None
+
+    best = None
+    for standard_name, aliases in _INGREDIENT_ALIASES:
+        for alias in aliases:
+            key = re.sub(r'\d+', '', _compact(alias))
+            # Two-syllable Korean words are too short for safe fuzzy auto classification.
+            if len(key) < 3:
+                continue
+
+            min_window = max(2, len(key) - 1)
+            max_window = min(len(candidate), len(key) + 1)
+            if min_window > max_window:
+                continue
+
+            score = 0.0
+            for size in range(min_window, max_window + 1):
+                for start in range(0, len(candidate) - size + 1):
+                    window = candidate[start:start + size]
+                    score = max(score, SequenceMatcher(None, key, window).ratio())
+
+            threshold = 0.84 if len(key) == 3 else 0.80 if len(key) == 4 else 0.78
+            if score < threshold:
+                continue
+            if best is None or score > best[2]:
+                best = (standard_name, alias, score)
+
+    return best
+
+
 def classify_product(raw_name: str) -> dict:
     compact = _compact(raw_name)
     if not compact:
@@ -187,6 +251,7 @@ def classify_product(raw_name: str) -> dict:
             "item_type": "unknown",
             "is_ingredient": False,
             "ingredient_confidence": 0.0,
+            "match_method": "none",
         }
 
     if compact == "무":
@@ -195,6 +260,7 @@ def classify_product(raw_name: str) -> dict:
             "item_type": "ingredient",
             "is_ingredient": True,
             "ingredient_confidence": 0.98,
+            "match_method": "exact",
         }
 
     if any(_compact(word) in compact for word in _LIVING_WORDS):
@@ -203,15 +269,18 @@ def classify_product(raw_name: str) -> dict:
             "item_type": "living",
             "is_ingredient": False,
             "ingredient_confidence": 0.98,
+            "match_method": "rule",
         }
 
-    # Avoid false positives such as 사과주스, 감자칩, 딸기우유.
+    # Apply explicit prepared-food rules before ingredient matching so names such as
+    # 감자칩, 딸기우유 or 오리주물럭 do not leak into raw-ingredient inventory.
     if any(_compact(word) in compact for word in _PROCESSED_FOOD_WORDS):
         return {
             "normalized_name": normalize_product_name(raw_name),
             "item_type": "food",
             "is_ingredient": False,
             "ingredient_confidence": 0.95,
+            "match_method": "rule",
         }
 
     for standard_name, aliases in _INGREDIENT_ALIASES:
@@ -222,14 +291,29 @@ def classify_product(raw_name: str) -> dict:
                     "normalized_name": standard_name,
                     "item_type": "ingredient",
                     "is_ingredient": True,
-                    "ingredient_confidence": 0.96 if compact == key else 0.9,
+                    "ingredient_confidence": 0.98 if compact == key else 0.93,
+                    "match_method": "exact",
                 }
+
+    fuzzy = _best_fuzzy_ingredient(compact)
+    if fuzzy:
+        standard_name, alias, score = fuzzy
+        return {
+            "normalized_name": standard_name,
+            "item_type": "ingredient",
+            "is_ingredient": True,
+            # Fuzzy OCR recovery is useful, but should remain reviewable.
+            "ingredient_confidence": round(min(0.88, score), 2),
+            "match_method": "fuzzy",
+            "matched_alias": alias,
+        }
 
     return {
         "normalized_name": normalize_product_name(raw_name),
         "item_type": "unknown",
         "is_ingredient": False,
         "ingredient_confidence": 0.35,
+        "match_method": "unknown",
     }
 
 
@@ -293,7 +377,11 @@ def parse_receipt_item_line(raw_line: str) -> dict | None:
         "unit_price_krw": unit_price,
         "row_consistent": row_consistent,
         "product_code": product_code,
-        "suggested_for_inventory": bool(classification["is_ingredient"] and row_consistent),
+        "suggested_for_inventory": bool(
+            classification["is_ingredient"]
+            and row_consistent
+            and classification["ingredient_confidence"] >= 0.82
+        ),
     }
 
 
