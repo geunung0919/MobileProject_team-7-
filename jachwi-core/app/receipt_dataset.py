@@ -87,3 +87,28 @@ def receipt_dataset_summary() -> dict:
         "product_name_map": len(data["product_name_map"]),
         "source_path": data["metadata"].get("path"),
     }
+
+
+def _compact_key(value: str) -> str:
+    import re
+    import unicodedata
+
+    value = unicodedata.normalize("NFKC", value or "").casefold()
+    return re.sub(r"[^0-9a-z가-힣]+", "", value)
+
+
+def lookup_dataset_product_name(raw_name: str) -> dict | None:
+    data = load_receipt_dataset()
+    key = _compact_key(raw_name)
+    if not key:
+        return None
+    direct = data["product_name_map"].get(key)
+    return dict(direct) if isinstance(direct, dict) else None
+
+
+def lookup_dataset_barcode(product_code: str | None) -> dict | None:
+    if not product_code:
+        return None
+    data = load_receipt_dataset()
+    direct = data["barcode_products"].get(str(product_code).strip())
+    return dict(direct) if isinstance(direct, dict) else None
