@@ -267,6 +267,75 @@ def test_server_strips_inventory_flags_from_food_service_confirm(client):
     assert saved["suggested_for_inventory"] is False
     assert saved["item_type"] == "unknown"
 
+
+def test_fuzzy_ingredient_match_recovers_small_ocr_typo_without_overtrust():
+    result = classify_product("방울토마도 500g")
+    assert result["normalized_name"] == "토마토"
+    assert result["item_type"] == "ingredient"
+    assert result["is_ingredient"] is True
+    assert result["match_method"] == "fuzzy"
+    assert 0.78 <= result["ingredient_confidence"] <= 0.88
+
+
+def test_processed_food_rule_still_wins_before_fuzzy_ingredient_match():
+    assert classify_product("사과주스 1L")["is_ingredient"] is False
+    assert classify_product("감자칩 80g")["is_ingredient"] is False
+    assert classify_product("서울우유맛 캔디")["is_ingredient"] is False
+
+
+def test_user_confirmed_barcode_is_learned_on_next_receipt(client):
+    first_raw = (
+        "학습마트\n2026-11-10\n"
+        "서울우유 나100% 1L 3,200 1 3,200\n"
+        "합계 3,200원"
+    )
+    confirmed = client.post(
+        "/api/v1/me/spending/imports/confirm",
+        headers=A,
+        json={
+            "raw_text": first_raw,
+            "source": "ocr",
+            "title": "학습마트",
+            "amount_krw": 3200,
+            "spent_on": "2026-11-10",
+            "category": "groceries",
+            "receipt_items": [{
+                "raw_name": "서울우유 나100% 1L",
+                "normalized_name": "우유",
+                "quantity": 1,
+                "unit": "개",
+                "item_amount_krw": 3200,
+                "product_code": "8801234567890",
+                "item_type": "ingredient",
+                "is_ingredient": True,
+                "ingredient_confidence": 1,
+                "suggested_for_inventory": True,
+            }],
+        },
+    )
+    assert confirmed.status_code == 201
+
+    preview = client.post(
+        "/api/v1/me/spending/imports/preview",
+        headers=A,
+        json={
+            "raw_text": (
+                "학습마트\n2026-11-11\n"
+                "8801234567890 3,200 1 3,200\n"
+                "합계 3,200원"
+            ),
+            "source": "ocr",
+        },
+    )
+    assert preview.status_code == 200
+    body = preview.json()
+    assert body["learned_item_count"] == 1
+    item = body["receipt_items"][0]
+    assert item["normalized_name"] == "우유"
+    assert item["is_ingredient"] is True
+    assert item["suggested_for_inventory"] is True
+    assert item["match_method"] == "learned"
+
 def test_processed_food_does_not_false_positive_on_ingredient_word():
     for name in ["사과주스 1L", "감자칩 80g", "딸기우유 200ml", "사과 세제 500ml"]:
         result = classify_product(name)
