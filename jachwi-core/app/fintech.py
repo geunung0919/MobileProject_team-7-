@@ -106,7 +106,7 @@ _CATEGORY_RULES = [
 
 
 _OCR_NUMERIC_TOKEN_RE = re.compile(
-    r'(?<![0-9A-Za-z가-힣])([0-9OIl][0-9OIl,.]{1,18})(?![0-9A-Za-z가-힣])'
+    r'(?<![0-9A-Za-z가-힣])([0-9OIl][0-9OIl,.]{1,18})(?=$|[\s원]|[^0-9A-Za-z가-힣])'
 )
 
 
