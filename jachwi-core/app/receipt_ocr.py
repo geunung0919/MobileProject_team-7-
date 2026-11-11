@@ -119,6 +119,7 @@ def recognize(image):
     best_text = ''
     best_score = -1
     engine_started = False
+    engine_success = False
     try:
         # PSM 6 works for a uniform text block while PSM 4 is often better for
         # receipt columns. Keep the better structured result instead of trusting one layout.
@@ -134,6 +135,7 @@ def recognize(image):
                 engine_started = True
                 if result.returncode:
                     continue
+                engine_success = True
                 text = result.stdout.decode('utf-8', errors='replace').strip()
                 score = _receipt_text_score(text)
                 if score > best_score:
@@ -144,6 +146,8 @@ def recognize(image):
         raise HTTPException(504, '사진 인식 시간이 초과됐어요. 영수증 부분만 잘라 다시 시도해 주세요.') from None
     if not engine_started:
         raise HTTPException(503, '서버 OCR 엔진을 시작하지 못했어요. 직접 입력도 가능해요.')
+    if not engine_success:
+        raise HTTPException(503, '서버 OCR 엔진과 한국어 언어팩 설정을 확인해 주세요. 직접 입력도 가능해요.')
     if len(best_text) < 3:
         raise HTTPException(422, '글자를 충분히 읽지 못했어요. 밝고 선명한 사진으로 다시 시도해 주세요.')
     return best_text
