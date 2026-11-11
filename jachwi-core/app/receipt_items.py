@@ -10,7 +10,7 @@ import re
 import unicodedata
 
 
-_AMOUNT_AT_END = re.compile(r"(?P<amount>\d{1,3}(?:,\d{3})+|\d{3,9})\s*원?\s*$")
+_AMOUNT_AT_END = re.compile(r"(?<![-\d])(?P<amount>\d{1,3}(?:,\d{3})+|\d{3,9})\s*원?\s*$")
 _PRICE_QTY_AT_END = re.compile(
     r"(?P<unit_price>\d{1,3}(?:,\d{3})+|\d{2,9})\s+(?P<quantity>\d{1,3})\s*$"
 )
@@ -20,13 +20,14 @@ _QTY_X_PRICE_AT_END = re.compile(
 _LEADING_ROW_NUMBER = re.compile(r"^\s*\d{1,3}\s*[*.)-]?\s+")
 _LEADING_TAX_MARK = re.compile(r"^[*#]\s*")
 _LEADING_STORE_MARK = re.compile(r"^(?:P|p)\s+")
+_LEADING_DECORATION = re.compile(r"^[▲△◆◇●○▶▷■□]+\s*")
 _BARCODE_OR_CODE = re.compile(r"(?<![0-9A-Za-z])\*?\d{5,14}(?![0-9A-Za-z])")
 _BRACKETED_PRICE = re.compile(r"[\[(]\s*\d{1,3}(?:,\d{3})+\s*[\])]")
 
 _SKIP_LINE = re.compile(
     r"(?:총\s*합계|합\s*계|총\s*액|결제대상금액|결제금액|승인금액|받을금액|"
     r"과세물품|면세물품|부가세|공급가액|할인|쿠폰|포인트|적립|현금|카드|거스름|잔액|"
-    r"승인번호|카드번호|사업자|전화|주소|영수증|매출전표|거래번호|주문번호|일시불)",
+    r"승인번호|카드번호|사업자|전화|주소|영수증|매출전표|거래번호|주문번호|일시불|구매시)",
     re.I,
 )
 _HEADER_LINE = re.compile(r"(?:상품명|품목명|단가\s*수량|수량\s*금액|단가|수량|금액)", re.I)
@@ -39,7 +40,7 @@ _LIVING_WORDS = (
 _PROCESSED_FOOD_WORDS = (
     "주스", "음료", "탄산", "과자", "스낵", "칩", "캔디", "초콜릿", "아이스크림", "라면",
     "컵라면", "빵", "케이크", "도시락", "김밥", "샌드위치", "햄버거", "커피", "딸기우유",
-    "초코우유", "바나나우유", "요구르트", "장아찌", "너겟", "짬뽕", "바게트",
+    "초코우유", "바나나우유", "요구르트", "장아찌", "말랭이", "너겟", "짬뽕", "바게트",
 )
 
 # Order matters: specific aliases should be checked before broad words.
@@ -207,6 +208,7 @@ def parse_receipt_item_line(raw_line: str) -> dict | None:
     name = _LEADING_ROW_NUMBER.sub("", prefix)
     name = _LEADING_TAX_MARK.sub("", name)
     name = _LEADING_STORE_MARK.sub("", name)
+    name = _LEADING_DECORATION.sub("", name)
     # Some Korean marts print a list/original price on the product-name line,
     # then barcode + actual unit price/quantity/amount on the following line.
     # Those numeric identifiers are not part of the product name.
