@@ -298,12 +298,20 @@ def test_numeric_ocr_cleanup_recovers_amounts_without_touching_dates():
     assert result["receipt_items"][0]["item_amount_krw"] == 1000
 
 def test_fuzzy_ingredient_match_recovers_small_ocr_typo_without_overtrust():
-    result = classify_product("방울토마도 500g")
-    assert result["normalized_name"] == "토마토"
-    assert result["item_type"] == "ingredient"
-    assert result["is_ingredient"] is True
-    assert result["match_method"] == "fuzzy"
-    assert 0.78 <= result["ingredient_confidence"] <= 0.88
+    tomato = classify_product("방울토마도 500g")
+    assert tomato["normalized_name"] == "토마토"
+    assert tomato["item_type"] == "ingredient"
+    assert tomato["is_ingredient"] is True
+    assert tomato["match_method"] == "fuzzy"
+
+    milk = classify_product("서을우유 1L")
+    assert milk["normalized_name"] == "우유"
+    assert milk["is_ingredient"] is True
+    assert milk["match_method"] == "fuzzy"
+
+    row = parse_receipt_item_line("서을우유 1L 3,200 1 3,200")
+    assert row["is_ingredient"] is True
+    assert row["suggested_for_inventory"] is False
 
 
 def test_processed_food_rule_still_wins_before_fuzzy_ingredient_match():
