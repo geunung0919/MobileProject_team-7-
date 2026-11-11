@@ -1,0 +1,5 @@
+# Optional Korean receipt OCR engine.
+# Install the matching PaddlePaddle inference engine first, then this file.
+# Official CPU example:
+#   python -m pip install paddlepaddle==3.2.0 -i https://www.paddlepaddle.org.cn/packages/stable/cpu/
+paddleocr>=3.5,<4
