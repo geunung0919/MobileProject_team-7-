@@ -432,6 +432,80 @@ def snapshot_for(row, period):
     )
 
 
+def _product_learning_key(value):
+    return re.sub(r'[^0-9a-z가-힣]+', '', (value or '').casefold())
+
+
+def _learned_receipt_products(row):
+    """Build positive user-confirmed product mappings from prior OCR imports."""
+    by_code = {}
+    by_name = {}
+    if row is None:
+        return by_code, by_name
+
+    for expense in reversed(row.payload.get('expenses', [])):
+        for item in reversed(expense.get('receipt_items', [])):
+            if not item.get('is_ingredient'):
+                continue
+            normalized = (item.get('normalized_name') or '').strip()
+            raw_name = (item.get('raw_name') or '').strip()
+            if not normalized or normalized == '상품명 확인 필요':
+                continue
+            learned = {
+                'normalized_name': normalized,
+                'item_type': 'ingredient',
+                'is_ingredient': True,
+                'ingredient_confidence': 0.99,
+                'match_method': 'learned',
+            }
+            code = str(item.get('product_code') or '').strip()
+            if code and code not in by_code:
+                by_code[code] = learned
+            name_key = _product_learning_key(raw_name)
+            if name_key and name_key not in by_name:
+                by_name[name_key] = learned
+    return by_code, by_name
+
+
+def apply_learned_receipt_items(result, row):
+    """Apply previous user confirmations without weakening document safety rules."""
+    items = result.get('receipt_items') or []
+    if not items:
+        result['learned_item_count'] = 0
+        return result
+
+    by_code, by_name = _learned_receipt_products(row)
+    allow_inventory = bool(result.get('receipt_document', {}).get('allow_inventory', True))
+    learned_count = 0
+    updated = []
+
+    for item in items:
+        code = str(item.get('product_code') or '').strip()
+        learned = by_code.get(code) if code else None
+        if learned is None:
+            learned = by_name.get(_product_learning_key(item.get('raw_name')))
+
+        if learned is None:
+            updated.append(item)
+            continue
+
+        learned_count += 1
+        merged = {
+            **item,
+            **learned,
+            'suggested_for_inventory': bool(
+                allow_inventory and item.get('row_consistent', True)
+            ),
+        }
+        updated.append(merged)
+
+    result['receipt_items'] = updated
+    result['learned_item_count'] = learned_count
+    if learned_count and result.get('candidate', {}).get('category') == 'other':
+        result['candidate']['category'] = 'groceries'
+    return result
+
+
 def register_fintech(app, current_user, db):
     router = APIRouter(prefix='/api/v1/me/spending', tags=['2번 소비 관리'])
 
@@ -547,8 +621,12 @@ def register_fintech(app, current_user, db):
     def import_preview(
         body: ImportPreviewInput,
         user=Depends(current_user),
+        session=Depends(db),
     ):
-        return parse_import_candidate(body.raw_text, body.source)
+        result = parse_import_candidate(body.raw_text, body.source)
+        if body.source == 'ocr':
+            result = apply_learned_receipt_items(result, ledger(session, user))
+        return result
 
     @router.post('/imports/confirm', status_code=201)
     def import_confirm(
