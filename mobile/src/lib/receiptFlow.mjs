@@ -47,9 +47,10 @@ export function scoreReceiptResult(result) {
   return score;
 }
 
-async function analyzeDeviceReceipt(asset, { api, recognize, signal, useAiFallback = true }) {
+async function analyzeDeviceReceipt(asset, { api, recognize, signal, useAiFallback = true, onRecognized }) {
   const text = await recognize(asset.uri);
   if (signal?.aborted) throw new Error('분석을 취소했어요.');
+  if (onRecognized) onRecognized(text);
   const result = await api(
     'me/spending/imports/preview',
     'POST',
@@ -135,8 +136,12 @@ export async function analyzeReceiptPhoto(asset, { mode, api, recognize, onText,
   }
 
   onPhase('기기에서 글자 인식 중');
-  const result = await analyzeDeviceReceipt(asset, { api, recognize, signal });
+  const result = await analyzeDeviceReceipt(asset, {
+    api,
+    recognize,
+    signal,
+    onRecognized: onText,
+  });
   check();
-  onText(result.raw_text);
   return result;
 }
