@@ -23,6 +23,12 @@ _LEADING_STORE_MARK = re.compile(r"^(?:P|p)\s+")
 _LEADING_DECORATION = re.compile(r"^[▲△◆◇●○▶▷■□]+\s*")
 _BARCODE_OR_CODE = re.compile(r"(?<![0-9A-Za-z])\*?\d{5,14}(?![0-9A-Za-z])")
 _BRACKETED_PRICE = re.compile(r"[\[(]\s*\d{1,3}(?:,\d{3})+\s*[\])]")
+_BARCODE_PURCHASE_ROW = re.compile(
+    r"^\s*\*?(?P<code>\d{8,14})\s+"
+    r"(?P<unit_price>\d{1,3}(?:,\d{3})+|\d{2,9})\s+"
+    r"(?P<quantity>\d{1,3})\s+"
+    r"(?P<amount>\d{1,3}(?:,\d{3})+|\d{2,9})\s*원?\s*$"
+)
 
 _SKIP_LINE = re.compile(
     r"(?:총\s*합계|합\s*계|총\s*액|결제대상금액|결제금액|승인금액|받을금액|"
@@ -205,6 +211,9 @@ def parse_receipt_item_line(raw_line: str) -> dict | None:
             prefix = prefix[:detail_match.start()].strip()
             row_consistent = bool(unit_price and unit_price * quantity == amount)
 
+    product_code_match = _BARCODE_OR_CODE.search(prefix)
+    product_code = product_code_match.group(0).lstrip("*") if product_code_match else None
+
     name = _LEADING_ROW_NUMBER.sub("", prefix)
     name = _LEADING_TAX_MARK.sub("", name)
     name = _LEADING_STORE_MARK.sub("", name)
@@ -229,7 +238,37 @@ def parse_receipt_item_line(raw_line: str) -> dict | None:
         "item_amount_krw": amount,
         "unit_price_krw": unit_price,
         "row_consistent": row_consistent,
+        "product_code": product_code,
         "suggested_for_inventory": bool(classification["is_ingredient"] and row_consistent),
+    }
+
+
+def parse_barcode_item_line(raw_line: str) -> dict | None:
+    line = unicodedata.normalize("NFKC", raw_line or "").strip()
+    line = re.sub(r"\s+", " ", line)
+    match = _BARCODE_PURCHASE_ROW.fullmatch(line)
+    if not match:
+        return None
+
+    amount = _money(match.group("amount"))
+    unit_price = _money(match.group("unit_price"))
+    quantity = int(match.group("quantity"))
+    if amount is None or unit_price is None or quantity <= 0:
+        return None
+
+    return {
+        "raw_name": "상품명 확인 필요",
+        "normalized_name": "상품명 확인 필요",
+        "item_type": "unknown",
+        "is_ingredient": False,
+        "ingredient_confidence": 0.0,
+        "quantity": quantity,
+        "unit": "개",
+        "item_amount_krw": amount,
+        "unit_price_krw": unit_price,
+        "row_consistent": unit_price * quantity == amount,
+        "product_code": match.group("code"),
+        "suggested_for_inventory": False,
     }
 
 
@@ -261,6 +300,9 @@ def extract_receipt_items(raw_text: str, limit: int = 50) -> list[dict]:
             item = parse_receipt_item_line(joined)
             if item is not None:
                 consumed = 2
+
+        if item is None:
+            item = parse_barcode_item_line(line)
 
         index += consumed
         if not item:
