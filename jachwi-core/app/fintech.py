@@ -46,6 +46,7 @@ ImportSource = Literal['sms', 'notification', 'kakao', 'ocr', 'commerce', 'unkno
 class ImportPreviewInput(Contract):
     raw_text: str = Field(min_length=3, max_length=5000)
     source: ImportSource = 'unknown'
+    use_ai_fallback: bool = True
 
 
 class ReceiptItemInput(Contract):
@@ -667,7 +668,8 @@ def register_fintech(app, current_user, db):
         result = parse_import_candidate(body.raw_text, body.source)
         if body.source == 'ocr':
             result = apply_learned_receipt_items(result, ledger(session, user))
-            result = apply_ai_receipt_items(result)
+            if body.use_ai_fallback:
+                result = apply_ai_receipt_items(result)
         return result
 
     @router.post('/imports/confirm', status_code=201)
