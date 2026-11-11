@@ -101,6 +101,27 @@ _CATEGORY_RULES = [
 ]
 
 
+_OCR_NUMERIC_TOKEN_RE = re.compile(
+    r'(?<![0-9A-Za-z가-힣])([0-9OIl][0-9OIl,.]{1,18})(?![0-9A-Za-z가-힣])'
+)
+
+
+def normalize_ocr_numeric_text(value):
+    """Fix common OCR substitutions only inside isolated numeric-looking tokens."""
+    translations = str.maketrans({'O': '0', 'I': '1', 'l': '1'})
+
+    def replace(match):
+        token = match.group(1)
+        if not re.search(r'\d', token):
+            return token
+        fixed = token.translate(translations)
+        # Korean receipts often print 1,350 but OCR may turn the separator into a dot.
+        fixed = re.sub(r'(?<=\d)\.(?=\d{3}(?:[.,]|$))', ',', fixed)
+        return fixed
+
+    return _OCR_NUMERIC_TOKEN_RE.sub(replace, value or '')
+
+
 def normalize_import_text(value):
     return '\n'.join(
         ' '.join(line.split())
@@ -322,7 +343,8 @@ def extract_receipt_merchant(text):
 
 
 def parse_import_candidate(raw_text, source='unknown', today=None):
-    text = normalize_import_text(raw_text)
+    normalized_source = normalize_ocr_numeric_text(raw_text) if source == 'ocr' else raw_text
+    text = normalize_import_text(normalized_source)
     if source == 'ocr':
         amount = extract_receipt_amount(text)
         date_text = re.sub(r'(?<=\d)[ \t]*([./-])[ \t]*(?=\d)', r'\1', text)
