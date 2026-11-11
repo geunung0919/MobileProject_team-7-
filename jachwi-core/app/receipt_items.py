@@ -18,6 +18,9 @@ _PRICE_QTY_AT_END = re.compile(
 _QTY_X_PRICE_AT_END = re.compile(
     r"(?P<quantity>\d{1,3})\s*[xX×*]\s*(?P<unit_price>\d{1,3}(?:,\d{3})+|\d{2,9})\s*$"
 )
+_QTY_PRICE_AT_END = re.compile(
+    r"(?P<quantity>\d{1,3})\s+(?P<unit_price>\d{1,3}(?:,\d{3})+|\d{2,9})\s*$"
+)
 _LEADING_ROW_NUMBER = re.compile(r"^\s*\d{1,3}\s*[*.)-]?\s+")
 _LEADING_TAX_MARK = re.compile(r"^[*#]\s*")
 _LEADING_STORE_MARK = re.compile(r"^(?:P|p)\s+")
@@ -348,6 +351,13 @@ def parse_receipt_item_line(raw_line: str) -> dict | None:
             unit_price = _money(detail_match.group("unit_price"))
             prefix = prefix[:detail_match.start()].strip()
             row_consistent = bool(unit_price and unit_price * quantity == amount)
+        else:
+            detail_match = _QTY_PRICE_AT_END.search(prefix)
+            if detail_match:
+                quantity = int(detail_match.group("quantity"))
+                unit_price = _money(detail_match.group("unit_price"))
+                prefix = prefix[:detail_match.start()].strip()
+                row_consistent = bool(unit_price and unit_price * quantity == amount)
 
     product_code_match = _BARCODE_OR_CODE.search(prefix)
     product_code = product_code_match.group(0).lstrip("*") if product_code_match else None
