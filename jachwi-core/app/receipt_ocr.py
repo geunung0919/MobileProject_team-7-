@@ -15,6 +15,7 @@ from fastapi import Depends, HTTPException, Request
 from PIL import Image, ImageFilter, ImageOps, ImageStat, UnidentifiedImageError
 from starlette.concurrency import run_in_threadpool
 from .fintech import LedgerRow, apply_learned_receipt_items, parse_import_candidate
+from .receipt_ai import apply_ai_receipt_items
 
 MAX_IMAGE_BYTES = 8 * 1024 * 1024
 MAX_REQUEST_BYTES = 12 * 1024 * 1024
@@ -303,9 +304,10 @@ def register_receipt_ocr(app, current_user, db):
             except (ValueError, UnicodeDecodeError):
                 raise HTTPException(422, '사진 요청을 읽을 수 없어요.') from None
             result = await run_in_threadpool(process_image, payload)
-            return apply_learned_receipt_items(
+            result = apply_learned_receipt_items(
                 result,
                 session.get(LedgerRow, user),
             )
+            return await run_in_threadpool(apply_ai_receipt_items, result)
         finally:
             SLOTS.release()
