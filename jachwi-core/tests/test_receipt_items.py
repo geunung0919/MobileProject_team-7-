@@ -36,6 +36,84 @@ def test_split_name_and_price_lines_are_rejoined_conservatively():
     assert items[0]["item_amount_krw"] == 3200
 
 
+
+def test_real_receipt_pattern_nonghyup_two_line_barcode_rows():
+    text = (
+        "001 P 굿모닝우유 900ML [2,150]\n"
+        "*8801104210645 1,350 1 1,350\n"
+        "002 P 양파\n"
+        "*231973 3,300 1 3,300\n"
+        "003 P 무\n"
+        "*231913 500 1 500\n"
+        "004 P 깻잎\n"
+        "*231308 750 1 750\n"
+        "005 P 하선정 바로먹기좋은장아찌 150g\n"
+        "*8801007265889 1,380 1 1,380\n"
+        "006 P 브로커리\n"
+        "*232285 1,280 1 1,280\n"
+        "판매총액: 8,560"
+    )
+    items = extract_receipt_items(text)
+    assert [(item["raw_name"], item["normalized_name"]) for item in items] == [
+        ("굿모닝우유 900ML", "우유"),
+        ("양파", "양파"),
+        ("무", "무"),
+        ("깻잎", "깻잎"),
+        ("하선정 바로먹기좋은장아찌 150g", "하선정 바로먹기좋은장아찌"),
+        ("브로커리", "브로콜리"),
+    ]
+    assert [item["suggested_for_inventory"] for item in items] == [
+        True, True, True, True, False, True
+    ]
+
+
+def test_real_receipt_pattern_emart_quantity_columns_and_discount_lines():
+    text = (
+        "고구마말랭이 135g 1,000 7 7,000\n"
+        "현대 아이비 고어텍스 1,000 2 2,000\n"
+        "2개 이상 구매시 15% -2,980\n"
+        "롯데 자일리톨알파 4,780 1 4,780\n"
+        "꽃델리노 신경 245g 1,880 4 7,520\n"
+        "총 품목수량 14"
+    )
+    items = extract_receipt_items(text)
+    assert len(items) == 4
+    assert items[0]["quantity"] == 7
+    assert items[0]["item_amount_krw"] == 7000
+    assert all(item["item_amount_krw"] > 0 for item in items)
+
+
+def test_real_receipt_pattern_mixed_food_and_groceries_with_coupon_rows():
+    text = (
+        "03* 무지개 방울토마토9 9,500 1 9,500\n"
+        "05* 서울 저지방우유 1L 2,580 1 2,580\n"
+        "06* ▲제주목심구이용 12,370 1 12,370\n"
+        "07 CJ 고메치킨 핫스파 7,980 1 7,980\n"
+        "@CJ_1만원1천원 -500\n"
+        "09* 생칵테일새우(51-60 14,800 1 14,800\n"
+        "11 강화올먹고자란오리 9,800 1 9,800\n"
+        "12* 냉동 자숙연어 렌트 8,980 1 8,980\n"
+        "13* 생밤느타리(팩) 1,990 1 1,990\n"
+        "14* 논산양촌상추(봉) 1,180 1 1,180\n"
+        "15* 애호박 1,380 1 1,380\n"
+        "17* 토종의성깐마늘(200 2,980 1 2,980\n"
+        "18* 사과 벌크 2,930 1 2,930\n"
+        "19 농심닭다리너겟 130 1,980 1 1,980\n"
+        "20 마리오케이퍼100g 3,180 1 3,180\n"
+        "22 상하리코타치즈 200 5,280 1 5,280\n"
+        "23 이마트 초코칩76g 1,080 1 1,080\n"
+        "24 점보바게트 2,400 1 2,400"
+    )
+    items = extract_receipt_items(text)
+    selected = {item["normalized_name"] for item in items if item["suggested_for_inventory"]}
+    assert {"토마토", "우유", "돼지고기", "새우", "오리고기", "연어", "버섯",
+            "상추", "애호박", "마늘", "사과", "케이퍼", "치즈"} <= selected
+    excluded_names = {item["raw_name"] for item in items if not item["suggested_for_inventory"]}
+    assert any("고메치킨" in name for name in excluded_names)
+    assert any("닭다리너겟" in name for name in excluded_names)
+    assert any("초코칩" in name for name in excluded_names)
+    assert any("바게트" in name for name in excluded_names)
+
 def test_processed_food_does_not_false_positive_on_ingredient_word():
     for name in ["사과주스 1L", "감자칩 80g", "딸기우유 200ml", "사과 세제 500ml"]:
         result = classify_product(name)
