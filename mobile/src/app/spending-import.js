@@ -273,13 +273,26 @@ function SpendingImportContent({ api, storageScope }) {
         {!!phase && <Text accessibilityLiveRegion="polite" style={styles.text}>{phase}</Text>}
         <Text style={styles.small}>한 번에 영수증 한 장만, 글자와 합계가 선명하게 보이도록 확인해 주세요. 여러 영수증이 겹치면 한 장만 남도록 잘라 주세요. 분석 전에는 지출이나 재고에 저장되지 않아요.</Text>
         {receiptSupport.canRecognize && <View style={styles.row}>
-          <Button title={(photoMode === 'device' ? '✓ ' : '') + '기기에서 인식'} disabled={busy} onPress={() => setPhotoMode('device')} />
-          <Button title={(photoMode === 'server' ? '✓ ' : '') + '서버에서 인식'} disabled={busy} onPress={() => setPhotoMode('server')} />
+          <Button title={(photoMode === 'device' ? '✓ ' : '') + '기기 인식'} disabled={busy} onPress={() => setPhotoMode('device')} />
+          <Button title={(photoMode === 'hybrid' ? '✓ ' : '') + '정확도 우선'} disabled={busy} onPress={() => setPhotoMode('hybrid')} />
+          <Button title={(photoMode === 'server' ? '✓ ' : '') + '서버 인식'} disabled={busy} onPress={() => setPhotoMode('server')} />
         </View>}
         <Text style={styles.small}>{photoMode === 'server'
-          ? '아래 분석 버튼을 누르면 선택한 사진을 연결된 서버로 전송해요. 사진은 분석용 임시 파일로만 처리하고 분석 후 삭제하며, 저장을 확정하기 전에는 지출을 만들지 않아요.'
-          : '사진은 기기에서 인식하고 추출한 글자만 연결된 서버로 전송해요.'}</Text>
-        <Button title={busy ? '분석 중…' : photoMode === 'server' ? '사진 전송에 동의하고 분석하기' : '이 사진 분석하기'} disabled={busy || !api} onPress={analyzePhoto} />
+          ? '선택한 사진을 서버로 보내 여러 전처리 방식의 OCR 결과를 비교해요. 사진은 분석용 임시 파일로만 처리하고 분석 후 삭제해요.'
+          : photoMode === 'hybrid'
+            ? '기기 OCR과 서버 OCR을 동시에 비교해 품목·총액·사용처 추출이 더 좋은 결과를 사용해요. 이 모드에서는 사진이 연결된 서버로 전송돼요.'
+            : '사진은 기기에서 인식하고 추출한 글자만 연결된 서버로 전송해요.'}</Text>
+        <Button
+          title={busy
+            ? '분석 중…'
+            : photoMode === 'hybrid'
+              ? '사진 전송에 동의하고 정확도 우선 분석'
+              : photoMode === 'server'
+                ? '사진 전송에 동의하고 서버 분석'
+                : '이 사진 분석하기'}
+          disabled={busy || !api}
+          onPress={analyzePhoto}
+        />
         {busy && <Button title="사진 분석 취소" onPress={() => photoRequest.current?.abort()} />}
         <Button title="선택한 사진 지우기" disabled={busy} onPress={() => {
           setPhoto(null); setImageUri(''); setRawText(''); setReview(null); setCandidate(null); setReceiptItems([]); setPhase(''); setError('');
