@@ -25,7 +25,12 @@ FORMATS = {'image/jpeg': 'JPEG', 'image/png': 'PNG', 'image/webp': 'WEBP'}
 
 
 def decode_image(payload):
-    if not isinstance(payload, dict) or set(payload) != {'image_base64', 'mime_type'}:
+    allowed = {'image_base64', 'mime_type', 'use_ai_fallback'}
+    if (
+        not isinstance(payload, dict)
+        or not {'image_base64', 'mime_type'} <= set(payload)
+        or not set(payload) <= allowed
+    ):
         raise HTTPException(422, '사진과 파일 형식을 확인해 주세요.')
     mime, encoded = payload['mime_type'], payload['image_base64']
     if not isinstance(mime, str) or mime not in FORMATS:
@@ -308,6 +313,8 @@ def register_receipt_ocr(app, current_user, db):
                 result,
                 session.get(LedgerRow, user),
             )
-            return await run_in_threadpool(apply_ai_receipt_items, result)
+            if payload.get('use_ai_fallback', True):
+                result = await run_in_threadpool(apply_ai_receipt_items, result)
+            return result
         finally:
             SLOTS.release()
