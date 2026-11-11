@@ -14,7 +14,7 @@ import warnings
 from fastapi import Depends, HTTPException, Request
 from PIL import Image, ImageFilter, ImageOps, UnidentifiedImageError
 from starlette.concurrency import run_in_threadpool
-from .fintech import parse_import_candidate
+from .fintech import LedgerRow, apply_learned_receipt_items, parse_import_candidate
 
 MAX_IMAGE_BYTES = 8 * 1024 * 1024
 MAX_REQUEST_BYTES = 12 * 1024 * 1024
@@ -234,9 +234,13 @@ def process_image(payload):
     }
 
 
-def register_receipt_ocr(app, current_user):
+def register_receipt_ocr(app, current_user, db):
     @app.post('/api/v1/me/spending/receipts/analyze', tags=['2번 영수증 OCR'])
-    async def analyze(request: Request, user=Depends(current_user)):
+    async def analyze(
+        request: Request,
+        user=Depends(current_user),
+        session=Depends(db),
+    ):
         if request.headers.get('content-type', '').split(';')[0].strip().lower() != 'application/json':
             raise HTTPException(415, '사진 요청 형식이 올바르지 않아요.')
         if not SLOTS.acquire(blocking=False):
@@ -251,6 +255,10 @@ def register_receipt_ocr(app, current_user):
                 payload = json.loads(content)
             except (ValueError, UnicodeDecodeError):
                 raise HTTPException(422, '사진 요청을 읽을 수 없어요.') from None
-            return await run_in_threadpool(process_image, payload)
+            result = await run_in_threadpool(process_image, payload)
+            return apply_learned_receipt_items(
+                result,
+                session.get(LedgerRow, user),
+            )
         finally:
             SLOTS.release()
