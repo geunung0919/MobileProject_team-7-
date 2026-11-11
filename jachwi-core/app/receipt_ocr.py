@@ -63,8 +63,52 @@ def decode_image(payload):
         raise HTTPException(422, '손상되었거나 지원하지 않는 사진이에요. 다시 선택해 주세요.') from None
 
 
+def _otsu_binarize(image):
+    """Global Otsu threshold using Pillow only; keeps server dependencies small."""
+    histogram = image.histogram()
+    total = sum(histogram)
+    if total <= 0:
+        return image.copy()
+
+    weighted_sum = sum(index * count for index, count in enumerate(histogram))
+    background_weight = 0
+    background_sum = 0
+    best_threshold = 127
+    best_variance = -1.0
+
+    for threshold, count in enumerate(histogram):
+        background_weight += count
+        if background_weight == 0:
+            continue
+        foreground_weight = total - background_weight
+        if foreground_weight == 0:
+            break
+
+        background_sum += threshold * count
+        background_mean = background_sum / background_weight
+        foreground_mean = (weighted_sum - background_sum) / foreground_weight
+        between = background_weight * foreground_weight * (background_mean - foreground_mean) ** 2
+        if between > best_variance:
+            best_variance = between
+            best_threshold = threshold
+
+    return image.point(lambda pixel: 255 if pixel > best_threshold else 0, mode='1').convert('L')
+
+
+def _ocr_variants(image):
+    """Create a small ensemble for thermal receipts, shadows and low contrast."""
+    contrast = ImageOps.autocontrast(image, cutoff=1)
+    strong = contrast.filter(ImageFilter.UnsharpMask(radius=1.2, percent=190, threshold=3))
+    binary = _otsu_binarize(contrast)
+    return (
+        ('contrast', contrast),
+        ('unsharp', strong),
+        ('binary', binary),
+    )
+
+
 def _receipt_text_score(text):
-    """Prefer OCR output that keeps receipt rows, amounts and Korean product names."""
+    """Prefer OCR output that preserves rows useful to the downstream parser."""
     if not text:
         return -1
     lines = [line.strip() for line in text.splitlines() if line.strip()]
@@ -72,12 +116,27 @@ def _receipt_text_score(text):
         bool(re.search(r'\d[\d,]{2,}\s*원?\Z', line))
         for line in lines
     )
+    item_like_lines = sum(
+        bool(
+            re.search(r'[가-힣A-Za-z]', line)
+            and re.search(r'\d[\d,]{2,}', line)
+        )
+        for line in lines
+    )
     receipt_words = sum(
-        bool(re.search(r'합\s*계|금액|수량|상품|품목|결제|영수증', line))
+        bool(re.search(r'합\s*계|총\s*액|금액|수량|상품|품목|결제|영수증|TOTAL', line, re.I))
         for line in lines
     )
     korean_chars = len(re.findall(r'[가-힣]', text))
-    return amount_lines * 8 + receipt_words * 3 + min(len(lines), 30) + min(korean_chars // 8, 20)
+    noisy_symbols = len(re.findall(r'[|{}_~^]{2,}', text))
+    return (
+        amount_lines * 10
+        + item_like_lines * 6
+        + receipt_words * 3
+        + min(len(lines), 35)
+        + min(korean_chars // 8, 20)
+        - noisy_symbols * 2
+    )
 
 
 def recognize(image):
@@ -85,47 +144,78 @@ def recognize(image):
     languages = os.getenv('OCR_LANGUAGES', 'kor+eng')
     best_text = ''
     best_score = -1
+    best_variant = None
+    best_psm = None
     engine_started = False
     engine_success = False
+
     try:
-        # PSM 6 treats the receipt as one block; PSM 4 is often better for columns.
-        # Keep whichever output preserves more receipt structure.
         with tempfile.TemporaryDirectory(prefix='receipt-ocr-') as directory:
-            path = Path(directory) / 'image.png'
-            image.save(path, format='PNG')
-            for psm in ('6', '4'):
-                result = subprocess.run(
-                    [executable, str(path), 'stdout', '-l', languages, '--psm', psm],
-                    capture_output=True,
-                    timeout=18,
-                    check=False,
-                    env={**os.environ, 'OMP_THREAD_LIMIT': '1'},
-                )
-                engine_started = True
-                if result.returncode:
-                    continue
-                engine_success = True
-                text = result.stdout.decode('utf-8', errors='replace').strip()
-                score = _receipt_text_score(text)
-                if score > best_score:
-                    best_text, best_score = text, score
+            for variant_name, variant in _ocr_variants(image):
+                path = Path(directory) / f'{variant_name}.png'
+                variant.save(path, format='PNG')
+                try:
+                    for psm in ('4', '6', '11'):
+                        result = subprocess.run(
+                            [
+                                executable, str(path), 'stdout',
+                                '-l', languages,
+                                '--oem', '1',
+                                '--psm', psm,
+                                '-c', 'preserve_interword_spaces=1',
+                            ],
+                            capture_output=True,
+                            timeout=12,
+                            check=False,
+                            env={**os.environ, 'OMP_THREAD_LIMIT': '1'},
+                        )
+                        engine_started = True
+                        if result.returncode:
+                            continue
+                        engine_success = True
+                        text = result.stdout.decode('utf-8', errors='replace').strip()
+                        score = _receipt_text_score(text)
+                        if score > best_score:
+                            best_text = text
+                            best_score = score
+                            best_variant = variant_name
+                            best_psm = psm
+                finally:
+                    variant.close()
     except FileNotFoundError:
-        raise HTTPException(503, '서버에 Tesseract OCR이 설치되지 않았어요. 서버 설정 후 재시도하거나 직접 입력해 주세요.') from None
+        raise HTTPException(
+            503,
+            '서버에 Tesseract OCR이 설치되지 않았어요. 서버 설정 후 재시도하거나 직접 입력해 주세요.',
+        ) from None
     except subprocess.TimeoutExpired:
-        raise HTTPException(504, '사진 인식 시간이 초과됐어요. 영수증 부분만 잘라 다시 시도해 주세요.') from None
+        raise HTTPException(
+            504,
+            '사진 인식 시간이 초과됐어요. 영수증 부분만 잘라 다시 시도해 주세요.',
+        ) from None
+
     if not engine_started:
         raise HTTPException(503, '서버 OCR 엔진을 시작하지 못했어요. 직접 입력도 가능해요.')
     if not engine_success:
-        raise HTTPException(503, '서버 OCR 엔진과 한국어 언어팩 설정을 확인해 주세요. 직접 입력도 가능해요.')
+        raise HTTPException(
+            503,
+            '서버 OCR 엔진과 한국어 언어팩 설정을 확인해 주세요. 직접 입력도 가능해요.',
+        )
     if len(best_text) < 3:
-        raise HTTPException(422, '글자를 충분히 읽지 못했어요. 밝고 선명한 사진으로 다시 시도해 주세요.')
-    return best_text
+        raise HTTPException(
+            422,
+            '글자를 충분히 읽지 못했어요. 밝고 선명한 사진으로 다시 시도해 주세요.',
+        )
+    return best_text, {
+        'variant': best_variant,
+        'psm': best_psm,
+        'quality_score': best_score,
+    }
 
 
 def process_image(payload):
     image = decode_image(payload)
     try:
-        text = recognize(image)
+        text, ocr_meta = recognize(image)
     finally:
         image.close()
     truncated = len(text) > 5000
@@ -134,7 +224,14 @@ def process_image(payload):
     result['needs_review'] = True
     if truncated:
         result['warnings'].append('인식 원문이 5,000자를 넘어 일부만 분석했어요. 긴 영수증은 나눠 확인해 주세요.')
-    return {'raw_text': raw_text, 'engine': 'tesseract', 'image_retained': False, 'text_truncated': truncated, **result}
+    return {
+        'raw_text': raw_text,
+        'engine': 'tesseract-ensemble',
+        'ocr_meta': ocr_meta,
+        'image_retained': False,
+        'text_truncated': truncated,
+        **result,
+    }
 
 
 def register_receipt_ocr(app, current_user):
