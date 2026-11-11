@@ -203,7 +203,9 @@ function SpendingImportContent({ api, storageScope }) {
         quantity: Number(item.quantity) > 0 ? Number(item.quantity) : 1,
         unit: item.unit || '개',
         item_amount_krw: item.item_amount_krw || null,
-        item_type: item.selected ? 'ingredient' : (item.item_type || 'unknown'),
+        item_type: item.selected
+          ? 'ingredient'
+          : (item.item_type === 'ingredient' ? 'unknown' : (item.item_type || 'unknown')),
         is_ingredient: !!item.selected,
         ingredient_confidence: Number(item.ingredient_confidence) || 0,
         suggested_for_inventory: !!item.selected,
@@ -341,13 +343,22 @@ function SpendingImportContent({ api, storageScope }) {
             {item.item_type === 'ingredient' ? '식재료 후보' : item.item_type === 'living' ? '생활용품' : item.item_type === 'food' ? '가공식품/완제품' : '분류 확인 필요'}
             {item.row_consistent === false ? ' · 수량/금액 확인 필요' : ''}
           </Text>
-          {item.selected && <Field
-            label="냉장고에 저장할 이름"
-            value={item.normalized_name || item.raw_name}
-            editable={!busy}
-            maxLength={120}
-            onChangeText={value => changeReceiptItem(index, { normalized_name: value })}
-          />}
+          {item.selected && <>
+            <Field
+              label="냉장고에 저장할 이름"
+              value={item.normalized_name || item.raw_name}
+              editable={!busy}
+              maxLength={120}
+              onChangeText={value => changeReceiptItem(index, { normalized_name: value })}
+            />
+            <Field
+              label="수량"
+              value={String(item.quantity || 1)}
+              editable={!busy}
+              keyboardType="decimal-pad"
+              onChangeText={value => changeReceiptItem(index, { quantity: value })}
+            />
+          </>}
           <Button
             title={item.selected ? '✓ 냉장고에 추가' : '냉장고에서 제외'}
             disabled={busy}
