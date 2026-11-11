@@ -129,3 +129,31 @@ SQLite 데이터는 자동 이전되지 않습니다. 변경한 DB에서 샘플�
 ## 중앙 재고 연동
 
 저장·조회 및 충돌 처리 규격: [INVENTORY_API.md](docs/INVENTORY_API.md).
+
+
+## 영수증 식재료 데이터셋
+
+영수증 식재료 판별은 코드 규칙만 사용하지 않습니다.
+
+1. `data/receipt_ingredient_seed.json`: 기본 오프라인 vocabulary. 프로젝트 샘플에서 확인한 표현과 자주 쓰는 식재료/비식재료 용어를 포함합니다.
+2. `tools/build_receipt_dataset.py`: 식약처 원재료 OpenAPI 또는 공공데이터포털 식품영양성분 CSV/JSON을 병합해 `data/receipt_ingredient_catalog.json`을 생성합니다.
+3. generated catalog가 존재하면 런타임에서 seed보다 우선하여 사용하며, 없으면 seed로 자동 fallback합니다.
+4. 기존 hard-coded Rule/Fuzzy/사용자 학습/AI fallback은 유지되므로 데이터셋 파일이 없거나 깨져도 영수증 기능 전체가 중단되지 않습니다.
+
+식약처 원재료 OpenAPI로 vocabulary 확장:
+
+```powershell
+$env:DATA_GO_KR_SERVICE_KEY="발급받은_공공데이터포털_키"
+.\.venv\Scripts\python.exe tools\build_receipt_dataset.py --fetch-mfds-ingredients
+```
+
+공공데이터포털에서 다운로드한 전국통합식품영양성분정보 CSV/JSON 병합:
+
+```powershell
+.\.venv\Scripts\python.exe tools\build_receipt_dataset.py --nutrition-file "C:\path\nutrition.csv"
+```
+
+- 원재료성 식품은 식재료 후보 vocabulary로 활용합니다.
+- 가공식품/음식은 냉장고 자동등록을 막는 negative evidence로 활용합니다.
+- 바코드 데이터는 선택적으로 import할 수 있지만 최신 상품 전체를 보장하는 주 데이터로 사용하지 않습니다.
+- 사용자 확정 바코드/상품명 학습값이 공공 데이터보다 우선합니다.
