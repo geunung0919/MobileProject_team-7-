@@ -38,6 +38,54 @@ _SKIP_LINE = re.compile(
 )
 _HEADER_LINE = re.compile(r"(?:상품명|품목명|단가\s*수량|수량\s*금액|단가|수량|금액)", re.I)
 
+_MULTI_DOCUMENT_HINTS = re.compile(r"(?:CASH\s*RECEIPT|영수증\s*상세|영수증|매출전표)", re.I)
+_PAYMENT_DETAIL_HINTS = re.compile(
+    r"(?:승인\s*일시|승인\s*번호|거래유형|가맹점명|공급가액|봉사료|카드번호)",
+    re.I,
+)
+_FOOD_SERVICE_HINTS = re.compile(
+    r"(?:배달\s*주문표|주문번호|주방용|메뉴\s+수량\s+금액|"
+    r"커피빈|HOLLYS|할리스|카페|COFFEE|피자|치킨|버거|레스토랑|식당)",
+    re.I,
+)
+
+
+def classify_receipt_document(raw_text: str) -> dict:
+    text = unicodedata.normalize("NFKC", raw_text or "")
+    compact_lines = [line.strip() for line in text.splitlines() if line.strip()]
+
+    # Collages/screenshots with several receipts should never be treated as one purchase.
+    english_cash_receipts = len(re.findall(r"CASH\s*RECEIPT", text, re.I))
+    korean_receipt_headers = len(re.findall(r"\[?영\s*수\s*증\]?", text))
+    if english_cash_receipts >= 2 or korean_receipt_headers >= 3:
+        return {
+            "document_type": "multiple_receipts",
+            "allow_inventory": False,
+            "confidence": 0.98,
+        }
+
+    payment_hits = sum(bool(_PAYMENT_DETAIL_HINTS.search(line)) for line in compact_lines)
+    if payment_hits >= 3:
+        return {
+            "document_type": "payment_detail",
+            "allow_inventory": False,
+            "confidence": 0.96,
+        }
+
+    food_hits = sum(bool(_FOOD_SERVICE_HINTS.search(line)) for line in compact_lines)
+    if food_hits >= 2 or re.search(r"배달\s*주문표|주방용", text, re.I):
+        return {
+            "document_type": "food_service",
+            "allow_inventory": False,
+            "confidence": 0.94,
+        }
+
+    return {
+        "document_type": "purchase_receipt",
+        "allow_inventory": True,
+        "confidence": 0.65,
+    }
+
 _LIVING_WORDS = (
     "세제", "주방세제", "섬유유연제", "휴지", "화장지", "키친타월", "물티슈", "샴푸", "린스",
     "트리트먼트", "치약", "칫솔", "비누", "수세미", "쓰레기봉투", "종량제", "건전지", "면도기",
@@ -274,6 +322,7 @@ def parse_barcode_item_line(raw_line: str) -> dict | None:
 
 
 def extract_receipt_items(raw_text: str, limit: int = 50) -> list[dict]:
+    document = classify_receipt_document(raw_text)
     items: list[dict] = []
     seen: set[tuple] = set()
     lines = [
@@ -316,6 +365,8 @@ def extract_receipt_items(raw_text: str, limit: int = 50) -> list[dict]:
         if signature in seen:
             continue
         seen.add(signature)
+        if not document["allow_inventory"]:
+            item = {**item, "suggested_for_inventory": False}
         items.append(item)
         if len(items) >= limit:
             break
