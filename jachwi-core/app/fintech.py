@@ -15,6 +15,7 @@ from sqlalchemy.orm.exc import StaleDataError
 from .database import Base, ProfileRow
 from .schemas import Contract, Money, Spending, SpendingSnapshot
 from .receipt_items import classify_receipt_document, extract_receipt_items
+from .receipt_ai import apply_ai_receipt_items
 
 
 Period = Annotated[str, Field(pattern=r'^[0-9]{4}-(0[1-9]|1[0-2])$')]
@@ -664,6 +665,7 @@ def register_fintech(app, current_user, db):
         result = parse_import_candidate(body.raw_text, body.source)
         if body.source == 'ocr':
             result = apply_learned_receipt_items(result, ledger(session, user))
+            result = apply_ai_receipt_items(result)
         return result
 
     @router.post('/imports/confirm', status_code=201)
