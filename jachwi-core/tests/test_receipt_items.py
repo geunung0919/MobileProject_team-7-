@@ -145,6 +145,19 @@ def test_multiple_receipt_text_is_flagged_for_crop_review():
     assert any("여러 영수증" in warning for warning in result["warnings"])
     assert result["needs_review"] is True
 
+
+def test_partial_ocr_item_sum_warns_before_inventory_trust():
+    result = parse_import_candidate(
+        "마트\n2026-11-11\n"
+        "아이스크림 250 3 750\n"
+        "8801005638654 1,380 2 2,760\n"
+        "합계 27,720원",
+        "ocr",
+        today=date(2026, 11, 11),
+    )
+    assert any("품목 금액 합계" in warning for warning in result["warnings"])
+    assert result["needs_review"] is True
+
 def test_processed_food_does_not_false_positive_on_ingredient_word():
     for name in ["사과주스 1L", "감자칩 80g", "딸기우유 200ml", "사과 세제 500ml"]:
         result = classify_product(name)
