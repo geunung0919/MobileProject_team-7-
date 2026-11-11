@@ -53,6 +53,7 @@ class ReceiptItemInput(Contract):
     quantity: Annotated[float, Field(gt=0, le=1000)] = 1
     unit: str = Field(default='개', min_length=1, max_length=20)
     item_amount_krw: Annotated[int | None, Field(gt=0, le=1_000_000_000)] = None
+    product_code: str | None = Field(default=None, max_length=20)
     item_type: Literal['ingredient', 'food', 'living', 'other', 'unknown'] = 'unknown'
     is_ingredient: bool = False
     ingredient_confidence: Annotated[float, Field(ge=0, le=1)] = 0
@@ -279,6 +280,29 @@ def extract_receipt_amount(text):
     return extract_amount(text)
 
 
+_RECEIPT_TOTAL_ANCHOR_RE = re.compile(
+    r'(?:TOTAL|총\s*합계|합\s*계|결제대상금액|결제금액|받을금액)'
+    r'[^0-9]{0,20}([0-9][0-9,]{2,})',
+    re.I,
+)
+_RECEIPT_FULL_DATE_HINT_RE = re.compile(
+    r'(?<!\d)(20\d{2})[./-](0?[1-9]|1[0-2])[./-](0?[1-9]|[12]\d|3[01])(?!\d)'
+)
+
+
+def receipt_document_issues(text):
+    issues = []
+    totals = {
+        _amount_value(match.group(1))
+        for match in _RECEIPT_TOTAL_ANCHOR_RE.finditer(text)
+        if _amount_value(match.group(1)) is not None
+    }
+    dates = {match.group(0) for match in _RECEIPT_FULL_DATE_HINT_RE.finditer(text)}
+    if len(totals) >= 2 and len(dates) >= 2:
+        issues.append('multiple_receipts_suspected')
+    return issues
+
+
 def extract_receipt_merchant(text):
     for line in text.splitlines():
         match = re.match(r'^(?:상호(?:명)?|가맹점(?:명)?|매장명|사용처)\s*[:：]\s*(.+)$', line)
@@ -321,6 +345,12 @@ def parse_import_candidate(raw_text, source='unknown', today=None):
         warnings.append('사용처를 자동 추출하지 못했어요.')
 
     receipt_items = extract_receipt_items(text) if source == 'ocr' else []
+    receipt_issues = receipt_document_issues(text) if source == 'ocr' else []
+    if 'multiple_receipts_suspected' in receipt_issues:
+        warnings.append('한 사진에 여러 영수증이 함께 인식된 것 같아요. 한 장만 남도록 잘라 다시 분석하는 것을 권장해요.')
+    if any(item.get('product_code') and item['raw_name'] == '상품명 확인 필요' for item in receipt_items):
+        warnings.append('상품명이 보이지 않고 바코드만 인식된 품목이 있어 이름 확인이 필요해요.')
+
     category = suggest_category(title, text)
     if source == 'ocr' and category == 'other' and any(item['is_ingredient'] for item in receipt_items):
         category = 'groceries'
@@ -349,6 +379,7 @@ def parse_import_candidate(raw_text, source='unknown', today=None):
         'needs_review': bool(warnings) or confidence < 0.8,
         'warnings': warnings,
         'receipt_items': receipt_items,
+        'receipt_document_issues': receipt_issues,
     }
 
 
