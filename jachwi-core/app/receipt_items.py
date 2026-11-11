@@ -79,7 +79,7 @@ _INGREDIENT_ALIASES = (
 )
 
 _PACKAGE_RE = re.compile(
-    r"(?<![가-힣A-Za-z])\d+(?:\.\d+)?\s*(?:kg|g|ml|l|개입|입|구|개|팩|봉|병|모)"
+    r"\d+(?:\.\d+)?\s*(?:kg|g|ml|l|개입|입|구|개|팩|봉|병|모)"
     r"(?:\s*[xX×*]\s*\d+)?",
     re.I,
 )
@@ -207,8 +207,33 @@ def parse_receipt_item_line(raw_line: str) -> dict | None:
 def extract_receipt_items(raw_text: str, limit: int = 50) -> list[dict]:
     items: list[dict] = []
     seen: set[tuple] = set()
-    for raw_line in unicodedata.normalize("NFKC", raw_text or "").splitlines():
-        item = parse_receipt_item_line(raw_line)
+    lines = [
+        re.sub(r"\s+", " ", line).strip()
+        for line in unicodedata.normalize("NFKC", raw_text or "").splitlines()
+        if line.strip()
+    ]
+    index = 0
+    while index < len(lines):
+        line = lines[index]
+        item = parse_receipt_item_line(line)
+        consumed = 1
+
+        # Tesseract often separates the product name and price columns.
+        # Rejoin one adjacent numeric row, but only when the first line contains
+        # an actual product-like word. Totals and metadata are still filtered
+        # by parse_receipt_item_line after joining.
+        if (
+            item is None
+            and index + 1 < len(lines)
+            and re.search(r"[가-힣A-Za-z]", line)
+            and _AMOUNT_AT_END.search(lines[index + 1])
+        ):
+            joined = f"{line} {lines[index + 1]}"
+            item = parse_receipt_item_line(joined)
+            if item is not None:
+                consumed = 2
+
+        index += consumed
         if not item:
             continue
         signature = (
