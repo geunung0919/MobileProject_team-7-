@@ -237,7 +237,10 @@ def _best_fuzzy_ingredient(compact_name: str):
                     window = candidate[start:start + size]
                     score = max(score, SequenceMatcher(None, key, window).ratio())
 
-            threshold = 0.84 if len(key) == 3 else 0.80 if len(key) == 4 else 0.78
+            # One OCR substitution in a short Korean ingredient name can lower
+            # SequenceMatcher sharply. Low-confidence fuzzy matches are surfaced for
+            # review but are not auto-selected unless confidence reaches 0.82.
+            threshold = 0.66 if len(key) == 3 else 0.74 if len(key) == 4 else 0.76
             if score < threshold:
                 continue
             if best is None or score > best[2]:
