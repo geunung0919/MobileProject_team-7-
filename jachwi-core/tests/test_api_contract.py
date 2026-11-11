@@ -100,3 +100,28 @@ def test_ai_context_hides_private_fields_and_unavailable_modules(client):
     assert context['module_status']['life'] == 'stale'
     assert context['modules'] == {}
     assert '데이터가 없으면 추측하지 마세요.' in context['constraints']
+
+
+# 8장 2번: 통합 UI 저장이 가계부 예산을 온보딩 생활비 목표로 덮어쓰지 않는다 (5-1)
+def test_ui_state_does_not_copy_onboarding_goal_into_budget(client):
+    period = datetime.now(timezone.utc).astimezone(timezone(timedelta(hours=9))).strftime('%Y-%m')
+    client.put('/api/v1/me/onboarding', headers=A, json={'monthly_budget_krw': 300000})
+    assert client.put(f'/api/v1/me/spending/budgets/{period}', headers=A, json={'budget_krw': 500000}).status_code == 200
+    state = client.get('/api/v1/me/ui-state', headers=A).json()
+    state['transactions'] = [{'id': 't1', 'title': '마트', 'amount': 10000,
+                              'date': f'{period}-01', 'category': '식료품'}]
+    assert client.put('/api/v1/me/ui-state', headers=A, json=state).status_code == 200
+    spending = client.get('/api/v1/me/dashboard', headers=A).json()['modules']['spending']['data']
+    assert spending['budget_krw'] == 500000
+    assert spending['spent_krw'] == 10000 and spending['remaining_krw'] == 490000
+
+
+def test_ui_state_leaves_budget_unset_when_only_goal_exists(client):
+    period = datetime.now(timezone.utc).astimezone(timezone(timedelta(hours=9))).strftime('%Y-%m')
+    client.put('/api/v1/me/onboarding', headers=A, json={'monthly_budget_krw': 300000})
+    state = client.get('/api/v1/me/ui-state', headers=A).json()
+    state['transactions'] = [{'id': 't1', 'title': '마트', 'amount': 10000,
+                              'date': f'{period}-01', 'category': '식료품'}]
+    assert client.put('/api/v1/me/ui-state', headers=A, json=state).status_code == 200
+    spending = client.get('/api/v1/me/dashboard', headers=A).json()['modules']['spending']['data']
+    assert spending['budget_krw'] is None and spending['remaining_krw'] is None

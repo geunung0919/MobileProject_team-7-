@@ -7,8 +7,8 @@ from .database import Base
 import json
 import hashlib
 from datetime import datetime, timezone
-from .database import ProfileRow, InventoryRow, SnapshotRow, NotificationSettingsRow
-from .fintech import LedgerRow, ExpenseInput, current_period
+from .database import InventoryRow, SnapshotRow, NotificationSettingsRow
+from .fintech import LedgerRow, ExpenseInput
 from .schemas import Inventory, InventorySnapshot, LifeSnapshot
 from pydantic import ValidationError
 from sqlalchemy.orm.exc import StaleDataError
@@ -97,9 +97,8 @@ def register_ui_state(app, current_user, sessions):
             old = ledger.payload if ledger else {'budgets':{},'imported_fingerprints':[]}
             metadata = {x['id']:x for x in old.get('expenses',[])}
             expenses = [{**metadata.get(x['id'],{}),**x} for x in expenses]
+            # 가계부 예산(BUDGET)은 소비 모듈이 관리한다. 온보딩 생활비 목표로 덮어쓰지 않는다 (API_CONTRACT 5-1).
             budgets = dict(old.get('budgets',{}))
-            profile = db.get(ProfileRow,user)
-            if profile: budgets[current_period()] = profile.payload.get('monthly_budget_krw')
             data = {**old,'expenses':expenses,'budgets':budgets,'updated_at':datetime.now(timezone.utc).isoformat()}
             if ledger: ledger.payload=data
             else: db.add(LedgerRow(user_id=user,payload=data))
