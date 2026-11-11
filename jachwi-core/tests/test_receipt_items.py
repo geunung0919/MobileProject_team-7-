@@ -304,12 +304,12 @@ def test_fuzzy_ingredient_match_recovers_small_ocr_typo_without_overtrust():
     assert tomato["is_ingredient"] is True
     assert tomato["match_method"] == "fuzzy"
 
-    milk = classify_product("서을우유 1L")
-    assert milk["normalized_name"] == "우유"
-    assert milk["is_ingredient"] is True
-    assert milk["match_method"] == "fuzzy"
+    broccoli = classify_product("브로컬리 1개")
+    assert broccoli["normalized_name"] == "브로콜리"
+    assert broccoli["is_ingredient"] is True
+    assert broccoli["match_method"] == "fuzzy"
 
-    row = parse_receipt_item_line("서을우유 1L 3,200 1 3,200")
+    row = parse_receipt_item_line("브로컬리 1개 3,200 1 3,200")
     assert row["is_ingredient"] is True
     assert row["suggested_for_inventory"] is False
 
