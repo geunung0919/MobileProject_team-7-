@@ -19,7 +19,7 @@ export async function readReceiptImage(result, { canRecognize, recognize, onSele
 }
 
 export const MAX_RECEIPT_BYTES = 8 * 1024 * 1024;
-export function receiptUploadBody(asset) {
+export function receiptUploadBody(asset, useAiFallback = true) {
   if (!asset?.base64) throw new Error('사진 데이터를 불러오지 못했어요. 다시 선택해 주세요.');
   if (asset.fileSize > MAX_RECEIPT_BYTES || asset.base64.length > Math.ceil(MAX_RECEIPT_BYTES / 3) * 4)
     throw new Error('사진은 8MB 이하로 선택해 주세요. 영수증 부분만 잘라 다시 선택할 수 있어요.');
@@ -28,7 +28,7 @@ export function receiptUploadBody(asset) {
     : asset.base64.startsWith('iVBORw0KGgo') ? 'image/png'
     : asset.base64.startsWith('UklGR') ? 'image/webp' : null;
   if (!mime) throw new Error('JPG·PNG·WebP 영수증 사진을 선택해 주세요. HEIC는 JPG로 변환해 주세요.');
-  return { image_base64: asset.base64, mime_type: mime };
+  return { image_base64: asset.base64, mime_type: mime, use_ai_fallback: useAiFallback };
 }
 
 export function scoreReceiptResult(result) {
@@ -47,20 +47,20 @@ export function scoreReceiptResult(result) {
   return score;
 }
 
-async function analyzeDeviceReceipt(asset, { api, recognize, signal }) {
+async function analyzeDeviceReceipt(asset, { api, recognize, signal, useAiFallback = true }) {
   const text = await recognize(asset.uri);
   if (signal?.aborted) throw new Error('분석을 취소했어요.');
   const result = await api(
     'me/spending/imports/preview',
     'POST',
-    { raw_text: text, source: 'ocr' },
+    { raw_text: text, source: 'ocr', use_ai_fallback: useAiFallback },
     { signal },
   );
   return { ...result, raw_text: text, engine: 'device-text-recognizer' };
 }
 
-async function analyzeServerReceipt(asset, { api, signal }) {
-  const body = receiptUploadBody(asset);
+async function analyzeServerReceipt(asset, { api, signal, useAiFallback = true }) {
+  const body = receiptUploadBody(asset, useAiFallback);
   const result = await api(
     'me/spending/receipts/analyze',
     'POST',
@@ -89,8 +89,8 @@ export async function analyzeReceiptPhoto(asset, { mode, api, recognize, onText,
   if (mode === 'hybrid') {
     onPhase('기기 OCR과 서버 OCR을 비교 분석 중');
     const settled = await Promise.allSettled([
-      analyzeDeviceReceipt(asset, { api, recognize, signal }),
-      analyzeServerReceipt(asset, { api, signal }),
+      analyzeDeviceReceipt(asset, { api, recognize, signal, useAiFallback: false }),
+      analyzeServerReceipt(asset, { api, signal, useAiFallback: false }),
     ]);
     check();
 
@@ -106,13 +106,25 @@ export async function analyzeReceiptPhoto(asset, { mode, api, recognize, onText,
     }
 
     candidates.sort((a, b) => scoreReceiptResult(b) - scoreReceiptResult(a));
-    const result = candidates[0];
-    onText(result.raw_text);
+    const selected = candidates[0];
+    onPhase('가장 좋은 OCR 결과에 식재료 보조분류 적용 중');
+    const finalReview = await api(
+      'me/spending/imports/preview',
+      'POST',
+      { raw_text: selected.raw_text, source: 'ocr', use_ai_fallback: true },
+      { signal },
+    );
+    check();
+    onText(selected.raw_text);
     return {
-      ...result,
+      ...selected,
+      ...finalReview,
+      raw_text: selected.raw_text,
+      engine: selected.engine,
+      ocr_meta: selected.ocr_meta,
       ocr_selection: {
         mode: 'hybrid',
-        selected_engine: result.engine || 'unknown',
+        selected_engine: selected.engine || 'unknown',
         compared: candidates.map(candidate => ({
           engine: candidate.engine || 'unknown',
           score: scoreReceiptResult(candidate),
