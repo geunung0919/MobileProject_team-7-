@@ -223,6 +223,8 @@ function SpendingImportContent({ api, storageScope }) {
           : (item.item_type === 'ingredient' ? 'unknown' : (item.item_type || 'unknown')),
         is_ingredient: !!item.selected,
         ingredient_confidence: Number(item.ingredient_confidence) || 0,
+        match_method: item.match_method || null,
+        matched_alias: item.matched_alias || null,
         suggested_for_inventory: !!item.selected,
       })) : [],
     });
@@ -366,6 +368,9 @@ function SpendingImportContent({ api, storageScope }) {
         {!!review?.learned_item_count && <Text style={styles.small}>
           ✓ 이전에 직접 확인한 상품 {review.learned_item_count}개를 자동 적용했어요.
         </Text>}
+        {review?.ai_fallback?.status === 'applied' && <Text style={styles.small}>
+          AI 보조 분류 {review.ai_fallback.classified_count}개 · 자동 냉장고 후보 {review.ai_fallback.auto_selected_count}개
+        </Text>}
         {inventoryAllowed
           ? <Text style={styles.small}>자동 판별이 틀리면 직접 냉장고 포함 여부를 바꿀 수 있어요.</Text>
           : <Text style={styles.error}>이 문서는 소비 확인용으로만 처리해요. 음식점·카페·카드 승인 상세·여러 영수증 이미지는 냉장고 자동등록 대상이 아니에요.</Text>}
@@ -378,6 +383,7 @@ function SpendingImportContent({ api, storageScope }) {
             {item.item_type === 'ingredient' ? '식재료 후보' : item.item_type === 'living' ? '생활용품' : item.item_type === 'food' ? '가공식품/완제품' : '분류 확인 필요'}
             {item.match_method === 'fuzzy' ? ' · OCR 오타 유사매칭' : ''}
             {item.match_method === 'learned' ? ' · 이전 확인값 적용' : ''}
+            {item.match_method === 'ai' ? ' · AI 보조분류' : ''}
             {item.row_consistent === false ? ' · 수량/금액 확인 필요' : ''}
           </Text>
           {item.selected && <>
