@@ -157,3 +157,61 @@ $env:DATA_GO_KR_SERVICE_KEY="발급받은_공공데이터포털_키"
 - 가공식품/음식은 냉장고 자동등록을 막는 negative evidence로 활용합니다.
 - 바코드 데이터는 선택적으로 import할 수 있지만 최신 상품 전체를 보장하는 주 데이터로 사용하지 않습니다.
 - 사용자 확정 바코드/상품명 학습값이 공공 데이터보다 우선합니다.
+
+
+## 서버 OCR 엔진 선택
+
+한국어 영수증 공개 벤치마크 KORIE에서는 PaddleOCR가 Tesseract/EasyOCR보다 낮은 CER/WER를 기록했기 때문에, 서버에서는 PaddleOCR를 선택적으로 우선 사용할 수 있습니다. 다만 공개 수치는 우리 앱의 촬영환경과 동일한 조건이 아니므로 실제 KORIE Test split과 실기기 영수증으로 재측정합니다.
+
+기본 설치에는 PaddleOCR를 포함하지 않습니다. 설치되지 않은 환경은 기존 Tesseract ensemble이 그대로 동작합니다.
+
+### PaddleOCR 선택 설치
+
+PaddlePaddle CPU inference engine 설치 후:
+
+```powershell
+python -m pip install paddlepaddle==3.2.0 -i https://www.paddlepaddle.org.cn/packages/stable/cpu/
+python -m pip install -r requirements-ocr-paddle.txt
+```
+
+`.env`:
+
+```text
+RECEIPT_SERVER_OCR=auto
+PADDLE_OCR_VERSION=PP-OCRv5
+PADDLE_OCR_LANG=korean
+```
+
+- `auto`: PaddleOCR가 있으면 우선, 실패/미설치 시 Tesseract
+- `compare`: PaddleOCR와 Tesseract를 모두 실행하고 실제 영수증 파서 점수가 높은 결과 선택
+- `paddle`: PaddleOCR 우선, 실패 시 Tesseract 안전 fallback
+- `tesseract`: 기존 Tesseract ensemble만 사용
+
+모바일의 `정확도 우선` 모드는 기기 ML Kit 결과와 서버 결과를 비교하므로, PaddleOCR 설치 시 사실상 다음 구조가 됩니다.
+
+```text
+Android ML Kit Korean OCR
+          ┐
+          ├─ 영수증 파싱 점수 비교 → 최종 텍스트 → 식재료 분류
+PaddleOCR Korean (server)
+          └─ 실패 시 Tesseract ensemble
+```
+
+### KORIE OCR 벤치마크
+
+KORIE 데이터는 이 저장소에 재배포하지 않습니다. 로컬에 OCR Test split을 받은 뒤 정답 manifest 또는 same-stem txt 라벨 경로를 넘겨 CER/WER를 비교합니다.
+
+```powershell
+python tools/evaluate_korie_ocr.py --engine tesseract --manifest C:\KORIE\test.csv --output results\tesseract.json
+python tools/evaluate_korie_ocr.py --engine paddle --manifest C:\KORIE\test.csv --output results\paddle.json
+```
+
+CSV 기본 컬럼은 `image,text`이며 다른 컬럼명은 `--image-column`, `--text-column`으로 지정할 수 있습니다.
+
+같은 이름의 이미지/정답 txt 구조라면:
+
+```powershell
+python tools/evaluate_korie_ocr.py --engine paddle --images-dir C:\KORIE\images --labels-dir C:\KORIE\labels
+```
+
+평가 결과는 CER, WER, 실패 건수, 이미지당 평균 처리시간을 반환합니다. 이 결과로 서버 OCR 기본 엔진을 최종 확정합니다.
