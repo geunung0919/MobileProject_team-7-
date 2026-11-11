@@ -1,0 +1,57 @@
+name: Receipt pipeline
+
+on:
+  pull_request:
+    paths:
+      - "jachwi-core/app/receipt_*.py"
+      - "jachwi-core/app/fintech.py"
+      - "jachwi-core/data/receipt_*.json"
+      - "jachwi-core/tests/test_receipt_*.py"
+      - "jachwi-core/tools/*receipt*.py"
+      - "mobile/src/app/spending-import.js"
+      - "mobile/src/lib/receiptFlow.mjs"
+      - "mobile/tests/receipt-flow.test.mjs"
+      - ".github/workflows/receipt-pipeline.yml"
+  push:
+    branches:
+      - "feature/receipt-intelligence-pipeline"
+    paths:
+      - "jachwi-core/**"
+      - "mobile/src/lib/receiptFlow.mjs"
+      - "mobile/tests/receipt-flow.test.mjs"
+      - ".github/workflows/receipt-pipeline.yml"
+
+jobs:
+  core:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: jachwi-core
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+          cache-dependency-path: jachwi-core/requirements.txt
+      - run: python -m pip install -r requirements.txt
+      - name: Receipt unit tests
+        run: python -m pytest -q tests/test_receipt_items.py tests/test_receipt_ai.py tests/test_receipt_dataset.py
+      - name: Text-level receipt evaluation
+        run: python tools/evaluate_receipt_pipeline.py
+
+  mobile:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.13.0"
+          cache: "npm"
+          cache-dependency-path: mobile/package-lock.json
+      - run: npm ci
+      - name: Receipt flow tests
+        run: node --test tests/receipt-flow.test.mjs
