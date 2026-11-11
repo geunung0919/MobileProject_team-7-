@@ -269,6 +269,19 @@ def test_server_strips_inventory_flags_from_food_service_confirm(client):
 
 
 
+
+def test_quantity_first_columns_are_supported():
+    item = parse_receipt_item_line("불고기용 소고기 2 11,000 22,000")
+    assert item is not None
+    assert item["quantity"] == 2
+    assert item["unit_price_krw"] == 11000
+    assert item["item_amount_krw"] == 22000
+    assert item["normalized_name"] == "소고기"
+
+
+def test_numeric_cleanup_keeps_short_liter_unit():
+    assert normalize_ocr_numeric_text("서울우유 1l 3,200") == "서울우유 1l 3,200"
+
 def test_numeric_ocr_cleanup_recovers_amounts_without_touching_dates():
     text = "2026.11.11 두부 1.OOO 1 1.OOO 합계 1.OOO원"
     normalized = normalize_ocr_numeric_text(text)
