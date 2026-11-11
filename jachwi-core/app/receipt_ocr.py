@@ -12,7 +12,7 @@ import threading
 import warnings
 
 from fastapi import Depends, HTTPException, Request
-from PIL import Image, ImageFilter, ImageOps, UnidentifiedImageError
+from PIL import Image, ImageFilter, ImageOps, ImageStat, UnidentifiedImageError
 from starlette.concurrency import run_in_threadpool
 from .fintech import LedgerRow, apply_learned_receipt_items, parse_import_candidate
 
@@ -108,7 +108,7 @@ def _ocr_variants(image):
 
 
 def _receipt_text_score(text):
-    """Prefer OCR output that preserves rows useful to the downstream parser."""
+    """Prefer OCR output that is both readable and useful to the receipt parser."""
     if not text:
         return -1
     lines = [line.strip() for line in text.splitlines() if line.strip()]
@@ -129,7 +129,7 @@ def _receipt_text_score(text):
     )
     korean_chars = len(re.findall(r'[가-힣]', text))
     noisy_symbols = len(re.findall(r'[|{}_~^]{2,}', text))
-    return (
+    score = (
         amount_lines * 10
         + item_like_lines * 6
         + receipt_words * 3
@@ -137,6 +137,39 @@ def _receipt_text_score(text):
         + min(korean_chars // 8, 20)
         - noisy_symbols * 2
     )
+
+    # Select the OCR pass that helps our actual downstream task, not merely the
+    # pass that returns the most characters.
+    try:
+        parsed = parse_import_candidate(text[:5000], source='ocr')
+        score += len(parsed.get('receipt_items') or []) * 12
+        candidate = parsed.get('candidate') or {}
+        if candidate.get('amount_krw') is not None:
+            score += 18
+        if candidate.get('title') not in (None, '', '사용처 확인 필요'):
+            score += 8
+        if parsed.get('receipt_document', {}).get('document_type') == 'multiple_receipts':
+            score -= 20
+    except Exception:
+        score -= 10
+    return score
+
+
+def _image_quality(image):
+    """Cheap quality signals for user guidance; never claims an accuracy probability."""
+    stat = ImageStat.Stat(image)
+    contrast = float(stat.stddev[0]) if stat.stddev else 0.0
+    edges = image.filter(ImageFilter.FIND_EDGES)
+    try:
+        edge_mean = float(ImageStat.Stat(edges).mean[0])
+    finally:
+        edges.close()
+    return {
+        'contrast': round(contrast, 2),
+        'edge_mean': round(edge_mean, 2),
+        'low_contrast': contrast < 24,
+        'possibly_blurred': edge_mean < 9,
+    }
 
 
 def recognize(image):
@@ -220,6 +253,7 @@ def recognize(image):
 def process_image(payload):
     image = decode_image(payload)
     try:
+        image_quality = _image_quality(image)
         text, ocr_meta = recognize(image)
     finally:
         image.close()
@@ -227,12 +261,20 @@ def process_image(payload):
     raw_text = text[:5000]
     result = parse_import_candidate(raw_text, source='ocr')
     result['needs_review'] = True
+    if image_quality['low_contrast']:
+        result['warnings'].append(
+            '사진 대비가 낮아 글자를 놓칠 수 있어요. 밝은 곳에서 영수증만 크게 다시 촬영하면 더 정확해져요.'
+        )
+    if image_quality['possibly_blurred']:
+        result['warnings'].append(
+            '사진이 흐리거나 글자 경계가 약할 수 있어요. 카메라 초점을 맞춘 뒤 다시 촬영해 주세요.'
+        )
     if truncated:
         result['warnings'].append('인식 원문이 5,000자를 넘어 일부만 분석했어요. 긴 영수증은 나눠 확인해 주세요.')
     return {
         'raw_text': raw_text,
         'engine': 'tesseract-ensemble',
-        'ocr_meta': ocr_meta,
+        'ocr_meta': {**ocr_meta, 'image_quality': image_quality},
         'image_retained': False,
         'text_truncated': truncated,
         **result,
