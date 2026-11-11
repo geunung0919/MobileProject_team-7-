@@ -81,10 +81,11 @@ test('hybrid OCR chooses the result that parses the receipt better', async()=>{
       };
     },
   });
-  assert.equal(calls.length,2);
+  assert.equal(calls.length,3);
   assert.equal(result.ocr_selection.mode,'hybrid');
   assert.equal(result.ocr_selection.selected_engine,'device-text-recognizer');
   assert.equal(text,'기기 OCR 원문');
+  assert.equal(calls.filter(path=>path==='me/spending/imports/preview').length,2);
 });
 
 test('receipt scoring rewards structured items and valid merchant',()=>{
