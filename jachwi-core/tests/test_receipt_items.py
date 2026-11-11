@@ -231,6 +231,42 @@ def test_delivery_order_ticket_is_food_service_not_grocery_receipt():
     items = extract_receipt_items(text)
     assert all(item["suggested_for_inventory"] is False for item in items)
 
+
+def test_server_strips_inventory_flags_from_food_service_confirm(client):
+    raw = (
+        "커피빈 사당점\n2018-01-07 16:17:16\n"
+        "레드벨벳토르트 4,500 1 4,500\n"
+        "합계금액 4,500"
+    )
+    response = client.post(
+        "/api/v1/me/spending/imports/confirm",
+        headers=A,
+        json={
+            "raw_text": raw,
+            "source": "ocr",
+            "title": "커피빈 사당점",
+            "amount_krw": 4500,
+            "spent_on": "2018-01-07",
+            "category": "food",
+            "receipt_items": [{
+                "raw_name": "레드벨벳토르트",
+                "normalized_name": "치즈",
+                "quantity": 1,
+                "unit": "개",
+                "item_amount_krw": 4500,
+                "item_type": "ingredient",
+                "is_ingredient": True,
+                "ingredient_confidence": 1,
+                "suggested_for_inventory": True,
+            }],
+        },
+    )
+    assert response.status_code == 201
+    saved = response.json()["receipt_items"][0]
+    assert saved["is_ingredient"] is False
+    assert saved["suggested_for_inventory"] is False
+    assert saved["item_type"] == "unknown"
+
 def test_processed_food_does_not_false_positive_on_ingredient_word():
     for name in ["사과주스 1L", "감자칩 80g", "딸기우유 200ml", "사과 세제 500ml"]:
         result = classify_product(name)
