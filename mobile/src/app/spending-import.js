@@ -6,7 +6,6 @@ import { Button, Card, Field, Page, styles, useTask } from '../components/UI';
 import { parseMoney } from '../lib/api';
 import { recognizeReceiptText, receiptSupport } from '../lib/receiptOcr';
 import { analyzeReceiptPhoto } from '../lib/receiptFlow.mjs';
-import { receiptIngredients } from '../features/fridge/domain/receiptIngredients.mjs';
 import { registerReceiptIngredients } from '../features/fridge/state/AppProvider';
 import { useSession } from '../state/Session';
 import {
@@ -53,6 +52,7 @@ function SpendingImportContent({ api, storageScope }) {
   useEffect(() => () => { photoRequest.current?.abort(); }, []);
   const [review, setReview] = useState(null);
   const [candidate, setCandidate] = useState(null);
+  const [receiptItems, setReceiptItems] = useState([]);
   const [activeNotificationId, setActiveNotificationId] = useState('');
 
   async function analyzeText(text, nextSource = source) {
@@ -61,6 +61,7 @@ function SpendingImportContent({ api, storageScope }) {
     if (!api) throw new Error('사진 확인은 가능해요. 금액 분석·저장은 서버 연결 후 사용할 수 있어요.');
     setReview(null);
     setCandidate(null);
+    setReceiptItems([]);
     const result = await api('me/spending/imports/preview', 'POST', {
       raw_text: normalized,
       source: nextSource,
@@ -68,6 +69,10 @@ function SpendingImportContent({ api, storageScope }) {
     setSource(nextSource);
     setRawText(normalized);
     setReview(result);
+    setReceiptItems((result.receipt_items || []).map(item => ({
+      ...item,
+      selected: !!item.suggested_for_inventory,
+    })));
     setCandidate({
       ...result.candidate,
       amount_krw: result.candidate.amount_krw == null ? '' : String(result.candidate.amount_krw),
@@ -90,6 +95,7 @@ function SpendingImportContent({ api, storageScope }) {
         setSource('notification');
         setRawText(item.rawText);
         setReview(result);
+        setReceiptItems([]);
         setCandidate({
           ...result.candidate,
           amount_krw: result.candidate.amount_krw == null ? '' : String(result.candidate.amount_krw),
@@ -111,7 +117,7 @@ function SpendingImportContent({ api, storageScope }) {
     const asset = result.assets[0];
     if (!asset.uri) throw new Error('사진을 확인할 수 없어요. 다시 선택해 주세요.');
     setPhoto(asset); setImageUri(asset.uri); setSource('ocr');
-    setRawText(''); setReview(null); setCandidate(null); setActiveNotificationId('');
+    setRawText(''); setReview(null); setCandidate(null); setReceiptItems([]); setActiveNotificationId('');
     setPhase('사진 준비 완료 · 내용을 확인한 뒤 분석해 주세요.');
   };
 
@@ -125,6 +131,10 @@ function SpendingImportContent({ api, storageScope }) {
       });
       if (controller.signal.aborted) return;
       setReview(result);
+      setReceiptItems((result.receipt_items || []).map(item => ({
+        ...item,
+        selected: !!item.suggested_for_inventory,
+      })));
       setCandidate({ ...result.candidate, amount_krw: result.candidate.amount_krw == null ? '' : String(result.candidate.amount_krw) });
       setPhase('분석 완료 · 아래 결과를 확인하고 저장해 주세요.');
     } catch (e) {
@@ -163,7 +173,17 @@ function SpendingImportContent({ api, storageScope }) {
     setSavedInventoryCount(items.length);
   };
 
-  const ingredients = candidate && source === 'ocr' ? receiptIngredients(rawText) : [];
+  const changeReceiptItem = (index, patch) => setReceiptItems(items =>
+    items.map((item, current) => current === index ? { ...item, ...patch } : item));
+  const ingredients = candidate && source === 'ocr'
+    ? receiptItems.filter(item => item.selected).map(item => ({
+        name: (item.normalized_name || item.raw_name).trim(),
+        quantity: Number(item.quantity) > 0 ? Number(item.quantity) : 1,
+        unit: item.unit || '개',
+        dateType: 'unknown',
+        expiresAt: '',
+      }))
+    : [];
   const confirm = () => run(async () => {
     if (!api) throw new Error('소비내역 저장에는 서버 연결이 필요해요.');
     if (!candidate) throw new Error('먼저 자동 추출을 실행해 주세요.');
@@ -177,6 +197,17 @@ function SpendingImportContent({ api, storageScope }) {
       amount_krw: parseMoney(candidate.amount_krw, false),
       spent_on: candidate.spent_on,
       category: candidate.category,
+      receipt_items: source === 'ocr' ? receiptItems.map(item => ({
+        raw_name: item.raw_name,
+        normalized_name: item.normalized_name || item.raw_name,
+        quantity: Number(item.quantity) > 0 ? Number(item.quantity) : 1,
+        unit: item.unit || '개',
+        item_amount_krw: item.item_amount_krw || null,
+        item_type: item.selected ? 'ingredient' : (item.item_type || 'unknown'),
+        is_ingredient: !!item.selected,
+        ingredient_confidence: Number(item.ingredient_confidence) || 0,
+        suggested_for_inventory: !!item.selected,
+      })) : [],
     });
     if (activeNotificationId) {
       try {
@@ -234,7 +265,7 @@ function SpendingImportContent({ api, storageScope }) {
         <Button title={busy ? '분석 중…' : photoMode === 'server' ? '사진 전송에 동의하고 분석하기' : '이 사진 분석하기'} disabled={busy || !api} onPress={analyzePhoto} />
         {busy && <Button title="사진 분석 취소" onPress={() => photoRequest.current?.abort()} />}
         <Button title="선택한 사진 지우기" disabled={busy} onPress={() => {
-          setPhoto(null); setImageUri(''); setRawText(''); setReview(null); setCandidate(null); setPhase(''); setError('');
+          setPhoto(null); setImageUri(''); setRawText(''); setReview(null); setCandidate(null); setReceiptItems([]); setPhase(''); setError('');
         }} />
       </>}
       <Text style={styles.small}>JPG·PNG 사진을 권장해요. 서버 전송은 8MB 이하이며 PDF·여러 장 일괄 분석은 아직 지원하지 않아요.</Text>
@@ -256,6 +287,7 @@ function SpendingImportContent({ api, storageScope }) {
             setImageUri('');
             setReview(null);
             setCandidate(null);
+            setReceiptItems([]);
           }}
         />)}
       </View>
@@ -271,6 +303,7 @@ function SpendingImportContent({ api, storageScope }) {
           setRawText(value);
           setReview(null);
           setCandidate(null);
+          setReceiptItems([]);
           setError('');
         }}
       />
@@ -295,9 +328,36 @@ function SpendingImportContent({ api, storageScope }) {
           onPress={() => change('category', key)}
         />)}
       </View>
-      {source === 'ocr' && <Text style={styles.small}>{ingredients.length
-        ? '냉장고에 함께 등록: ' + ingredients.map(item => item.name + ' × ' + item.quantity).join(', ') + ' · 소비기한 미확인'
-        : '확실히 읽힌 식재료가 없어 소비만 저장해요.'}</Text>}
+      {source === 'ocr' && <Card>
+        <Text style={styles.title}>영수증 품목 확인</Text>
+        <Text style={styles.small}>
+          품목 {receiptItems.length}개 · 냉장고 등록 {ingredients.length}개 · 자동 판별이 틀리면 직접 켜거나 끌 수 있어요.
+        </Text>
+        {!receiptItems.length && <Text style={styles.error}>개별 품목을 분리하지 못했어요. 원문을 수정해 다시 분석하거나 소비만 저장할 수 있어요.</Text>}
+        {receiptItems.map((item, index) => <View key={`${item.raw_name}-${index}`} style={{ gap: 8, borderTopWidth: index ? 1 : 0, borderTopColor: '#e1eae5', paddingTop: index ? 10 : 0 }}>
+          <Text style={styles.text}>{item.raw_name}</Text>
+          <Text style={styles.small}>
+            {item.item_amount_krw ? Number(item.item_amount_krw).toLocaleString('ko-KR') + '원 · ' : ''}
+            {item.item_type === 'ingredient' ? '식재료 후보' : item.item_type === 'living' ? '생활용품' : item.item_type === 'food' ? '가공식품/완제품' : '분류 확인 필요'}
+            {item.row_consistent === false ? ' · 수량/금액 확인 필요' : ''}
+          </Text>
+          {item.selected && <Field
+            label="냉장고에 저장할 이름"
+            value={item.normalized_name || item.raw_name}
+            editable={!busy}
+            maxLength={120}
+            onChangeText={value => changeReceiptItem(index, { normalized_name: value })}
+          />}
+          <Button
+            title={item.selected ? '✓ 냉장고에 추가' : '냉장고에서 제외'}
+            disabled={busy}
+            onPress={() => changeReceiptItem(index, { selected: !item.selected })}
+          />
+        </View>)}
+        {!!ingredients.length && <Text style={styles.small}>
+          저장 예정: {ingredients.map(item => item.name + ' × ' + item.quantity).join(', ')} · 소비기한은 미확인으로 등록돼요.
+        </Text>}
+      </Card>}
       <Button title={busy ? '저장 중…' : '확인하고 저장'} disabled={busy} onPress={confirm} />
       <Button title="원문 다시 분석" disabled={busy || !api} onPress={preview} />
     </Card>}
