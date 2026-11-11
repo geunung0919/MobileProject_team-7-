@@ -1,7 +1,7 @@
 from datetime import date
 
 from app.fintech import parse_import_candidate
-from app.receipt_items import classify_product, extract_receipt_items, parse_receipt_item_line
+from app.receipt_items import classify_product, classify_receipt_document, extract_receipt_items, parse_receipt_item_line
 from test_core import A, client
 
 
@@ -157,6 +157,79 @@ def test_partial_ocr_item_sum_warns_before_inventory_trust():
     )
     assert any("품목 금액 합계" in warning for warning in result["warnings"])
     assert result["needs_review"] is True
+
+
+def test_cafe_receipt_is_spending_only_even_when_items_are_parsed():
+    text = (
+        "커피빈 사당점\n"
+        "2018-01-07 16:17:16\n"
+        "레드벨벳토르트 4,500 1 4,500\n"
+        "아이스 아메리카노 3,700 2 7,400\n"
+        "합계금액 11,900"
+    )
+    document = classify_receipt_document(text)
+    assert document["document_type"] == "food_service"
+    assert document["allow_inventory"] is False
+    items = extract_receipt_items(text)
+    assert items
+    assert all(item["suggested_for_inventory"] is False for item in items)
+
+
+def test_restaurant_kitchen_ticket_does_not_create_fridge_candidates():
+    text = (
+        "주방용 날짜: 2008.11.28\n"
+        "불고기피자 2 11,000 11,000\n"
+        "콤비네이션피자 1 18,000 18,000\n"
+        "코카콜라 3 1,000 3,000\n"
+        "금액: 32,000원\n"
+        "중간에 절단\n"
+        "영수증 날짜: 2008.11.28\n"
+        "불고기피자 2 11,000 11,000\n"
+        "콤비네이션피자 1 18,000 18,000\n"
+        "코카콜라 3 1,000 3,000"
+    )
+    document = classify_receipt_document(text)
+    assert document["document_type"] == "food_service"
+    items = extract_receipt_items(text)
+    assert all(item["suggested_for_inventory"] is False for item in items)
+
+
+def test_receipt_collage_is_rejected_for_inventory():
+    text = (
+        "CASH RECEIPT\nDate 10/12/2019\nTotal 25.00\n"
+        "CASH RECEIPT\nDate 10/13/2019\nTotal 14.50\n"
+        "CASH RECEIPT\nDate 10/15/2019\nTotal 32.00"
+    )
+    document = classify_receipt_document(text)
+    assert document["document_type"] == "multiple_receipts"
+    assert document["allow_inventory"] is False
+
+
+def test_card_approval_detail_is_spending_only():
+    text = (
+        "영수증 상세\nCU을지로파인에비뉴점\n2,000원\n"
+        "승인 일시 2019-06-11 17:41:08\n"
+        "승인 번호 30720911\n거래유형 승인\n"
+        "공급가액 1,819원\n부가세 181원\n봉사료 0원\n"
+        "가맹점명 CU을지로파인에비뉴점\n카드번호 0188"
+    )
+    document = classify_receipt_document(text)
+    assert document["document_type"] == "payment_detail"
+    assert document["allow_inventory"] is False
+
+
+def test_delivery_order_ticket_is_food_service_not_grocery_receipt():
+    text = (
+        "배달 주문표\n주문번호 KGA\n배달주소 서울 관악구 봉천동\n"
+        "메뉴 수량 금액\n"
+        "메콤달콤 정통 오리주물럭 한그릇 1 16,000\n"
+        "주문금액 16,000\n할인금액 -2,000\n배달팁 3,500\n총 결제금액 17,500"
+    )
+    document = classify_receipt_document(text)
+    assert document["document_type"] == "food_service"
+    assert document["allow_inventory"] is False
+    items = extract_receipt_items(text)
+    assert all(item["suggested_for_inventory"] is False for item in items)
 
 def test_processed_food_does_not_false_positive_on_ingredient_word():
     for name in ["사과주스 1L", "감자칩 80g", "딸기우유 200ml", "사과 세제 500ml"]:
