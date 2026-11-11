@@ -114,6 +114,9 @@ def normalize_ocr_numeric_text(value):
         token = match.group(1)
         if not re.search(r'\d', token):
             return token
+        # Keep short unit tokens such as "1l" intact; they are not monetary OCR.
+        if len(token) < 3 and any(char in token for char in 'OIl'):
+            return token
         fixed = token.translate(translations)
         # Korean receipts often print 1,350 but OCR may turn the separator into a dot.
         fixed = re.sub(r'(?<=\d)\.(?=\d{3}(?:[.,]|$))', ',', fixed)
