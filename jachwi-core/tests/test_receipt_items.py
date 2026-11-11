@@ -114,6 +114,37 @@ def test_real_receipt_pattern_mixed_food_and_groceries_with_coupon_rows():
     assert any("초코칩" in name for name in excluded_names)
     assert any("바게트" in name for name in excluded_names)
 
+
+def test_barcode_only_product_is_kept_for_manual_name_review():
+    items = extract_receipt_items(
+        "아이스크림 250 3 750\n"
+        "8801005638654 1,380 2 2,760\n"
+        "8807500007063 1,150 1 1,150\n"
+        "스팸 340G 2,950 1 2,950\n"
+        "후레시참치120G 950 2 1,900\n"
+        "가지 700 1 700\n"
+        "합계 27,720"
+    )
+    barcode_items = [item for item in items if item.get("product_code")]
+    assert [item["product_code"] for item in barcode_items] == [
+        "8801005638654", "8807500007063"
+    ]
+    assert all(item["raw_name"] == "상품명 확인 필요" for item in barcode_items)
+    assert all(item["suggested_for_inventory"] is False for item in barcode_items)
+    assert any(item["raw_name"] == "아이스크림" and item["item_type"] == "food" for item in items)
+
+
+def test_multiple_receipt_text_is_flagged_for_crop_review():
+    result = parse_import_candidate(
+        "GS25\n2011-08-30\n합계 4,000원\n"
+        "HOLLYS COFFEE\n2011-08-31\nTOTAL 7,800원",
+        "ocr",
+        today=date(2026, 11, 11),
+    )
+    assert "multiple_receipts_suspected" in result["receipt_document_issues"]
+    assert any("여러 영수증" in warning for warning in result["warnings"])
+    assert result["needs_review"] is True
+
 def test_processed_food_does_not_false_positive_on_ingredient_word():
     for name in ["사과주스 1L", "감자칩 80g", "딸기우유 200ml", "사과 세제 500ml"]:
         result = classify_product(name)
