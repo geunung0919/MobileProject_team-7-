@@ -7,12 +7,15 @@ It does NOT report camera OCR accuracy. Image-level OCR needs a separate photo c
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
-
-from app.receipt_items import classify_receipt_document, extract_receipt_items
 
 
 ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from app.receipt_items import classify_receipt_document, extract_receipt_items
 DATASET = ROOT / "data" / "receipt_pipeline_eval.json"
 
 
