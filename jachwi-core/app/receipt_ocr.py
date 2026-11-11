@@ -49,8 +49,6 @@ def decode_image(payload):
                 image = ImageOps.exif_transpose(source).convert('RGB')
                 image.thumbnail((2600, 3600))
                 prepared = ImageOps.grayscale(image)
-                # Small phone captures and thermal receipts benefit from enlargement and
-                # contrast normalization before Tesseract sees them.
                 if prepared.width < 1600:
                     scale = min(2.5, 1600 / max(prepared.width, 1))
                     prepared = prepared.resize(
@@ -66,49 +64,18 @@ def decode_image(payload):
 
 
 def _receipt_text_score(text):
-    """Prefer OCR output that preserves receipt rows, amounts and Korean product names."""
+    """Prefer OCR output that keeps receipt rows, amounts and Korean product names."""
     if not text:
         return -1
     lines = [line.strip() for line in text.splitlines() if line.strip()]
-    amount_lines = sum(bool(re.search(r'\\d[\\d,]{2,}\\s*원?
-
-def process_image(payload):
-    image = decode_image(payload)
-    try:
-        text = recognize(image)
-    finally:
-        image.close()
-    truncated = len(text) > 5000
-    raw_text = text[:5000]
-    result = parse_import_candidate(raw_text, source='ocr')
-    result['needs_review'] = True
-    if truncated:
-        result['warnings'].append('인식 원문이 5,000자를 넘어 일부만 분석했어요. 긴 영수증은 나눠 확인해 주세요.')
-    return {'raw_text': raw_text, 'engine': 'tesseract', 'image_retained': False, 'text_truncated': truncated, **result}
-
-
-def register_receipt_ocr(app, current_user):
-    @app.post('/api/v1/me/spending/receipts/analyze', tags=['2번 영수증 OCR'])
-    async def analyze(request: Request, user=Depends(current_user)):
-        if request.headers.get('content-type', '').split(';')[0].strip().lower() != 'application/json':
-            raise HTTPException(415, '사진 요청 형식이 올바르지 않아요.')
-        if not SLOTS.acquire(blocking=False):
-            raise HTTPException(429, '사진 분석 요청이 많아요. 잠시 뒤 다시 시도해 주세요.')
-        try:
-            content = bytearray()
-            async for chunk in request.stream():
-                content.extend(chunk)
-                if len(content) > MAX_REQUEST_BYTES:
-                    raise HTTPException(413, '사진 요청이 너무 커요. 8MB 이하 사진을 선택해 주세요.')
-            try:
-                payload = json.loads(content)
-            except (ValueError, UnicodeDecodeError):
-                raise HTTPException(422, '사진 요청을 읽을 수 없어요.') from None
-            return await run_in_threadpool(process_image, payload)
-        finally:
-            SLOTS.release()
-, line)) for line in lines)
-    receipt_words = sum(bool(re.search(r'합\\s*계|금액|수량|상품|품목|결제|영수증', line)) for line in lines)
+    amount_lines = sum(
+        bool(re.search(r'\d[\d,]{2,}\s*원?\Z', line))
+        for line in lines
+    )
+    receipt_words = sum(
+        bool(re.search(r'합\s*계|금액|수량|상품|품목|결제|영수증', line))
+        for line in lines
+    )
     korean_chars = len(re.findall(r'[가-힣]', text))
     return amount_lines * 8 + receipt_words * 3 + min(len(lines), 30) + min(korean_chars // 8, 20)
 
@@ -121,15 +88,17 @@ def recognize(image):
     engine_started = False
     engine_success = False
     try:
-        # PSM 6 works for a uniform text block while PSM 4 is often better for
-        # receipt columns. Keep the better structured result instead of trusting one layout.
+        # PSM 6 treats the receipt as one block; PSM 4 is often better for columns.
+        # Keep whichever output preserves more receipt structure.
         with tempfile.TemporaryDirectory(prefix='receipt-ocr-') as directory:
             path = Path(directory) / 'image.png'
             image.save(path, format='PNG')
             for psm in ('6', '4'):
                 result = subprocess.run(
                     [executable, str(path), 'stdout', '-l', languages, '--psm', psm],
-                    capture_output=True, timeout=18, check=False,
+                    capture_output=True,
+                    timeout=18,
+                    check=False,
                     env={**os.environ, 'OMP_THREAD_LIMIT': '1'},
                 )
                 engine_started = True
