@@ -19,6 +19,9 @@ _QTY_X_PRICE_AT_END = re.compile(
 )
 _LEADING_ROW_NUMBER = re.compile(r"^\s*\d{1,3}\s*[*.)-]?\s+")
 _LEADING_TAX_MARK = re.compile(r"^[*#]\s*")
+_LEADING_STORE_MARK = re.compile(r"^(?:P|p)\s+")
+_BARCODE_OR_CODE = re.compile(r"(?<![0-9A-Za-z])\*?\d{5,14}(?![0-9A-Za-z])")
+_BRACKETED_PRICE = re.compile(r"[\[(]\s*\d{1,3}(?:,\d{3})+\s*[\])]")
 
 _SKIP_LINE = re.compile(
     r"(?:총\s*합계|합\s*계|총\s*액|결제대상금액|결제금액|승인금액|받을금액|"
@@ -36,7 +39,7 @@ _LIVING_WORDS = (
 _PROCESSED_FOOD_WORDS = (
     "주스", "음료", "탄산", "과자", "스낵", "칩", "캔디", "초콜릿", "아이스크림", "라면",
     "컵라면", "빵", "케이크", "도시락", "김밥", "샌드위치", "햄버거", "커피", "딸기우유",
-    "초코우유", "바나나우유", "요구르트",
+    "초코우유", "바나나우유", "요구르트", "장아찌", "너겟", "짬뽕", "바게트",
 )
 
 # Order matters: specific aliases should be checked before broad words.
@@ -61,6 +64,15 @@ _INGREDIENT_ALIASES = (
     ("애호박", ("애호박",)),
     ("버섯", ("새송이버섯", "표고버섯", "느타리버섯", "팽이버섯", "버섯")),
     ("토마토", ("방울토마토", "토마토")),
+    ("상추", ("양촌상추", "청상추", "적상추", "상추")),
+    ("깻잎", ("깻잎",)),
+    ("브로콜리", ("브로콜리", "브로커리")),
+    ("마늘", ("깐마늘", "통마늘", "마늘")),
+    ("새우", ("칵테일새우", "생새우", "흰다리새우", "새우")),
+    ("연어", ("자숙연어", "생연어", "연어")),
+    ("오리고기", ("자란오리", "생오리", "오리로스", "훈제오리")),
+    ("케이퍼", ("케이퍼",)),
+    ("치즈", ("리코타치즈", "모짜렐라치즈", "체다치즈")),
     ("사과", ("사과",)),
     ("바나나", ("바나나",)),
     ("딸기", ("산딸기", "딸기")),
@@ -185,7 +197,14 @@ def parse_receipt_item_line(raw_line: str) -> dict | None:
             row_consistent = bool(unit_price and unit_price * quantity == amount)
 
     name = _LEADING_ROW_NUMBER.sub("", prefix)
-    name = _LEADING_TAX_MARK.sub("", name).strip(" -|:")
+    name = _LEADING_TAX_MARK.sub("", name)
+    name = _LEADING_STORE_MARK.sub("", name)
+    # Some Korean marts print a list/original price on the product-name line,
+    # then barcode + actual unit price/quantity/amount on the following line.
+    # Those numeric identifiers are not part of the product name.
+    name = _BRACKETED_PRICE.sub(" ", name)
+    name = _BARCODE_OR_CODE.sub(" ", name)
+    name = re.sub(r"\s+", " ", name).strip(" -|:")
     if len(name) < 2 or not re.search(r"[가-힣A-Za-z]", name):
         return None
     if _SKIP_LINE.search(name):
