@@ -10,6 +10,8 @@ import re
 import unicodedata
 from difflib import SequenceMatcher
 
+from .receipt_dataset import load_receipt_dataset, lookup_dataset_barcode, lookup_dataset_product_name
+
 
 _AMOUNT_AT_END = re.compile(r"(?<![-\d,])(?P<amount>\d{1,3}(?:,\d{3})+|\d{3,9})\s*원?\s*$")
 _PRICE_QTY_AT_END = re.compile(
@@ -184,6 +186,28 @@ _INGREDIENT_ALIASES = (
     ("고춧가루", ("고춧가루",)),
 )
 
+_RECEIPT_DATASET = load_receipt_dataset()
+_DATASET_LIVING_WORDS = tuple(_RECEIPT_DATASET.get("living_terms") or [])
+_DATASET_PROCESSED_FOOD_WORDS = tuple(_RECEIPT_DATASET.get("processed_food_terms") or [])
+_DATASET_INGREDIENT_ALIASES = tuple(
+    (
+        row["standard_name"],
+        tuple(row.get("aliases") or []),
+    )
+    for row in (_RECEIPT_DATASET.get("ingredients") or [])
+    if row.get("standard_name")
+)
+
+_ALL_LIVING_WORDS = tuple(dict.fromkeys([*_LIVING_WORDS, *_DATASET_LIVING_WORDS]))
+_ALL_PROCESSED_FOOD_WORDS = tuple(
+    dict.fromkeys([*_PROCESSED_FOOD_WORDS, *_DATASET_PROCESSED_FOOD_WORDS])
+)
+_ALL_INGREDIENT_ALIASES = tuple([
+    *_INGREDIENT_ALIASES,
+    *_DATASET_INGREDIENT_ALIASES,
+])
+
+
 _PACKAGE_RE = re.compile(
     r"\d+(?:\.\d+)?\s*(?:kg|g|ml|l|개입|입|구|개|팩|봉|병|모)"
     r"(?:\s*[xX×*]\s*\d+)?",
@@ -219,7 +243,22 @@ def _best_fuzzy_ingredient(compact_name: str):
         return None
 
     best = None
-    for standard_name, aliases in _INGREDIENT_ALIASES:
+    dataset_product = lookup_dataset_product_name(raw_name)
+    if dataset_product:
+        item_type = dataset_product.get("item_type", "unknown")
+        is_ingredient = item_type == "ingredient"
+        return {
+            "normalized_name": (
+                dataset_product.get("normalized_name")
+                or normalize_product_name(raw_name)
+            ),
+            "item_type": item_type,
+            "is_ingredient": is_ingredient,
+            "ingredient_confidence": 0.96 if is_ingredient else 0.95,
+            "match_method": "dataset",
+        }
+
+    for standard_name, aliases in _ALL_INGREDIENT_ALIASES:
         for alias in aliases:
             key = re.sub(r'\d+', '', _compact(alias))
             # Two-syllable Korean words are too short for safe fuzzy auto classification.
@@ -269,7 +308,7 @@ def classify_product(raw_name: str) -> dict:
             "match_method": "exact",
         }
 
-    if any(_compact(word) in compact for word in _LIVING_WORDS):
+    if any(_compact(word) in compact for word in _ALL_LIVING_WORDS):
         return {
             "normalized_name": normalize_product_name(raw_name),
             "item_type": "living",
@@ -280,7 +319,7 @@ def classify_product(raw_name: str) -> dict:
 
     # Apply explicit prepared-food rules before ingredient matching so names such as
     # 감자칩, 딸기우유 or 오리주물럭 do not leak into raw-ingredient inventory.
-    if any(_compact(word) in compact for word in _PROCESSED_FOOD_WORDS):
+    if any(_compact(word) in compact for word in _ALL_PROCESSED_FOOD_WORDS):
         return {
             "normalized_name": normalize_product_name(raw_name),
             "item_type": "food",
@@ -411,18 +450,43 @@ def parse_barcode_item_line(raw_line: str) -> dict | None:
     if amount is None or unit_price is None or quantity <= 0:
         return None
 
+    product_code = match.group("code")
+    dataset_product = lookup_dataset_barcode(product_code)
+    if dataset_product:
+        item_type = dataset_product.get("item_type", "unknown")
+        is_ingredient = item_type == "ingredient"
+        confidence = 0.97 if is_ingredient else 0.95
+        return {
+            "raw_name": dataset_product.get("raw_name") or dataset_product.get("normalized_name") or "상품명 확인 필요",
+            "normalized_name": dataset_product.get("normalized_name") or dataset_product.get("raw_name") or "상품명 확인 필요",
+            "item_type": item_type,
+            "is_ingredient": is_ingredient,
+            "ingredient_confidence": confidence,
+            "match_method": "dataset",
+            "quantity": quantity,
+            "unit": dataset_product.get("unit") or "개",
+            "item_amount_krw": amount,
+            "unit_price_krw": unit_price,
+            "row_consistent": unit_price * quantity == amount,
+            "product_code": product_code,
+            "suggested_for_inventory": bool(
+                is_ingredient and confidence >= 0.92 and unit_price * quantity == amount
+            ),
+        }
+
     return {
         "raw_name": "상품명 확인 필요",
         "normalized_name": "상품명 확인 필요",
         "item_type": "unknown",
         "is_ingredient": False,
         "ingredient_confidence": 0.0,
+        "match_method": "unknown",
         "quantity": quantity,
         "unit": "개",
         "item_amount_krw": amount,
         "unit_price_krw": unit_price,
         "row_consistent": unit_price * quantity == amount,
-        "product_code": match.group("code"),
+        "product_code": product_code,
         "suggested_for_inventory": False,
     }
 
