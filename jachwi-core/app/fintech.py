@@ -14,7 +14,7 @@ from sqlalchemy.orm.exc import StaleDataError
 
 from .database import Base, ProfileRow
 from .schemas import Contract, Money, Spending, SpendingSnapshot
-from .receipt_items import extract_receipt_items
+from .receipt_items import classify_receipt_document, extract_receipt_items
 
 
 Period = Annotated[str, Field(pattern=r'^[0-9]{4}-(0[1-9]|1[0-2])$')]
@@ -344,10 +344,21 @@ def parse_import_candidate(raw_text, source='unknown', today=None):
     if title_inferred:
         warnings.append('사용처를 자동 추출하지 못했어요.')
 
+    receipt_document = classify_receipt_document(text) if source == 'ocr' else {
+        'document_type': 'not_applicable',
+        'allow_inventory': False,
+        'confidence': 1.0,
+    }
     receipt_items = extract_receipt_items(text) if source == 'ocr' else []
     receipt_issues = receipt_document_issues(text) if source == 'ocr' else []
-    if 'multiple_receipts_suspected' in receipt_issues:
+    if receipt_document['document_type'] == 'multiple_receipts' or 'multiple_receipts_suspected' in receipt_issues:
+        if 'multiple_receipts_suspected' not in receipt_issues:
+            receipt_issues.append('multiple_receipts_suspected')
         warnings.append('한 사진에 여러 영수증이 함께 인식된 것 같아요. 한 장만 남도록 잘라 다시 분석하는 것을 권장해요.')
+    elif receipt_document['document_type'] == 'payment_detail':
+        warnings.append('카드 승인 상세 화면으로 보여요. 소비내역 저장은 가능하지만 개별 구매 품목을 냉장고에 자동 등록하지 않아요.')
+    elif receipt_document['document_type'] == 'food_service':
+        warnings.append('카페·음식점·배달 주문 내역으로 보여요. 완성 음식은 냉장고 식재료 후보로 자동 등록하지 않아요.')
     if any(item.get('product_code') and item['raw_name'] == '상품명 확인 필요' for item in receipt_items):
         warnings.append('상품명이 보이지 않고 바코드만 인식된 품목이 있어 이름 확인이 필요해요.')
 
@@ -393,6 +404,7 @@ def parse_import_candidate(raw_text, source='unknown', today=None):
         'needs_review': bool(warnings) or confidence < 0.8,
         'warnings': warnings,
         'receipt_items': receipt_items,
+        'receipt_document': receipt_document,
         'receipt_document_issues': receipt_issues,
     }
 
