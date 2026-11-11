@@ -360,6 +360,20 @@ def parse_import_candidate(raw_text, source='unknown', today=None):
         elif any(not item['row_consistent'] for item in receipt_items):
             warnings.append('수량과 품목 금액이 맞지 않는 행이 있어 냉장고 등록 전에 확인이 필요해요.')
 
+        item_amount_sum = sum(
+            item['item_amount_krw']
+            for item in receipt_items
+            if item.get('item_amount_krw') is not None
+        )
+        if amount is not None and item_amount_sum:
+            gap = abs(amount - item_amount_sum)
+            tolerance = max(1000, int(amount * 0.15))
+            if gap > tolerance:
+                warnings.append(
+                    '인식된 품목 금액 합계와 영수증 총액 차이가 커요. '
+                    '가려진 품목이나 OCR 누락이 있을 수 있어 사진을 다시 확인해 주세요.'
+                )
+
     confidence = 0.0
     confidence += 0.45 if amount is not None else 0
     confidence += 0.25 if not date_inferred else 0.1
