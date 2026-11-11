@@ -243,21 +243,6 @@ def _best_fuzzy_ingredient(compact_name: str):
         return None
 
     best = None
-    dataset_product = lookup_dataset_product_name(raw_name)
-    if dataset_product:
-        item_type = dataset_product.get("item_type", "unknown")
-        is_ingredient = item_type == "ingredient"
-        return {
-            "normalized_name": (
-                dataset_product.get("normalized_name")
-                or normalize_product_name(raw_name)
-            ),
-            "item_type": item_type,
-            "is_ingredient": is_ingredient,
-            "ingredient_confidence": 0.96 if is_ingredient else 0.95,
-            "match_method": "dataset",
-        }
-
     for standard_name, aliases in _ALL_INGREDIENT_ALIASES:
         for alias in aliases:
             key = re.sub(r'\d+', '', _compact(alias))
@@ -328,7 +313,22 @@ def classify_product(raw_name: str) -> dict:
             "match_method": "rule",
         }
 
-    for standard_name, aliases in _INGREDIENT_ALIASES:
+    dataset_product = lookup_dataset_product_name(raw_name)
+    if dataset_product:
+        item_type = dataset_product.get("item_type", "unknown")
+        is_ingredient = item_type == "ingredient"
+        return {
+            "normalized_name": (
+                dataset_product.get("normalized_name")
+                or normalize_product_name(raw_name)
+            ),
+            "item_type": item_type,
+            "is_ingredient": is_ingredient,
+            "ingredient_confidence": 0.96 if is_ingredient else 0.95,
+            "match_method": "dataset",
+        }
+
+    for standard_name, aliases in _ALL_INGREDIENT_ALIASES:
         for alias in aliases:
             key = _compact(alias)
             if key and key in compact:
