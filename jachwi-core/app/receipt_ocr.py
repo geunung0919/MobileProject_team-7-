@@ -92,7 +92,7 @@ def _otsu_binarize(image):
             best_variance = between
             best_threshold = threshold
 
-    return image.point(lambda pixel: 255 if pixel > best_threshold else 0, mode='1').convert('L')
+    return image.point(lambda pixel: 255 if pixel > best_threshold else 0).convert('L')
 
 
 def _ocr_variants(image):
@@ -151,11 +151,16 @@ def recognize(image):
 
     try:
         with tempfile.TemporaryDirectory(prefix='receipt-ocr-') as directory:
+            psm_plan = {
+                'contrast': ('4', '6'),
+                'unsharp': ('6',),
+                'binary': ('4', '6', '11'),
+            }
             for variant_name, variant in _ocr_variants(image):
                 path = Path(directory) / f'{variant_name}.png'
                 variant.save(path, format='PNG')
                 try:
-                    for psm in ('4', '6', '11'):
+                    for psm in psm_plan[variant_name]:
                         result = subprocess.run(
                             [
                                 executable, str(path), 'stdout',
@@ -165,7 +170,7 @@ def recognize(image):
                                 '-c', 'preserve_interword_spaces=1',
                             ],
                             capture_output=True,
-                            timeout=12,
+                            timeout=6,
                             check=False,
                             env={**os.environ, 'OMP_THREAD_LIMIT': '1'},
                         )
