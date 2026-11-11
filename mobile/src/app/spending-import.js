@@ -383,6 +383,7 @@ function SpendingImportContent({ api, storageScope }) {
             {item.item_type === 'ingredient' ? '식재료 후보' : item.item_type === 'living' ? '생활용품' : item.item_type === 'food' ? '가공식품/완제품' : '분류 확인 필요'}
             {item.match_method === 'fuzzy' ? ' · OCR 오타 유사매칭' : ''}
             {item.match_method === 'learned' ? ' · 이전 확인값 적용' : ''}
+            {item.match_method === 'dataset' ? ' · 식품 데이터셋 매칭' : ''}
             {item.match_method === 'ai' ? ' · AI 보조분류' : ''}
             {item.row_consistent === false ? ' · 수량/금액 확인 필요' : ''}
           </Text>
