@@ -536,7 +536,25 @@ def extract_receipt_items(raw_text: str, limit: int = 50) -> list[dict]:
             continue
         seen.add(signature)
         if not document["allow_inventory"]:
-            item = {**item, "suggested_for_inventory": False}
+            forced_type = item.get("item_type", "unknown")
+            if forced_type == "ingredient":
+                forced_type = (
+                    "food"
+                    if document["document_type"] == "food_service"
+                    else "unknown"
+                )
+            item = {
+                **item,
+                "item_type": forced_type,
+                "is_ingredient": False,
+                "ingredient_confidence": 0.0,
+                "suggested_for_inventory": False,
+                "match_method": (
+                    "rule"
+                    if document["document_type"] == "food_service"
+                    else item.get("match_method", "unknown")
+                ),
+            }
         items.append(item)
         if len(items) >= limit:
             break
