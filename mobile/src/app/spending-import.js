@@ -190,6 +190,11 @@ function SpendingImportContent({ api, storageScope }) {
     const title = candidate.title.trim();
     if (!title || title === '사용처 확인 필요') throw new Error('사용처를 확인해서 입력해 주세요.');
     if (!/^\d{4}-\d{2}-\d{2}$/.test(candidate.spent_on)) throw new Error('날짜를 YYYY-MM-DD 형식으로 입력해 주세요.');
+    if (source === 'ocr' && receiptItems.some(item =>
+      item.selected && (!item.normalized_name?.trim() || item.normalized_name.trim() === '상품명 확인 필요')
+    )) {
+      throw new Error('바코드만 인식된 품목은 냉장고에 넣기 전에 상품명을 입력해 주세요.');
+    }
     const saved = await api('me/spending/imports/confirm', 'POST', {
       raw_text: rawText.trim(),
       source,
@@ -203,6 +208,7 @@ function SpendingImportContent({ api, storageScope }) {
         quantity: Number(item.quantity) > 0 ? Number(item.quantity) : 1,
         unit: item.unit || '개',
         item_amount_krw: item.item_amount_krw || null,
+        product_code: item.product_code || null,
         item_type: item.selected
           ? 'ingredient'
           : (item.item_type === 'ingredient' ? 'unknown' : (item.item_type || 'unknown')),
@@ -338,6 +344,7 @@ function SpendingImportContent({ api, storageScope }) {
         {!receiptItems.length && <Text style={styles.error}>개별 품목을 분리하지 못했어요. 원문을 수정해 다시 분석하거나 소비만 저장할 수 있어요.</Text>}
         {receiptItems.map((item, index) => <View key={`${item.raw_name}-${index}`} style={{ gap: 8, borderTopWidth: index ? 1 : 0, borderTopColor: '#e1eae5', paddingTop: index ? 10 : 0 }}>
           <Text style={styles.text}>{item.raw_name}</Text>
+          {!!item.product_code && <Text style={styles.small}>바코드 {item.product_code}</Text>}
           <Text style={styles.small}>
             {item.item_amount_krw ? Number(item.item_amount_krw).toLocaleString('ko-KR') + '원 · ' : ''}
             {item.item_type === 'ingredient' ? '식재료 후보' : item.item_type === 'living' ? '생활용품' : item.item_type === 'food' ? '가공식품/완제품' : '분류 확인 필요'}
