@@ -28,6 +28,12 @@ const categories = {
   transport: '교통',
   other: '기타',
 };
+const receiptDocumentLabels = {
+  purchase_receipt: '구매 영수증',
+  food_service: '카페·음식점·배달 주문',
+  payment_detail: '카드 승인 상세',
+  multiple_receipts: '여러 영수증이 섞인 이미지',
+};
 
 export default function SpendingImport() {
   const { api, storageScope } = useSession();
@@ -175,7 +181,10 @@ function SpendingImportContent({ api, storageScope }) {
 
   const changeReceiptItem = (index, patch) => setReceiptItems(items =>
     items.map((item, current) => current === index ? { ...item, ...patch } : item));
-  const ingredients = candidate && source === 'ocr'
+  const inventoryAllowed = source === 'ocr'
+    ? review?.receipt_document?.allow_inventory !== false
+    : false;
+  const ingredients = candidate && source === 'ocr' && inventoryAllowed
     ? receiptItems.filter(item => item.selected).map(item => ({
         name: (item.normalized_name || item.raw_name).trim(),
         quantity: Number(item.quantity) > 0 ? Number(item.quantity) : 1,
@@ -339,8 +348,11 @@ function SpendingImportContent({ api, storageScope }) {
       {source === 'ocr' && <Card>
         <Text style={styles.title}>영수증 품목 확인</Text>
         <Text style={styles.small}>
-          품목 {receiptItems.length}개 · 냉장고 등록 {ingredients.length}개 · 자동 판별이 틀리면 직접 켜거나 끌 수 있어요.
+          {receiptDocumentLabels[review?.receipt_document?.document_type] || '영수증'} · 품목 {receiptItems.length}개 · 냉장고 등록 {ingredients.length}개
         </Text>
+        {inventoryAllowed
+          ? <Text style={styles.small}>자동 판별이 틀리면 직접 냉장고 포함 여부를 바꿀 수 있어요.</Text>
+          : <Text style={styles.error}>이 문서는 소비 확인용으로만 처리해요. 음식점·카페·카드 승인 상세·여러 영수증 이미지는 냉장고 자동등록 대상이 아니에요.</Text>}
         {!receiptItems.length && <Text style={styles.error}>개별 품목을 분리하지 못했어요. 원문을 수정해 다시 분석하거나 소비만 저장할 수 있어요.</Text>}
         {receiptItems.map((item, index) => <View key={`${item.raw_name}-${index}`} style={{ gap: 8, borderTopWidth: index ? 1 : 0, borderTopColor: '#e1eae5', paddingTop: index ? 10 : 0 }}>
           <Text style={styles.text}>{item.raw_name}</Text>
@@ -368,7 +380,7 @@ function SpendingImportContent({ api, storageScope }) {
           </>}
           <Button
             title={item.selected ? '✓ 냉장고에 추가' : '냉장고에서 제외'}
-            disabled={busy}
+            disabled={busy || !inventoryAllowed}
             onPress={() => changeReceiptItem(index, { selected: !item.selected })}
           />
         </View>)}
