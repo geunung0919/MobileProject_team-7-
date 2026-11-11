@@ -16,6 +16,7 @@ from PIL import Image, ImageFilter, ImageOps, ImageStat, UnidentifiedImageError
 from starlette.concurrency import run_in_threadpool
 from .fintech import LedgerRow, apply_learned_receipt_items, parse_import_candidate
 from .receipt_ai import apply_ai_receipt_items
+from .receipt_paddle import paddle_available, recognize_paddle
 
 MAX_IMAGE_BYTES = 8 * 1024 * 1024
 MAX_REQUEST_BYTES = 12 * 1024 * 1024
@@ -178,7 +179,7 @@ def _image_quality(image):
     }
 
 
-def recognize(image):
+def recognize_tesseract(image):
     executable = os.getenv('TESSERACT_CMD', 'tesseract')
     languages = os.getenv('OCR_LANGUAGES', 'kor+eng')
     best_text = ''
@@ -256,11 +257,78 @@ def recognize(image):
     }
 
 
+def recognize_server(image):
+    """Choose the strongest available server OCR without making it a hard dependency."""
+    preference = os.getenv('RECEIPT_SERVER_OCR', 'auto').strip().lower()
+    if preference not in {'auto', 'paddle', 'tesseract', 'compare'}:
+        preference = 'auto'
+
+    paddle_result = None
+    paddle_error = None
+    if preference in {'auto', 'paddle', 'compare'} and paddle_available():
+        try:
+            text, meta = recognize_paddle(image)
+            paddle_result = (
+                text,
+                {
+                    **meta,
+                    'quality_score': _receipt_text_score(text),
+                },
+            )
+        except Exception as exc:
+            paddle_error = str(exc)
+
+    if preference == 'paddle':
+        if paddle_result is not None:
+            return paddle_result
+        # Explicit paddle mode still fails open to the existing server OCR.
+        text, meta = recognize_tesseract(image)
+        return text, {
+            **meta,
+            'engine': 'tesseract-ensemble',
+            'fallback_from': 'paddleocr',
+            'paddle_error': paddle_error,
+        }
+
+    if preference == 'auto' and paddle_result is not None:
+        return paddle_result
+
+    text, meta = recognize_tesseract(image)
+    tesseract_result = (
+        text,
+        {
+            **meta,
+            'engine': 'tesseract-ensemble',
+        },
+    )
+
+    if preference == 'compare' and paddle_result is not None:
+        if paddle_result[1]['quality_score'] >= tesseract_result[1]['quality_score']:
+            return paddle_result[0], {
+                **paddle_result[1],
+                'compared_with': 'tesseract-ensemble',
+                'tesseract_quality_score': tesseract_result[1]['quality_score'],
+            }
+        return tesseract_result[0], {
+            **tesseract_result[1],
+            'compared_with': 'paddleocr',
+            'paddle_quality_score': paddle_result[1]['quality_score'],
+        }
+
+    if paddle_error:
+        return tesseract_result[0], {
+            **tesseract_result[1],
+            'fallback_from': 'paddleocr',
+            'paddle_error': paddle_error,
+        }
+    return tesseract_result
+
+
 def process_image(payload):
     image = decode_image(payload)
     try:
         image_quality = _image_quality(image)
-        text, ocr_meta = recognize(image)
+        text, ocr_meta = recognize_server(image)
     finally:
         image.close()
     truncated = len(text) > 5000
@@ -279,7 +347,7 @@ def process_image(payload):
         result['warnings'].append('인식 원문이 5,000자를 넘어 일부만 분석했어요. 긴 영수증은 나눠 확인해 주세요.')
     return {
         'raw_text': raw_text,
-        'engine': 'tesseract-ensemble',
+        'engine': ocr_meta.get('engine', 'tesseract-ensemble'),
         'ocr_meta': {**ocr_meta, 'image_quality': image_quality},
         'image_retained': False,
         'text_truncated': truncated,
