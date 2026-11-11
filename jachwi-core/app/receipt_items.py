@@ -47,7 +47,7 @@ _INGREDIENT_ALIASES = (
     ("달걀", ("무항생제특란", "무항생제대란", "특란", "대란", "왕란", "계란", "달걀")),
     ("우유", ("서울우유", "매일우유", "남양우유", "파스퇴르우유", "흰우유", "저지방우유", "무지방우유", "우유")),
     ("두부", ("국산콩두부", "순두부", "연두부", "두부")),
-    ("돼지고기", ("삼겹살", "목살", "앞다리살", "뒷다리살", "돼지고기")),
+    ("돼지고기", ("삼겹살", "목살", "목심", "앞다리살", "뒷다리살", "돼지고기")),
     ("소고기", ("한우", "소고기", "쇠고기", "불고기용")),
     ("닭고기", ("닭가슴살", "닭안심", "닭다리", "닭고기")),
     ("양파", ("양파",)),
@@ -62,7 +62,7 @@ _INGREDIENT_ALIASES = (
     ("숙주", ("숙주",)),
     ("시금치", ("시금치",)),
     ("애호박", ("애호박",)),
-    ("버섯", ("새송이버섯", "표고버섯", "느타리버섯", "팽이버섯", "버섯")),
+    ("버섯", ("새송이버섯", "표고버섯", "느타리버섯", "느타리", "팽이버섯", "버섯")),
     ("토마토", ("방울토마토", "토마토")),
     ("상추", ("양촌상추", "청상추", "적상추", "상추")),
     ("깻잎", ("깻잎",)),
@@ -126,6 +126,14 @@ def classify_product(raw_name: str) -> dict:
             "item_type": "unknown",
             "is_ingredient": False,
             "ingredient_confidence": 0.0,
+        }
+
+    if compact == "무":
+        return {
+            "normalized_name": "무",
+            "item_type": "ingredient",
+            "is_ingredient": True,
+            "ingredient_confidence": 0.98,
         }
 
     if any(_compact(word) in compact for word in _LIVING_WORDS):
@@ -205,7 +213,7 @@ def parse_receipt_item_line(raw_line: str) -> dict | None:
     name = _BRACKETED_PRICE.sub(" ", name)
     name = _BARCODE_OR_CODE.sub(" ", name)
     name = re.sub(r"\s+", " ", name).strip(" -|:")
-    if len(name) < 2 or not re.search(r"[가-힣A-Za-z]", name):
+    if (len(name) < 2 and name != "무") or not re.search(r"[가-힣A-Za-z]", name):
         return None
     if _SKIP_LINE.search(name):
         return None
