@@ -565,6 +565,25 @@ def register_fintech(app, current_user, db):
         if fingerprint in imported:
             raise HTTPException(409, '이미 가져온 결제 내역이에요.')
 
+        receipt_items = []
+        if body.source == 'ocr' and body.receipt_items:
+            document = classify_receipt_document(body.raw_text)
+            receipt_items = [item.model_dump(mode='json') for item in body.receipt_items]
+            if not document['allow_inventory']:
+                receipt_items = [
+                    {
+                        **item,
+                        'is_ingredient': False,
+                        'suggested_for_inventory': False,
+                        'item_type': (
+                            'unknown'
+                            if item.get('item_type') == 'ingredient'
+                            else item.get('item_type', 'unknown')
+                        ),
+                    }
+                    for item in receipt_items
+                ]
+
         entry = {
             'id': str(uuid4()),
             'title': body.title,
@@ -573,11 +592,7 @@ def register_fintech(app, current_user, db):
             'category': body.category,
             'import_source': body.source,
             'import_fingerprint': fingerprint,
-            **(
-                {'receipt_items': [item.model_dump(mode='json') for item in body.receipt_items]}
-                if body.source == 'ocr' and body.receipt_items
-                else {}
-            ),
+            **({'receipt_items': receipt_items} if receipt_items else {}),
         }
         save(
             session,
