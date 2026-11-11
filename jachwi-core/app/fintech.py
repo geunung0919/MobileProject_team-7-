@@ -59,7 +59,7 @@ class ReceiptItemInput(Contract):
     item_type: Literal['ingredient', 'food', 'living', 'other', 'unknown'] = 'unknown'
     is_ingredient: bool = False
     ingredient_confidence: Annotated[float, Field(ge=0, le=1)] = 0
-    match_method: Literal['none', 'rule', 'exact', 'fuzzy', 'learned', 'ai', 'unknown'] | None = None
+    match_method: Literal['none', 'rule', 'exact', 'fuzzy', 'learned', 'dataset', 'ai', 'unknown'] | None = None
     matched_alias: str | None = Field(default=None, max_length=120)
     suggested_for_inventory: bool = False
 
