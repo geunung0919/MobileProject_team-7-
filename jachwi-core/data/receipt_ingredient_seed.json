@@ -1,0 +1,639 @@
+{
+  "schema_version": 1,
+  "description": "Receipt ingredient vocabulary seed. Additive to code rules; can be expanded from MFDS raw-material data.",
+  "sources": [
+    {
+      "name": "MFDS Food Raw Material Information",
+      "url": "https://apis.data.go.kr/1471000/FoodRwmatrInfoService01/getFoodRwmatrList01",
+      "role": "canonical ingredient names and aliases",
+      "note": "Seed is curated locally; use tools/build_receipt_dataset.py with an approved service key to expand."
+    },
+    {
+      "name": "Project receipt regression samples",
+      "role": "receipt OCR aliases observed in project test images"
+    }
+  ],
+  "ingredients": [
+    {
+      "standard_name": "달걀",
+      "aliases": [
+        "계란",
+        "특란",
+        "대란",
+        "왕란",
+        "무항생제특란",
+        "무항생제대란",
+        "신선특란"
+      ]
+    },
+    {
+      "standard_name": "우유",
+      "aliases": [
+        "흰우유",
+        "서울우유",
+        "매일우유",
+        "남양우유",
+        "파스퇴르우유",
+        "굿모닝우유",
+        "저지방우유",
+        "무지방우유"
+      ]
+    },
+    {
+      "standard_name": "두부",
+      "aliases": [
+        "두부",
+        "국산콩두부",
+        "찌개용두부",
+        "부침용두부",
+        "순두부",
+        "연두부"
+      ]
+    },
+    {
+      "standard_name": "돼지고기",
+      "aliases": [
+        "돼지고기",
+        "삼겹살",
+        "목살",
+        "목심",
+        "앞다리살",
+        "뒷다리살",
+        "돼지앞다리",
+        "돼지목심"
+      ]
+    },
+    {
+      "standard_name": "소고기",
+      "aliases": [
+        "소고기",
+        "쇠고기",
+        "한우",
+        "불고기용",
+        "국거리용"
+      ]
+    },
+    {
+      "standard_name": "닭고기",
+      "aliases": [
+        "닭고기",
+        "닭가슴살",
+        "닭안심",
+        "닭다리",
+        "닭봉",
+        "닭날개"
+      ]
+    },
+    {
+      "standard_name": "오리고기",
+      "aliases": [
+        "오리고기",
+        "생오리",
+        "오리로스",
+        "훈제오리",
+        "자란오리"
+      ]
+    },
+    {
+      "standard_name": "새우",
+      "aliases": [
+        "새우",
+        "생새우",
+        "흰다리새우",
+        "칵테일새우"
+      ]
+    },
+    {
+      "standard_name": "연어",
+      "aliases": [
+        "연어",
+        "생연어",
+        "자숙연어"
+      ]
+    },
+    {
+      "standard_name": "오징어",
+      "aliases": [
+        "오징어",
+        "생오징어"
+      ]
+    },
+    {
+      "standard_name": "고등어",
+      "aliases": [
+        "고등어",
+        "자반고등어"
+      ]
+    },
+    {
+      "standard_name": "갈치",
+      "aliases": [
+        "갈치"
+      ]
+    },
+    {
+      "standard_name": "조개",
+      "aliases": [
+        "조개",
+        "바지락",
+        "모시조개"
+      ]
+    },
+    {
+      "standard_name": "홍합",
+      "aliases": [
+        "홍합"
+      ]
+    },
+    {
+      "standard_name": "낙지",
+      "aliases": [
+        "낙지"
+      ]
+    },
+    {
+      "standard_name": "양파",
+      "aliases": [
+        "양파"
+      ]
+    },
+    {
+      "standard_name": "대파",
+      "aliases": [
+        "대파",
+        "쪽파"
+      ]
+    },
+    {
+      "standard_name": "감자",
+      "aliases": [
+        "감자"
+      ]
+    },
+    {
+      "standard_name": "고구마",
+      "aliases": [
+        "고구마"
+      ]
+    },
+    {
+      "standard_name": "당근",
+      "aliases": [
+        "당근"
+      ]
+    },
+    {
+      "standard_name": "오이",
+      "aliases": [
+        "오이"
+      ]
+    },
+    {
+      "standard_name": "가지",
+      "aliases": [
+        "가지"
+      ]
+    },
+    {
+      "standard_name": "파프리카",
+      "aliases": [
+        "파프리카"
+      ]
+    },
+    {
+      "standard_name": "고추",
+      "aliases": [
+        "고추",
+        "청양고추",
+        "풋고추",
+        "홍고추"
+      ]
+    },
+    {
+      "standard_name": "부추",
+      "aliases": [
+        "부추"
+      ]
+    },
+    {
+      "standard_name": "미나리",
+      "aliases": [
+        "미나리"
+      ]
+    },
+    {
+      "standard_name": "양상추",
+      "aliases": [
+        "양상추"
+      ]
+    },
+    {
+      "standard_name": "샐러리",
+      "aliases": [
+        "샐러리",
+        "셀러리"
+      ]
+    },
+    {
+      "standard_name": "양배추",
+      "aliases": [
+        "양배추"
+      ]
+    },
+    {
+      "standard_name": "배추",
+      "aliases": [
+        "배추"
+      ]
+    },
+    {
+      "standard_name": "무",
+      "aliases": [
+        "무",
+        "무우"
+      ]
+    },
+    {
+      "standard_name": "콩나물",
+      "aliases": [
+        "콩나물"
+      ]
+    },
+    {
+      "standard_name": "숙주",
+      "aliases": [
+        "숙주",
+        "숙주나물"
+      ]
+    },
+    {
+      "standard_name": "시금치",
+      "aliases": [
+        "시금치"
+      ]
+    },
+    {
+      "standard_name": "애호박",
+      "aliases": [
+        "애호박",
+        "주키니"
+      ]
+    },
+    {
+      "standard_name": "버섯",
+      "aliases": [
+        "버섯",
+        "새송이버섯",
+        "표고버섯",
+        "느타리버섯",
+        "느타리",
+        "팽이버섯"
+      ]
+    },
+    {
+      "standard_name": "토마토",
+      "aliases": [
+        "토마토",
+        "방울토마토",
+        "대추방울토마토"
+      ]
+    },
+    {
+      "standard_name": "상추",
+      "aliases": [
+        "상추",
+        "청상추",
+        "적상추",
+        "양촌상추",
+        "논산양촌상추"
+      ]
+    },
+    {
+      "standard_name": "깻잎",
+      "aliases": [
+        "깻잎"
+      ]
+    },
+    {
+      "standard_name": "브로콜리",
+      "aliases": [
+        "브로콜리",
+        "브로커리"
+      ]
+    },
+    {
+      "standard_name": "마늘",
+      "aliases": [
+        "마늘",
+        "깐마늘",
+        "통마늘"
+      ]
+    },
+    {
+      "standard_name": "사과",
+      "aliases": [
+        "사과"
+      ]
+    },
+    {
+      "standard_name": "바나나",
+      "aliases": [
+        "바나나"
+      ]
+    },
+    {
+      "standard_name": "딸기",
+      "aliases": [
+        "딸기",
+        "산딸기"
+      ]
+    },
+    {
+      "standard_name": "귤",
+      "aliases": [
+        "귤",
+        "감귤"
+      ]
+    },
+    {
+      "standard_name": "포도",
+      "aliases": [
+        "포도"
+      ]
+    },
+    {
+      "standard_name": "배",
+      "aliases": [
+        "배"
+      ]
+    },
+    {
+      "standard_name": "복숭아",
+      "aliases": [
+        "복숭아"
+      ]
+    },
+    {
+      "standard_name": "수박",
+      "aliases": [
+        "수박"
+      ]
+    },
+    {
+      "standard_name": "참외",
+      "aliases": [
+        "참외"
+      ]
+    },
+    {
+      "standard_name": "키위",
+      "aliases": [
+        "키위",
+        "골드키위",
+        "그린키위"
+      ]
+    },
+    {
+      "standard_name": "레몬",
+      "aliases": [
+        "레몬"
+      ]
+    },
+    {
+      "standard_name": "쌀",
+      "aliases": [
+        "쌀",
+        "백미",
+        "현미"
+      ]
+    },
+    {
+      "standard_name": "밀가루",
+      "aliases": [
+        "밀가루",
+        "중력분",
+        "강력분",
+        "박력분"
+      ]
+    },
+    {
+      "standard_name": "전분",
+      "aliases": [
+        "전분",
+        "감자전분",
+        "옥수수전분"
+      ]
+    },
+    {
+      "standard_name": "빵가루",
+      "aliases": [
+        "빵가루"
+      ]
+    },
+    {
+      "standard_name": "김치",
+      "aliases": [
+        "김치",
+        "배추김치",
+        "깍두기"
+      ]
+    },
+    {
+      "standard_name": "간장",
+      "aliases": [
+        "간장",
+        "진간장",
+        "양조간장",
+        "국간장"
+      ]
+    },
+    {
+      "standard_name": "고추장",
+      "aliases": [
+        "고추장"
+      ]
+    },
+    {
+      "standard_name": "된장",
+      "aliases": [
+        "된장"
+      ]
+    },
+    {
+      "standard_name": "소금",
+      "aliases": [
+        "소금",
+        "꽃소금",
+        "천일염"
+      ]
+    },
+    {
+      "standard_name": "설탕",
+      "aliases": [
+        "설탕",
+        "백설탕",
+        "황설탕"
+      ]
+    },
+    {
+      "standard_name": "식용유",
+      "aliases": [
+        "식용유",
+        "카놀라유",
+        "포도씨유",
+        "올리브유"
+      ]
+    },
+    {
+      "standard_name": "참기름",
+      "aliases": [
+        "참기름"
+      ]
+    },
+    {
+      "standard_name": "고춧가루",
+      "aliases": [
+        "고춧가루"
+      ]
+    },
+    {
+      "standard_name": "치즈",
+      "aliases": [
+        "치즈",
+        "체다치즈",
+        "모짜렐라치즈",
+        "리코타치즈",
+        "슬라이스치즈"
+      ]
+    },
+    {
+      "standard_name": "버터",
+      "aliases": [
+        "버터",
+        "가염버터",
+        "무염버터"
+      ]
+    },
+    {
+      "standard_name": "생크림",
+      "aliases": [
+        "생크림",
+        "휘핑크림"
+      ]
+    },
+    {
+      "standard_name": "마요네즈",
+      "aliases": [
+        "마요네즈"
+      ]
+    },
+    {
+      "standard_name": "케첩",
+      "aliases": [
+        "케첩",
+        "케찹",
+        "토마토케첩"
+      ]
+    },
+    {
+      "standard_name": "참치",
+      "aliases": [
+        "참치",
+        "참치캔",
+        "후레시참치"
+      ]
+    },
+    {
+      "standard_name": "햄",
+      "aliases": [
+        "햄",
+        "스팸",
+        "런천미트",
+        "슬라이스햄"
+      ]
+    },
+    {
+      "standard_name": "소시지",
+      "aliases": [
+        "소시지",
+        "소세지",
+        "비엔나소시지",
+        "후랑크소시지"
+      ]
+    },
+    {
+      "standard_name": "베이컨",
+      "aliases": [
+        "베이컨"
+      ]
+    },
+    {
+      "standard_name": "케이퍼",
+      "aliases": [
+        "케이퍼"
+      ]
+    }
+  ],
+  "processed_food_terms": [
+    "주스",
+    "쥬스",
+    "음료",
+    "탄산",
+    "과자",
+    "스낵",
+    "감자칩",
+    "초코칩",
+    "캔디",
+    "초콜릿",
+    "아이스크림",
+    "라면",
+    "컵라면",
+    "빵",
+    "케이크",
+    "도시락",
+    "김밥",
+    "샌드위치",
+    "햄버거",
+    "커피",
+    "딸기우유",
+    "초코우유",
+    "바나나우유",
+    "요구르트",
+    "장아찌",
+    "말랭이",
+    "너겟",
+    "짬뽕",
+    "바게트",
+    "아메리카노",
+    "라떼",
+    "토르트",
+    "피자",
+    "콜라",
+    "주물럭"
+  ],
+  "living_terms": [
+    "세제",
+    "주방세제",
+    "섬유유연제",
+    "휴지",
+    "화장지",
+    "키친타월",
+    "물티슈",
+    "샴푸",
+    "린스",
+    "트리트먼트",
+    "치약",
+    "칫솔",
+    "비누",
+    "수세미",
+    "쓰레기봉투",
+    "종량제",
+    "건전지",
+    "면도기",
+    "로션",
+    "화장품",
+    "생리대",
+    "마스크",
+    "쇼핑백"
+  ]
+}
