@@ -1,6 +1,6 @@
 from datetime import date
 
-from app.fintech import parse_import_candidate
+from app.fintech import normalize_ocr_numeric_text, parse_import_candidate
 from app.receipt_items import classify_product, classify_receipt_document, extract_receipt_items, parse_receipt_item_line
 from test_core import A, client
 
@@ -267,6 +267,22 @@ def test_server_strips_inventory_flags_from_food_service_confirm(client):
     assert saved["suggested_for_inventory"] is False
     assert saved["item_type"] == "unknown"
 
+
+
+def test_numeric_ocr_cleanup_recovers_amounts_without_touching_dates():
+    text = "2026.11.11 두부 1.OOO 1 1.OOO 합계 1.OOO원"
+    normalized = normalize_ocr_numeric_text(text)
+    assert "2026.11.11" in normalized
+    assert "1,000" in normalized
+
+    result = parse_import_candidate(
+        "마트\n2026.11.11\n두부 1.OOO 1 1.OOO\n합계 1.OOO원",
+        "ocr",
+        today=date(2026, 11, 11),
+    )
+    assert result["candidate"]["amount_krw"] == 1000
+    assert result["receipt_items"][0]["normalized_name"] == "두부"
+    assert result["receipt_items"][0]["item_amount_krw"] == 1000
 
 def test_fuzzy_ingredient_match_recovers_small_ocr_typo_without_overtrust():
     result = classify_product("방울토마도 500g")
