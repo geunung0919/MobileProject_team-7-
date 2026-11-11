@@ -10,7 +10,7 @@ import re
 import unicodedata
 
 
-_AMOUNT_AT_END = re.compile(r"(?<![-\d])(?P<amount>\d{1,3}(?:,\d{3})+|\d{3,9})\s*원?\s*$")
+_AMOUNT_AT_END = re.compile(r"(?<![-\d,])(?P<amount>\d{1,3}(?:,\d{3})+|\d{3,9})\s*원?\s*$")
 _PRICE_QTY_AT_END = re.compile(
     r"(?P<unit_price>\d{1,3}(?:,\d{3})+|\d{2,9})\s+(?P<quantity>\d{1,3})\s*$"
 )
