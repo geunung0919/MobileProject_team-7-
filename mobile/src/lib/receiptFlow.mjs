@@ -31,24 +31,100 @@ export function receiptUploadBody(asset) {
   return { image_base64: asset.base64, mime_type: mime };
 }
 
+export function scoreReceiptResult(result) {
+  if (!result?.candidate) return -1000;
+  let score = 0;
+  if (result.candidate.amount_krw != null) score += 30;
+  if (result.candidate.title && result.candidate.title !== '사용처 확인 필요') score += 18;
+  if (result.candidate.spent_on) score += 6;
+  score += Math.min((result.receipt_items || []).length, 30) * 8;
+  score += Math.min(
+    (result.receipt_items || []).filter(item => item.is_ingredient).length,
+    20,
+  ) * 2;
+  score -= (result.warnings || []).length * 3;
+  if (result.receipt_document?.document_type === 'multiple_receipts') score -= 30;
+  return score;
+}
+
+async function analyzeDeviceReceipt(asset, { api, recognize, signal }) {
+  const text = await recognize(asset.uri);
+  if (signal?.aborted) throw new Error('분석을 취소했어요.');
+  const result = await api(
+    'me/spending/imports/preview',
+    'POST',
+    { raw_text: text, source: 'ocr' },
+    { signal },
+  );
+  return { ...result, raw_text: text, engine: 'device-text-recognizer' };
+}
+
+async function analyzeServerReceipt(asset, { api, signal }) {
+  const body = receiptUploadBody(asset);
+  const result = await api(
+    'me/spending/receipts/analyze',
+    'POST',
+    body,
+    { signal, timeoutMs: 45000 },
+  );
+  if (typeof result?.raw_text !== 'string' || !result.candidate) {
+    throw new Error('분석 응답을 확인할 수 없어요. 다시 시도해 주세요.');
+  }
+  return result;
+}
+
 export async function analyzeReceiptPhoto(asset, { mode, api, recognize, onText, onPhase, signal }) {
   const check = () => { if (signal?.aborted) throw new Error('분석을 취소했어요.'); };
   check();
   if (!api) throw new Error('분석·저장에는 서버 연결이 필요해요.');
+
   if (mode === 'server') {
-    const body = receiptUploadBody(asset);
-    onPhase('사진 전송 · 글자 인식 중');
-    const result = await api('me/spending/receipts/analyze', 'POST', body, { signal, timeoutMs: 45000 });
+    onPhase('사진 전송 · 서버 OCR 분석 중');
+    const result = await analyzeServerReceipt(asset, { api, signal });
     check();
-    if (typeof result?.raw_text !== 'string' || !result.candidate) throw new Error('분석 응답을 확인할 수 없어요. 다시 시도해 주세요.');
     onText(result.raw_text);
     return result;
   }
+
+  if (mode === 'hybrid') {
+    onPhase('기기 OCR과 서버 OCR을 비교 분석 중');
+    const settled = await Promise.allSettled([
+      analyzeDeviceReceipt(asset, { api, recognize, signal }),
+      analyzeServerReceipt(asset, { api, signal }),
+    ]);
+    check();
+
+    const candidates = settled
+      .filter(entry => entry.status === 'fulfilled')
+      .map(entry => entry.value);
+    if (!candidates.length) {
+      const reasons = settled
+        .filter(entry => entry.status === 'rejected')
+        .map(entry => entry.reason?.message)
+        .filter(Boolean);
+      throw new Error(reasons[0] || '영수증을 분석하지 못했어요. 다시 촬영해 주세요.');
+    }
+
+    candidates.sort((a, b) => scoreReceiptResult(b) - scoreReceiptResult(a));
+    const result = candidates[0];
+    onText(result.raw_text);
+    return {
+      ...result,
+      ocr_selection: {
+        mode: 'hybrid',
+        selected_engine: result.engine || 'unknown',
+        compared: candidates.map(candidate => ({
+          engine: candidate.engine || 'unknown',
+          score: scoreReceiptResult(candidate),
+          item_count: (candidate.receipt_items || []).length,
+        })),
+      },
+    };
+  }
+
   onPhase('기기에서 글자 인식 중');
-  const text = await recognize(asset.uri); check();
-  onText(text);
-  onPhase('금액 · 날짜 · 사용처 분석 중');
-  const result = await api('me/spending/imports/preview', 'POST', { raw_text: text, source: 'ocr' }, { signal });
+  const result = await analyzeDeviceReceipt(asset, { api, recognize, signal });
   check();
+  onText(result.raw_text);
   return result;
 }
