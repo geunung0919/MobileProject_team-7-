@@ -14,6 +14,7 @@ from sqlalchemy.orm.exc import StaleDataError
 
 from .database import Base, ProfileRow
 from .schemas import Contract, Money, Spending, SpendingSnapshot
+from .receipt_items import extract_receipt_items
 
 
 Period = Annotated[str, Field(pattern=r'^[0-9]{4}-(0[1-9]|1[0-2])$')]
@@ -46,9 +47,22 @@ class ImportPreviewInput(Contract):
     source: ImportSource = 'unknown'
 
 
+class ReceiptItemInput(Contract):
+    raw_name: str = Field(min_length=1, max_length=120)
+    normalized_name: str = Field(min_length=1, max_length=120)
+    quantity: Annotated[float, Field(gt=0, le=1000)] = 1
+    unit: str = Field(default='개', min_length=1, max_length=20)
+    item_amount_krw: Annotated[int | None, Field(gt=0, le=1_000_000_000)] = None
+    item_type: Literal['ingredient', 'food', 'living', 'other', 'unknown'] = 'unknown'
+    is_ingredient: bool = False
+    ingredient_confidence: Annotated[float, Field(ge=0, le=1)] = 0
+    suggested_for_inventory: bool = False
+
+
 class ImportConfirmInput(ExpenseInput):
     raw_text: str = Field(min_length=3, max_length=5000)
     source: ImportSource = 'unknown'
+    receipt_items: list[ReceiptItemInput] = Field(default_factory=list, max_length=50)
 
 
 _AMOUNT_PATTERNS = [
@@ -306,7 +320,16 @@ def parse_import_candidate(raw_text, source='unknown', today=None):
     if title_inferred:
         warnings.append('사용처를 자동 추출하지 못했어요.')
 
+    receipt_items = extract_receipt_items(text) if source == 'ocr' else []
     category = suggest_category(title, text)
+    if source == 'ocr' and category == 'other' and any(item['is_ingredient'] for item in receipt_items):
+        category = 'groceries'
+    if source == 'ocr':
+        if not receipt_items:
+            warnings.append('영수증의 개별 품목을 자동으로 분리하지 못했어요. 원문을 확인해 주세요.')
+        elif any(not item['row_consistent'] for item in receipt_items):
+            warnings.append('수량과 품목 금액이 맞지 않는 행이 있어 냉장고 등록 전에 확인이 필요해요.')
+
     confidence = 0.0
     confidence += 0.45 if amount is not None else 0
     confidence += 0.25 if not date_inferred else 0.1
@@ -325,6 +348,7 @@ def parse_import_candidate(raw_text, source='unknown', today=None):
         'confidence': round(min(confidence, 0.99), 2),
         'needs_review': bool(warnings) or confidence < 0.8,
         'warnings': warnings,
+        'receipt_items': receipt_items,
     }
 
 
@@ -492,6 +516,11 @@ def register_fintech(app, current_user, db):
             'category': body.category,
             'import_source': body.source,
             'import_fingerprint': fingerprint,
+            **(
+                {'receipt_items': [item.model_dump(mode='json') for item in body.receipt_items]}
+                if body.source == 'ocr' and body.receipt_items
+                else {}
+            ),
         }
         save(
             session,
@@ -552,6 +581,8 @@ def register_fintech(app, current_user, db):
             entry['import_source'] = previous['import_source']
         if 'import_fingerprint' in previous:
             entry['import_fingerprint'] = previous['import_fingerprint']
+        if 'receipt_items' in previous:
+            entry['receipt_items'] = previous['receipt_items']
 
         save(
             session,
