@@ -110,7 +110,7 @@ SQLite 데이터는 자동 이전되지 않습니다. 변경한 DB에서 샘플�
 - 시각 포함 ISO8601, 한국 날짜 기준 카드, 24시간 초과 자료는 stale 표시.
   stale 값은 홈 카드와 AI 입력에서 제외합니다. 갱신 주기는 팀 합의 후 변경하세요.
 - 초기 재고는 등록 여부만 받습니다. 품목 등록·소진일 계산·재고 차감은 3번 담당입니다.
-- 비용이 드는 외부 AI·OCR API는 호출하지 않습니다.
+- 외부 AI 분류는 기본 OFF입니다. `RECEIPT_AI_FALLBACK=true`와 API 키를 명시한 경우에만 규칙·학습·fuzzy로 확정하지 못한 영수증 품목에 선택적으로 호출하며, 실패해도 기존 OCR/소비/냉장고 흐름은 계속 동작합니다.
 - 30초 온보딩은 사용성 목표이며 측정 결과가 아닙니다. 분류는 설명 가능한 규칙 기반입니다.
 - 이 코드는 개발 첫 버전입니다. 운영용 인증, 마이그레이션, 레이트 제한, 배포 모니터링은 후속입니다.
 
@@ -129,3 +129,89 @@ SQLite 데이터는 자동 이전되지 않습니다. 변경한 DB에서 샘플�
 ## 중앙 재고 연동
 
 저장·조회 및 충돌 처리 규격: [INVENTORY_API.md](docs/INVENTORY_API.md).
+
+
+## 영수증 식재료 데이터셋
+
+영수증 식재료 판별은 코드 규칙만 사용하지 않습니다.
+
+1. `data/receipt_ingredient_seed.json`: 기본 오프라인 vocabulary. 프로젝트 샘플에서 확인한 표현과 자주 쓰는 식재료/비식재료 용어를 포함합니다.
+2. `tools/build_receipt_dataset.py`: 식약처 원재료 OpenAPI 또는 공공데이터포털 식품영양성분 CSV/JSON을 병합해 `data/receipt_ingredient_catalog.json`을 생성합니다.
+3. generated catalog가 존재하면 런타임에서 seed보다 우선하여 사용하며, 없으면 seed로 자동 fallback합니다.
+4. 기존 hard-coded Rule/Fuzzy/사용자 학습/AI fallback은 유지되므로 데이터셋 파일이 없거나 깨져도 영수증 기능 전체가 중단되지 않습니다.
+
+식약처 원재료 OpenAPI로 vocabulary 확장:
+
+```powershell
+$env:DATA_GO_KR_SERVICE_KEY="발급받은_공공데이터포털_키"
+.\.venv\Scripts\python.exe tools\build_receipt_dataset.py --fetch-mfds-ingredients
+```
+
+공공데이터포털에서 다운로드한 전국통합식품영양성분정보 CSV/JSON 병합:
+
+```powershell
+.\.venv\Scripts\python.exe tools\build_receipt_dataset.py --nutrition-file "C:\path\nutrition.csv"
+```
+
+- 원재료성 식품은 식재료 후보 vocabulary로 활용합니다.
+- 가공식품/음식은 냉장고 자동등록을 막는 negative evidence로 활용합니다.
+- 바코드 데이터는 선택적으로 import할 수 있지만 최신 상품 전체를 보장하는 주 데이터로 사용하지 않습니다.
+- 사용자 확정 바코드/상품명 학습값이 공공 데이터보다 우선합니다.
+
+
+## 서버 OCR 엔진 선택
+
+한국어 영수증 공개 벤치마크 KORIE에서는 PaddleOCR가 Tesseract/EasyOCR보다 낮은 CER/WER를 기록했기 때문에, 서버에서는 PaddleOCR를 선택적으로 우선 사용할 수 있습니다. 다만 공개 수치는 우리 앱의 촬영환경과 동일한 조건이 아니므로 실제 KORIE Test split과 실기기 영수증으로 재측정합니다.
+
+기본 설치에는 PaddleOCR를 포함하지 않습니다. 설치되지 않은 환경은 기존 Tesseract ensemble이 그대로 동작합니다.
+
+### PaddleOCR 선택 설치
+
+PaddlePaddle CPU inference engine 설치 후:
+
+```powershell
+python -m pip install paddlepaddle==3.2.0 -i https://www.paddlepaddle.org.cn/packages/stable/cpu/
+python -m pip install -r requirements-ocr-paddle.txt
+```
+
+`.env`:
+
+```text
+RECEIPT_SERVER_OCR=auto
+PADDLE_OCR_VERSION=PP-OCRv5
+PADDLE_OCR_LANG=korean
+```
+
+- `auto`: PaddleOCR가 있으면 우선, 실패/미설치 시 Tesseract
+- `compare`: PaddleOCR와 Tesseract를 모두 실행하고 실제 영수증 파서 점수가 높은 결과 선택
+- `paddle`: PaddleOCR 우선, 실패 시 Tesseract 안전 fallback
+- `tesseract`: 기존 Tesseract ensemble만 사용
+
+모바일의 `정확도 우선` 모드는 기기 ML Kit 결과와 서버 결과를 비교하므로, PaddleOCR 설치 시 사실상 다음 구조가 됩니다.
+
+```text
+Android ML Kit Korean OCR
+          ┐
+          ├─ 영수증 파싱 점수 비교 → 최종 텍스트 → 식재료 분류
+PaddleOCR Korean (server)
+          └─ 실패 시 Tesseract ensemble
+```
+
+### KORIE OCR 벤치마크
+
+KORIE 데이터는 이 저장소에 재배포하지 않습니다. 로컬에 OCR Test split을 받은 뒤 정답 manifest 또는 same-stem txt 라벨 경로를 넘겨 CER/WER를 비교합니다.
+
+```powershell
+python tools/evaluate_korie_ocr.py --engine tesseract --manifest C:\KORIE\test.csv --output results\tesseract.json
+python tools/evaluate_korie_ocr.py --engine paddle --manifest C:\KORIE\test.csv --output results\paddle.json
+```
+
+CSV 기본 컬럼은 `image,text`이며 다른 컬럼명은 `--image-column`, `--text-column`으로 지정할 수 있습니다.
+
+같은 이름의 이미지/정답 txt 구조라면:
+
+```powershell
+python tools/evaluate_korie_ocr.py --engine paddle --images-dir C:\KORIE\images --labels-dir C:\KORIE\labels
+```
+
+평가 결과는 CER, WER, 실패 건수, 이미지당 평균 처리시간을 반환합니다. 이 결과로 서버 OCR 기본 엔진을 최종 확정합니다.

@@ -14,6 +14,8 @@ from sqlalchemy.orm.exc import StaleDataError
 
 from .database import Base, ProfileRow
 from .schemas import Contract, Money, Spending, SpendingSnapshot
+from .receipt_items import classify_receipt_document, extract_receipt_items
+from .receipt_ai import apply_ai_receipt_items
 
 
 Period = Annotated[str, Field(pattern=r'^[0-9]{4}-(0[1-9]|1[0-2])$')]
@@ -44,11 +46,28 @@ ImportSource = Literal['sms', 'notification', 'kakao', 'ocr', 'commerce', 'unkno
 class ImportPreviewInput(Contract):
     raw_text: str = Field(min_length=3, max_length=5000)
     source: ImportSource = 'unknown'
+    use_ai_fallback: bool = True
+
+
+class ReceiptItemInput(Contract):
+    raw_name: str = Field(min_length=1, max_length=120)
+    normalized_name: str = Field(min_length=1, max_length=120)
+    quantity: Annotated[float, Field(gt=0, le=1000)] = 1
+    unit: str = Field(default='개', min_length=1, max_length=20)
+    item_amount_krw: Annotated[int | None, Field(gt=0, le=1_000_000_000)] = None
+    product_code: str | None = Field(default=None, max_length=20)
+    item_type: Literal['ingredient', 'food', 'living', 'other', 'unknown'] = 'unknown'
+    is_ingredient: bool = False
+    ingredient_confidence: Annotated[float, Field(ge=0, le=1)] = 0
+    match_method: Literal['none', 'rule', 'exact', 'fuzzy', 'learned', 'dataset', 'ai', 'unknown'] | None = None
+    matched_alias: str | None = Field(default=None, max_length=120)
+    suggested_for_inventory: bool = False
 
 
 class ImportConfirmInput(ExpenseInput):
     raw_text: str = Field(min_length=3, max_length=5000)
     source: ImportSource = 'unknown'
+    receipt_items: list[ReceiptItemInput] = Field(default_factory=list, max_length=50)
 
 
 _AMOUNT_PATTERNS = [
@@ -84,6 +103,30 @@ _CATEGORY_RULES = [
     ('food', ('스타벅스', '카페', '커피', '배달의민족', '배민', '요기요', '쿠팡이츠', '맥도날드', '버거', '식당', '음식점', '치킨', '피자', '분식', '베이커리')),
     ('living', ('다이소', '올리브영', '약국', '세탁', '생활용품', '문구', '잡화')),
 ]
+
+
+_OCR_NUMERIC_TOKEN_RE = re.compile(
+    r'(?<![0-9A-Za-z가-힣])([0-9OIl][0-9OIl,.]{1,18})(?=$|[\s원]|[^0-9A-Za-z가-힣])'
+)
+
+
+def normalize_ocr_numeric_text(value):
+    """Fix common OCR substitutions only inside isolated numeric-looking tokens."""
+    translations = str.maketrans({'O': '0', 'I': '1', 'l': '1'})
+
+    def replace(match):
+        token = match.group(1)
+        if not re.search(r'\d', token):
+            return token
+        # Keep short unit tokens such as "1l" intact; they are not monetary OCR.
+        if len(token) < 3 and any(char in token for char in 'OIl'):
+            return token
+        fixed = token.translate(translations)
+        # Korean receipts often print 1,350 but OCR may turn the separator into a dot.
+        fixed = re.sub(r'(?<=\d)\.(?=\d{3}(?:[.,]|$))', ',', fixed)
+        return fixed
+
+    return _OCR_NUMERIC_TOKEN_RE.sub(replace, value or '')
 
 
 def normalize_import_text(value):
@@ -265,6 +308,29 @@ def extract_receipt_amount(text):
     return extract_amount(text)
 
 
+_RECEIPT_TOTAL_ANCHOR_RE = re.compile(
+    r'(?:TOTAL|총\s*합계|합\s*계|결제대상금액|결제금액|받을금액)'
+    r'[^0-9]{0,20}([0-9][0-9,]{2,})',
+    re.I,
+)
+_RECEIPT_FULL_DATE_HINT_RE = re.compile(
+    r'(?<!\d)(20\d{2})[./-](0?[1-9]|1[0-2])[./-](0?[1-9]|[12]\d|3[01])(?!\d)'
+)
+
+
+def receipt_document_issues(text):
+    issues = []
+    totals = {
+        _amount_value(match.group(1))
+        for match in _RECEIPT_TOTAL_ANCHOR_RE.finditer(text)
+        if _amount_value(match.group(1)) is not None
+    }
+    dates = {match.group(0) for match in _RECEIPT_FULL_DATE_HINT_RE.finditer(text)}
+    if len(totals) >= 2 and len(dates) >= 2:
+        issues.append('multiple_receipts_suspected')
+    return issues
+
+
 def extract_receipt_merchant(text):
     for line in text.splitlines():
         match = re.match(r'^(?:상호(?:명)?|가맹점(?:명)?|매장명|사용처)\s*[:：]\s*(.+)$', line)
@@ -284,7 +350,8 @@ def extract_receipt_merchant(text):
 
 
 def parse_import_candidate(raw_text, source='unknown', today=None):
-    text = normalize_import_text(raw_text)
+    normalized_source = normalize_ocr_numeric_text(raw_text) if source == 'ocr' else raw_text
+    text = normalize_import_text(normalized_source)
     if source == 'ocr':
         amount = extract_receipt_amount(text)
         date_text = re.sub(r'(?<=\d)[ \t]*([./-])[ \t]*(?=\d)', r'\1', text)
@@ -306,7 +373,47 @@ def parse_import_candidate(raw_text, source='unknown', today=None):
     if title_inferred:
         warnings.append('사용처를 자동 추출하지 못했어요.')
 
+    receipt_document = classify_receipt_document(text) if source == 'ocr' else {
+        'document_type': 'not_applicable',
+        'allow_inventory': False,
+        'confidence': 1.0,
+    }
+    receipt_items = extract_receipt_items(text) if source == 'ocr' else []
+    receipt_issues = receipt_document_issues(text) if source == 'ocr' else []
+    if receipt_document['document_type'] == 'multiple_receipts' or 'multiple_receipts_suspected' in receipt_issues:
+        if 'multiple_receipts_suspected' not in receipt_issues:
+            receipt_issues.append('multiple_receipts_suspected')
+        warnings.append('한 사진에 여러 영수증이 함께 인식된 것 같아요. 한 장만 남도록 잘라 다시 분석하는 것을 권장해요.')
+    elif receipt_document['document_type'] == 'payment_detail':
+        warnings.append('카드 승인 상세 화면으로 보여요. 소비내역 저장은 가능하지만 개별 구매 품목을 냉장고에 자동 등록하지 않아요.')
+    elif receipt_document['document_type'] == 'food_service':
+        warnings.append('카페·음식점·배달 주문 내역으로 보여요. 완성 음식은 냉장고 식재료 후보로 자동 등록하지 않아요.')
+    if any(item.get('product_code') and item['raw_name'] == '상품명 확인 필요' for item in receipt_items):
+        warnings.append('상품명이 보이지 않고 바코드만 인식된 품목이 있어 이름 확인이 필요해요.')
+
     category = suggest_category(title, text)
+    if source == 'ocr' and category == 'other' and any(item['is_ingredient'] for item in receipt_items):
+        category = 'groceries'
+    if source == 'ocr':
+        if not receipt_items:
+            warnings.append('영수증의 개별 품목을 자동으로 분리하지 못했어요. 원문을 확인해 주세요.')
+        elif any(not item['row_consistent'] for item in receipt_items):
+            warnings.append('수량과 품목 금액이 맞지 않는 행이 있어 냉장고 등록 전에 확인이 필요해요.')
+
+        item_amount_sum = sum(
+            item['item_amount_krw']
+            for item in receipt_items
+            if item.get('item_amount_krw') is not None
+        )
+        if amount is not None and item_amount_sum:
+            gap = abs(amount - item_amount_sum)
+            tolerance = max(1000, int(amount * 0.15))
+            if gap > tolerance:
+                warnings.append(
+                    '인식된 품목 금액 합계와 영수증 총액 차이가 커요. '
+                    '가려진 품목이나 OCR 누락이 있을 수 있어 사진을 다시 확인해 주세요.'
+                )
+
     confidence = 0.0
     confidence += 0.45 if amount is not None else 0
     confidence += 0.25 if not date_inferred else 0.1
@@ -325,6 +432,9 @@ def parse_import_candidate(raw_text, source='unknown', today=None):
         'confidence': round(min(confidence, 0.99), 2),
         'needs_review': bool(warnings) or confidence < 0.8,
         'warnings': warnings,
+        'receipt_items': receipt_items,
+        'receipt_document': receipt_document,
+        'receipt_document_issues': receipt_issues,
     }
 
 
@@ -349,6 +459,93 @@ def snapshot_for(row, period):
             remaining_krw=None if budget is None else budget - spent,
         ),
     )
+
+
+def _product_learning_key(value):
+    return re.sub(r'[^0-9a-z가-힣]+', '', (value or '').casefold())
+
+
+def _learned_receipt_products(row):
+    """Build positive user-confirmed product mappings from prior OCR imports."""
+    by_code = {}
+    by_name = {}
+    if row is None:
+        return by_code, by_name
+
+    for expense in reversed(row.payload.get('expenses', [])):
+        for item in reversed(expense.get('receipt_items', [])):
+            if not item.get('is_ingredient'):
+                continue
+            normalized = (item.get('normalized_name') or '').strip()
+            raw_name = (item.get('raw_name') or '').strip()
+            if not normalized or normalized == '상품명 확인 필요':
+                continue
+            learned = {
+                'normalized_name': normalized,
+                'item_type': 'ingredient',
+                'is_ingredient': True,
+                'ingredient_confidence': 0.99,
+                'match_method': 'learned',
+            }
+            code = str(item.get('product_code') or '').strip()
+            if code and code not in by_code:
+                by_code[code] = learned
+            name_key = _product_learning_key(raw_name)
+            if name_key and name_key not in by_name:
+                by_name[name_key] = learned
+    return by_code, by_name
+
+
+def apply_learned_receipt_items(result, row):
+    """Apply previous user confirmations without weakening document safety rules."""
+    items = result.get('receipt_items') or []
+    if not items:
+        result['learned_item_count'] = 0
+        return result
+
+    by_code, by_name = _learned_receipt_products(row)
+    allow_inventory = bool(result.get('receipt_document', {}).get('allow_inventory', True))
+    learned_count = 0
+    updated = []
+
+    for item in items:
+        code = str(item.get('product_code') or '').strip()
+        learned = by_code.get(code) if code else None
+        if learned is None:
+            learned = by_name.get(_product_learning_key(item.get('raw_name')))
+
+        if learned is None:
+            updated.append(item)
+            continue
+
+        learned_count += 1
+        merged = {
+            **item,
+            **learned,
+            'suggested_for_inventory': bool(
+                allow_inventory and item.get('row_consistent', True)
+            ),
+        }
+        updated.append(merged)
+
+    result['receipt_items'] = updated
+    result['learned_item_count'] = learned_count
+    if learned_count and result.get('candidate', {}).get('category') == 'other':
+        result['candidate']['category'] = 'groceries'
+
+    unresolved_barcode = any(
+        item.get('product_code') and item.get('raw_name') == '상품명 확인 필요'
+        and item.get('match_method') != 'learned'
+        for item in updated
+    )
+    if learned_count and not unresolved_barcode:
+        result['warnings'] = [
+            warning for warning in result.get('warnings', [])
+            if '바코드만 인식된 품목' not in warning
+            and '상품명이 보이지 않고 바코드만 인식된 품목' not in warning
+        ]
+        result['needs_review'] = bool(result['warnings']) or result.get('confidence', 0) < 0.8
+    return result
 
 
 def register_fintech(app, current_user, db):
@@ -466,8 +663,14 @@ def register_fintech(app, current_user, db):
     def import_preview(
         body: ImportPreviewInput,
         user=Depends(current_user),
+        session=Depends(db),
     ):
-        return parse_import_candidate(body.raw_text, body.source)
+        result = parse_import_candidate(body.raw_text, body.source)
+        if body.source == 'ocr':
+            result = apply_learned_receipt_items(result, ledger(session, user))
+            if body.use_ai_fallback:
+                result = apply_ai_receipt_items(result)
+        return result
 
     @router.post('/imports/confirm', status_code=201)
     def import_confirm(
@@ -484,6 +687,25 @@ def register_fintech(app, current_user, db):
         if fingerprint in imported:
             raise HTTPException(409, '이미 가져온 결제 내역이에요.')
 
+        receipt_items = []
+        if body.source == 'ocr' and body.receipt_items:
+            document = classify_receipt_document(body.raw_text)
+            receipt_items = [item.model_dump(mode='json') for item in body.receipt_items]
+            if not document['allow_inventory']:
+                receipt_items = [
+                    {
+                        **item,
+                        'is_ingredient': False,
+                        'suggested_for_inventory': False,
+                        'item_type': (
+                            'unknown'
+                            if item.get('item_type') == 'ingredient'
+                            else item.get('item_type', 'unknown')
+                        ),
+                    }
+                    for item in receipt_items
+                ]
+
         entry = {
             'id': str(uuid4()),
             'title': body.title,
@@ -492,6 +714,7 @@ def register_fintech(app, current_user, db):
             'category': body.category,
             'import_source': body.source,
             'import_fingerprint': fingerprint,
+            **({'receipt_items': receipt_items} if receipt_items else {}),
         }
         save(
             session,
@@ -552,6 +775,8 @@ def register_fintech(app, current_user, db):
             entry['import_source'] = previous['import_source']
         if 'import_fingerprint' in previous:
             entry['import_fingerprint'] = previous['import_fingerprint']
+        if 'receipt_items' in previous:
+            entry['receipt_items'] = previous['receipt_items']
 
         save(
             session,

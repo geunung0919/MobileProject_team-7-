@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {receiptCapability, readReceiptImage} from '../src/lib/receiptFlow.mjs';
+import {receiptCapability, readReceiptImage, scoreReceiptResult} from '../src/lib/receiptFlow.mjs';
 const photo={canceled:false,assets:[{uri:'file:///receipt.jpg'}]};
 test('Expo Go previews without invoking unavailable OCR or transmitting images',async()=>{
  let image;const fail=()=>{throw Error('must not call')};
@@ -51,4 +51,45 @@ test('native OCR retains text on server failure and disconnected mode never uplo
  await assert.rejects(()=>analyzeReceiptPhoto(selected,{mode:'device',recognize:async()=> '원문',onText:v=>text=v,onPhase:()=>{},api:async()=>{throw Error('offline')}}),/offline/);
  assert.equal(text,'원문');
  await assert.rejects(()=>analyzeReceiptPhoto(selected,{mode:'server',api:null,onText:()=>{},onPhase:()=>{}}),/서버 연결/);
+});
+
+
+test('hybrid OCR chooses the result that parses the receipt better', async()=>{
+  const calls=[]; let text='';
+  const result=await analyzeReceiptPhoto(selected,{
+    mode:'hybrid',
+    recognize:async()=> '기기 OCR 원문',
+    onText:value=>text=value,
+    onPhase:()=>{},
+    api:async(path)=>{
+      calls.push(path);
+      if(path==='me/spending/receipts/analyze') return {
+        raw_text:'서버 OCR',
+        engine:'tesseract-ensemble',
+        candidate:{title:'사용처 확인 필요',amount_krw:12000,spent_on:'2026-11-11'},
+        receipt_items:[{is_ingredient:false}],
+        warnings:['확인 필요'],
+        receipt_document:{document_type:'purchase_receipt'},
+      };
+      return {
+        candidate:{title:'이마트',amount_krw:12000,spent_on:'2026-11-11'},
+        receipt_items:[
+          {is_ingredient:true},{is_ingredient:true},{is_ingredient:false}
+        ],
+        warnings:[],
+        receipt_document:{document_type:'purchase_receipt'},
+      };
+    },
+  });
+  assert.equal(calls.length,3);
+  assert.equal(result.ocr_selection.mode,'hybrid');
+  assert.equal(result.ocr_selection.selected_engine,'device-text-recognizer');
+  assert.equal(text,'기기 OCR 원문');
+  assert.equal(calls.filter(path=>path==='me/spending/imports/preview').length,2);
+});
+
+test('receipt scoring rewards structured items and valid merchant',()=>{
+  const weak={candidate:{title:'사용처 확인 필요',amount_krw:1000,spent_on:'2026-11-11'},receipt_items:[],warnings:[]};
+  const strong={candidate:{title:'마트',amount_krw:1000,spent_on:'2026-11-11'},receipt_items:[{},{}],warnings:[]};
+  assert.ok(scoreReceiptResult(strong)>scoreReceiptResult(weak));
 });
