@@ -4,7 +4,53 @@ import Text from '../components/AppText';
 import { useAuth } from '../store/AuthContext';
 import { request } from '../services/client';
 import { loadRecentAccount, saveRecentAccount, clearRecentAccount, maskEmail } from '../services/recentAccount';
+import AuthField from '../components/AuthField';
+import SignupScreen from './SignupScreen';
+import { signInWithId } from '../services/firebaseAccount';
+import { normalizeLoginId, authErrorMessage } from '../utils/authRules';
 export default function LoginScreen() {
+  const [mode, setMode] = useState('login'); // login | signup
+  if (mode === 'signup') return <SignupScreen onBack={() => setMode('login')} />;
+  return <LoginForm onSignup={() => setMode('signup')} />;
+}
+
+// 아이디·비밀번호 로그인. 틀리면 입력 칸 바로 아래에 오류를 보여 주고(인라인 에러), 아이디와 비밀번호 중 무엇이 틀렸는지는 알려 주지 않습니다.
+function IdLogin({ disabled, onSignup }) {
+  const { login } = useAuth();
+  const [loginId, setLoginId] = useState('');
+  const [password, setPassword] = useState('');
+  const [errors, setErrors] = useState({});
+  const [busy, setBusy] = useState(false);
+  const edit = (setter) => (value) => { setter(value); setErrors({}); };
+  const submit = async () => {
+    const id = normalizeLoginId(loginId);
+    const found = { loginId: loginId.trim() ? '' : '아이디를 입력해 주세요.', password: password ? '' : '비밀번호를 입력해 주세요.' };
+    // 아이디 형식이 틀려도 "없는 아이디"라고 따로 알리지 않고 로그인 실패와 같은 문구를 씁니다.
+    if (!found.loginId && !id.id) found.password = authErrorMessage('auth/invalid-credential').message;
+    if (found.loginId || found.password) { setErrors(found); return; }
+    setBusy(true);
+    try {
+      await login(await signInWithId({ loginId: id.id, password }));
+    } catch (e) {
+      const { field, message } = authErrorMessage(e.code);
+      setErrors({ [field === 'loginId' ? 'loginId' : 'password']: message });
+    } finally { setBusy(false); }
+  };
+  return <View>
+    <AuthField testID="login-id" label="아이디" value={loginId} onChangeText={edit(setLoginId)} placeholder="아이디" error={errors.loginId}
+      autoComplete="username" textContentType="username" maxLength={20} />
+    <AuthField testID="login-password" label="비밀번호" value={password} onChangeText={edit(setPassword)} placeholder="비밀번호" error={errors.password}
+      secure autoComplete="current-password" textContentType="password" maxLength={64} />
+    <Pressable testID="login-submit" disabled={disabled || busy} style={[styles.button, {marginTop:20}]} onPress={submit} accessibilityRole="button">
+      <Text style={styles.white}>{busy ? '로그인 중…' : '로그인'}</Text>
+    </Pressable>
+    <Pressable testID="go-signup" onPress={onSignup} accessibilityRole="button" style={{alignItems:'center',paddingVertical:12}}>
+      <Text>계정이 없나요? <Text style={{fontWeight:'700',textDecorationLine:'underline'}}>회원가입</Text></Text>
+    </Pressable>
+  </View>;
+}
+
+function LoginForm({ onSignup }) {
   const { login, restoreError, canRetryRestore, retryRestore } = useAuth();
   const [base, setBase] = useState('');
   const [token, setToken] = useState('');
@@ -41,6 +87,8 @@ export default function LoginScreen() {
   };
   return <ScrollView contentContainerStyle={styles.page} keyboardShouldPersistTaps="handled">
     <Text style={styles.title}>자취메이트</Text><Text style={styles.copy}>나에게 맞는 자취 생활을 시작해요</Text>
+    <IdLogin disabled={busy} onSignup={onSignup} />
+    <Text style={{color:'#5F6F68', textAlign:'center'}}>또는</Text>
     <Text>서버 주소</Text><TextInput style={styles.input} value={base} onChangeText={setBase} autoCapitalize="none" placeholder="https://서버주소" />
     {recent.enabled && recent.masked ? (
       <View style={{flexDirection:'row',justifyContent:'space-between',alignItems:'center'}}>

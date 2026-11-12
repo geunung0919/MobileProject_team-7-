@@ -6,6 +6,10 @@ import { normalizeNickname } from '../utils/nickname';
 import { regionInfo } from '../utils/regions';
 import { loadSession, saveSession, clearSession } from '../services/sessionStore';
 import { clearRecentAccount } from '../services/recentAccount';
+import {
+  currentFirebaseSession, loadFirebaseAccount, isNicknameFree, saveFirebaseMember, saveFirebaseProfile,
+  signOutFirebase, withdrawFirebase,
+} from '../services/firebaseAccount';
 
 // 로그인 세션, 회원 프로필(닉네임·지역), 온보딩(30초 자취 진단) 상태.
 // - AC-02: 세션은 기기 안전 저장소(services/sessionStore.js)에 저장하고, 앱을 열 때 서버에서 다시 확인합니다.
@@ -13,6 +17,8 @@ import { clearRecentAccount } from '../services/recentAccount';
 // - AC-05~09: 첫 가입 때 닉네임·지역을 정하고(프로필 → 진단 → 홈), 더보기 > 개인정보 관리에서 수정합니다.
 // - AC-10: 로그아웃하면 서버 세션 폐기 + 기기 세션 삭제 + 메모리의 사용자 데이터 초기화.
 // - AC-11: 회원 탈퇴는 Google 재인증 후 서버가 계정과 데이터를 삭제하고, 기기의 세션·최근 계정 기록도 지웁니다.
+// - 아이디·비밀번호 계정(session.firebase)은 Firebase 인증을 쓰고, 회원·온보딩을 Firestore users/{uid} 에 저장합니다.
+//   로그인 유지는 Firebase 가 하므로 앱을 열 때 Firebase 의 로그인 사용자로 다시 확인합니다.
 // - 시연 모드는 서버가 없으므로 프로필·온보딩을 기기에 저장하고, 진단은 서버와 같은 규칙으로 계산합니다.
 const DEMO_ONBOARDING_KEY = 'jachwi:demo:onboarding';
 const DEMO_MEMBER_KEY = 'jachwi:demo:member';
@@ -56,7 +62,12 @@ export function AuthProvider({ children }) {
   // 첫 온보딩 저장 직후 진단 결과 화면을 보여 줄지 (확인을 누르면 홈으로 이동)
   const [firstDiagnosis, setFirstDiagnosis] = useState(false);
 
-  const api = (path, method, body) => request(session.base, session.token, path, method, body);
+  const api = (path, method, body) => {
+    if (session?.firebase) return Promise.reject(new Error('아이디 계정에서는 아직 서버 기능(영수증 OCR 등)을 쓸 수 없어요.'));
+    return request(session.base, session.token, path, method, body);
+  };
+  const loadAccount = (next) => (next.firebase ? loadFirebaseAccount(next.userId)
+    : next.demo ? loadDemoAccount() : loadServerAccount(next));
 
   const apply = (next, account) => {
     setMember(account.member);
@@ -74,7 +85,15 @@ export function AuthProvider({ children }) {
     const saved = await loadSession();
     try {
       if (!saved) return;
-      apply(saved, saved.demo ? await loadDemoAccount() : await loadServerAccount(saved));
+      if (saved.firebase) {
+        const current = await currentFirebaseSession();
+        if (!current || current.userId !== saved.userId) {
+          await clearSession();
+          setRestoreError('로그인이 만료되었어요. 다시 로그인해 주세요.');
+          return;
+        }
+      }
+      apply(saved, await loadAccount(saved));
     } catch (e) {
       if (e.status === 401 || e.status === 403) {
         await clearSession();
@@ -90,7 +109,7 @@ export function AuthProvider({ children }) {
   useEffect(() => { restore(); }, [restore]);
 
   const login = useCallback(async (next) => {
-    const account = next.demo ? await loadDemoAccount() : await loadServerAccount(next);
+    const account = await loadAccount(next);
     await saveSession(next);
     setRestoreError(''); setCanRetryRestore(false);
     apply(next, account);
@@ -101,6 +120,10 @@ export function AuthProvider({ children }) {
     const { nickname, message } = normalizeNickname(raw);
     if (!nickname) return { valid: false, available: false, message };
     if (session.demo) return { nickname, valid: true, available: true, message: '사용할 수 있는 닉네임이에요. (시연 모드: 중복 확인 안 함)' };
+    if (session.firebase) {
+      const available = await isNicknameFree(session.userId, nickname);
+      return { nickname, valid: true, available, message: available ? '사용할 수 있는 닉네임이에요.' : '이미 사용 중인 닉네임이에요. 다른 닉네임을 입력해 주세요.' };
+    }
     return api(`/api/v1/nicknames/availability?nickname=${encodeURIComponent(nickname)}`);
   };
 
@@ -118,6 +141,9 @@ export function AuthProvider({ children }) {
         setOnboarding(nextProfile);
       }
       saved = { nickname, region: regionInfo(region_code), region_changed: previous !== (region_code ?? null) };
+    } else if (session.firebase) {
+      saved = await saveFirebaseMember(session.userId, { nickname, region_code });
+      if (onboarding) setOnboarding({ ...onboarding, region_code: region_code ?? null });
     } else {
       saved = await api('/api/v1/me/member', 'PUT', { nickname, region_code: region_code ?? null });
       // 서버가 온보딩 region_code 도 같은 값으로 맞춥니다. 화면 상태도 맞춥니다.
@@ -134,6 +160,8 @@ export function AuthProvider({ children }) {
     if (session.demo) {
       result = { profile: withRegion, diagnosis: diagnoseOnboarding(withRegion) };
       await writeJson(DEMO_ONBOARDING_KEY, withRegion);
+    } else if (session.firebase) {
+      result = await saveFirebaseProfile(session.userId, withRegion);
     } else {
       result = await api('/api/v1/me/onboarding', 'PUT', withRegion);
     }
@@ -145,7 +173,8 @@ export function AuthProvider({ children }) {
   const dismissFirstDiagnosis = () => setFirstDiagnosis(false);
 
   const logout = async () => {
-    if (session?.token && !session.demo) {
+    if (session?.firebase) await signOutFirebase().catch(() => {});
+    else if (session?.token && !session.demo) {
       try { await request(session.base, '', '/api/v1/auth/logout', 'POST', { token: session.token }); }
       catch { /* 오프라인이어도 기기 세션은 지웁니다. 서버 세션은 24시간 뒤 만료됩니다. */ }
     }
@@ -156,6 +185,12 @@ export function AuthProvider({ children }) {
   // 회원 탈퇴 (AC-11): start → 브라우저에서 Google 재인증 → confirm 을 반복 호출 → deleted 면 finishWithdrawal
   const startWithdrawal = () => api('/api/v1/me/withdrawal/start', 'POST');
   const confirmWithdrawal = (state, secret) => api('/api/v1/me/withdrawal/confirm', 'POST', { state, secret });
+  // 아이디 계정 탈퇴: 비밀번호로 다시 인증한 뒤 회원 문서와 로그인 계정을 지웁니다.
+  const withdrawWithPassword = async (password) => {
+    const uid = session.userId;
+    await withdrawFirebase(password);
+    await AsyncStorage.removeItem(`jachwi:ui:firebase:${uid}`).catch(() => {});
+  };
   const finishWithdrawal = async () => {
     await clearSession();
     await clearRecentAccount(false);
@@ -166,7 +201,7 @@ export function AuthProvider({ children }) {
     <Context.Provider value={{
       session, member, onboarding, diagnosis, restoring, restoreError, canRetryRestore, retryRestore: restore,
       firstDiagnosis, dismissFirstDiagnosis, login, checkNickname, saveMember, finish, logout,
-      startWithdrawal, confirmWithdrawal, finishWithdrawal, api,
+      startWithdrawal, confirmWithdrawal, withdrawWithPassword, finishWithdrawal, api,
     }}>
       {children}
     </Context.Provider>

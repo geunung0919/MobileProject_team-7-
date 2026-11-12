@@ -25,6 +25,9 @@ import { clearRoutineChecks } from '../utils/time';
 
 const AppDataContext = createContext(null);
 
+const localDataKey = (session) =>
+  session.demo ? 'jachwi:ui:demo' : session.firebase ? `jachwi:ui:firebase:${session.userId}` : null;
+
 export function AppDataProvider({ children }) {
   const { session, onboarding, api } = useAuth();
   const revision = useRef('');
@@ -85,8 +88,10 @@ export function AppDataProvider({ children }) {
     if (!session) return;
     const load = async () => {
       try {
-        const saved = session.demo
-          ? JSON.parse(await AsyncStorage.getItem('jachwi:ui:demo') || 'null')
+        // 시연 모드와 아이디(Firebase) 계정은 기기에 저장합니다. 각 모듈의 Firestore 저장은 담당 모듈이 정합니다.
+        const localKey = localDataKey(session);
+        const saved = localKey
+          ? JSON.parse(await AsyncStorage.getItem(localKey) || 'null')
           : await api('/api/v1/me/ui-state');
         if (cancelled) return;
         const data = saved || {};
@@ -112,7 +117,8 @@ export function AppDataProvider({ children }) {
     {
       saveQueue.current = saveQueue.current.catch(() => {}).then(async () => {
         try {
-          if (session.demo) await AsyncStorage.setItem('jachwi:ui:demo', JSON.stringify(body));
+          const localKey = localDataKey(session);
+          if (localKey) await AsyncStorage.setItem(localKey, JSON.stringify(body));
           else { const result = await currentApi('/api/v1/me/ui-state', 'PUT', {...body, revision: revision.current}); revision.current = result.revision; }
           setSaveError('');
         } catch(e) { setSaveError('저장 실패: '+e.message+' (화면 데이터는 유지됩니다. 수정하면 다시 저장합니다.)'); }
