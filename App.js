@@ -26,7 +26,7 @@ const Stack = createNativeStackNavigator();
 
 // 개발할 화면 선택
 // 'emergency' 또는 'map'
-const DEV_SCREEN = 'emergency';
+const DEV_SCREEN = 'map';
 
 export default function App() {
   const [fontsLoaded] = useFonts({
