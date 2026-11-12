@@ -10,9 +10,13 @@ function sumMonth(transactions, year, month) {
     .reduce((sum, t) => sum + t.amount, 0);
 }
 
-// 카테고리 이름 -> 도넛 차트/목록 색상. 정해 둔 색이 없으면 fallbackColors 를 차례로 씁니다.
-function colorFor(name, index, { categoryColors, fallbackColors }) {
-  return categoryColors[name] ?? fallbackColors[index % fallbackColors.length];
+// 카테고리 이름 -> 도넛 차트/목록 색상. 정해 둔 색이 없으면(사용자가 추가한 카테고리) 이름으로 예비 색을 골라서,
+// 순위가 바뀌어도 같은 카테고리는 항상 같은 색으로 보입니다.
+function colorFor(name, { categoryColors, fallbackColors }) {
+  if (categoryColors[name]) return categoryColors[name];
+  let hash = 0;
+  for (let i = 0; i < name.length; i += 1) hash = (hash * 31 + name.charCodeAt(i)) % 9973;
+  return fallbackColors[hash % fallbackColors.length];
 }
 
 // 선택한 달의 카테고리별 지출 (많이 쓴 순). 지출이 없는 카테고리는 넣지 않습니다.
@@ -28,11 +32,11 @@ export function getCategoryTotals(transactions, year, month, palette) {
     });
   return [...totals.entries()]
     .sort((a, b) => b[1] - a[1])
-    .map(([name, amount], index) => ({
+    .map(([name, amount]) => ({
       id: name,
       name,
       amount,
-      color: colorFor(name, index, palette),
+      color: colorFor(name, palette),
     }));
 }
 

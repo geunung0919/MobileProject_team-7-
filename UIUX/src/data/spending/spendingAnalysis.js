@@ -1,3 +1,5 @@
+import { chartColors } from '../../theme';
+
 // 소비 분석 화면 문구와 차트 설정. 금액과 비율은 실제 지출 내역(transactions)으로
 // utils/spendingAnalysis.js 가 계산하므로 여기에는 적지 않습니다.
 
@@ -6,13 +8,14 @@ export const analysisConfig = {
   monthCount: 4,
   // 카테고리 이름 -> 도넛 차트/목록 점 색상. 지출 카테고리를 새로 만들면 여기에 색을 추가하세요.
   categoryColors: {
-    식료품: '#65C695',
-    식비: '#9ECCB6',
-    '카페·간식': '#C2D9A8',
-    생활용품: '#D9DED7',
+    식품: chartColors.green,
+    기타: chartColors.other,
+    식비: chartColors.mint,
+    '카페·간식': chartColors.lime,
+    생활용품: chartColors.gray,
   },
-  // 위에 없는 카테고리(기타 등)에 차례로 쓰는 색
-  fallbackColors: ['#B7CFA0', '#8FBFA6', '#CFE0C0', '#BFC8C2'],
+  // 위에 없는(사용자가 추가한) 카테고리에 이름마다 정해서 쓰는 색
+  fallbackColors: chartColors.fallback,
 };
 
 // word: 선택한 달이 이번 달이면 '이번 달', 아니면 '10월' 같은 글자

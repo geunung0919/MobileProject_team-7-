@@ -14,9 +14,10 @@ import { todoData } from '../data/lifeInfo/todos';
 import { routineData } from '../data/lifeInfo/routines';
 import { profileData, settingsData } from '../data/more/account';
 import { addDays, toDateString, parseAmount } from '../utils/format';
+import { ALL_DAYS } from '../utils/time';
 import { clearRoutineChecks } from '../utils/time';
 
-// 앱 전체가 함께 쓰는 데이터 저장소 (소비, 식재료, 할 일, 루틴, 프로필, 설정). 지금은 메모리에만 저장됩니다.
+// 앱 전체가 함께 쓰는 데이터 저장소 (소비, 소비 카테고리, 식재료, 할 일, 루틴, 프로필, 설정). 지금은 메모리에만 저장됩니다.
 // TODO: 서버(Firebase 등) 연결은 이 파일의 불러오기(useState 초기값)와 add/update/remove/toggle 함수 안에서 하세요.
 //       화면 코드는 그대로 둘 수 있습니다.
 // 사용: const { transactions, addTransaction, todos, toggleTodo, ... } = useAppData();
@@ -36,6 +37,15 @@ export function AppDataProvider({ children }) {
     }));
   });
   const [fridgeItems, setFridgeItems] = useState(fridgeData.items);
+
+  // 사용자가 추가한 소비 카테고리 (식품은 고정이라 여기에 없음). 한 번 추가하면 다음에도 선택할 수 있습니다.
+  // 처음에는 더미 소비 내역에 쓰인 카테고리로 채웁니다. 서버 연결 시 사용자별 목록을 불러오세요.
+  const [customCategories, setCustomCategories] = useState(() => {
+    const fixed = [spendingData.foodCategory, spendingData.defaultCategory];
+    return [...new Set(spendingData.transactions.map((t) => t.category))].filter(
+      (c) => c && !fixed.includes(c)
+    );
+  });
 
   // 더미 할 일의 daysFromToday 를 실제 마감일(due)로 바꿔서 시작합니다.
   const [todos, setTodos] = useState(() => {
@@ -84,6 +94,12 @@ export function AppDataProvider({ children }) {
       ...(items ? { items } : {}),
     };
     setTransactions((prev) => [entry, ...prev]); // 새 항목을 맨 앞에 (같은 날짜면 최신이 위)
+  }, []);
+
+  // 카테고리 추가: 이름만 넘깁니다 (중복/예약어 확인은 utils/category.js 의 validateCategoryName 으로 먼저 하세요)
+  const addCategory = useCallback((name) => {
+    const trimmed = name.trim();
+    setCustomCategories((prev) => (prev.includes(trimmed) ? prev : [...prev, trimmed]));
   }, []);
 
   // 소비 수정: 바꾼 값만 넘기면 나머지(카테고리, 아이콘 등)는 그대로 둡니다.
@@ -144,11 +160,11 @@ export function AppDataProvider({ children }) {
     setTodos((prev) => prev.map((t) => (t.id === id ? { ...t, done: !t.done } : t)));
   }, []);
 
-  // 루틴 추가: { title, time: 'HH:mm' (24시간제) }
+  // 루틴 추가: { title, time: 'HH:mm' (24시간제), days: [0~6] (0=일요일 ... 6=토요일, 없으면 매일) }
   const addRoutine = useCallback(
-    ({ title, time }) => {
+    ({ title, time, days = ALL_DAYS }) => {
       resetRoutinesIfNewDay();
-      setRoutines((prev) => [...prev, { id: makeId('r'), title, time, doneToday: false }]);
+      setRoutines((prev) => [...prev, { id: makeId('r'), title, time, days, doneToday: false }]);
     },
     [resetRoutinesIfNewDay]
   );
@@ -178,6 +194,8 @@ export function AppDataProvider({ children }) {
       addTransaction,
       updateTransaction,
       removeTransaction,
+      customCategories,
+      addCategory,
       fridgeItems,
       addFridgeItem,
       updateFridgeItem,
@@ -198,6 +216,8 @@ export function AppDataProvider({ children }) {
       addTransaction,
       updateTransaction,
       removeTransaction,
+      customCategories,
+      addCategory,
       fridgeItems,
       addFridgeItem,
       updateFridgeItem,

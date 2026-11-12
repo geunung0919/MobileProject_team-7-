@@ -5,7 +5,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, fonts, radius } from '../theme';
 
 // "오늘 챙길 일" 목록의 한 줄 (루틴, 할 일 등)
-export default function TaskRow({ title, status, summary, onPress, isLast }) {
+export default function TaskRow({ title, status, summary, icon = 'format-list-checks', onPress, isLast }) {
   return (
     <Pressable
       onPress={onPress}
@@ -13,7 +13,7 @@ export default function TaskRow({ title, status, summary, onPress, isLast }) {
       accessibilityRole="button"
     >
       <View style={styles.iconBox}>
-        <MaterialCommunityIcons name="calendar-check-outline" size={26} color={colors.green} />
+        <MaterialCommunityIcons name={icon} size={26} color={colors.green} />
       </View>
       <View style={styles.texts}>
         <View style={styles.titleRow}>

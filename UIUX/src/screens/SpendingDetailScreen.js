@@ -18,9 +18,11 @@ import DatePickerSheet from '../components/DatePickerSheet';
 import PrimaryButton from '../components/PrimaryButton';
 import PurchaseItemCard from '../components/PurchaseItemCard';
 import AddItemButton from '../components/AddItemButton';
+import CategorySelector from '../components/CategorySelector';
 import PurchasedItemRow from '../components/PurchasedItemRow';
 import { spendingDetailTexts as t } from '../data/spending/spendingDetail';
 import { useAppData } from '../store/AppDataContext';
+import { getCategoryOptions, resolveCategory } from '../utils/category';
 import { formatNumber, formatKoreanDateShort, formatDotDate, toDateString, fromDateString } from '../utils/format';
 import {
   sumItems,
@@ -43,6 +45,7 @@ function toDraft(tx) {
   }));
   return {
     title: tx.title,
+    category: tx.category,
     date: tx.date,
     amount: String(tx.amount),
     linked: items.length > 0 && tx.amount === sumItems(items),
@@ -53,7 +56,7 @@ function toDraft(tx) {
 // 소비 > 지출 상세 (구매한 품목). params: { id }. [수정] 으로 이름 / 구매일 / 총 지출 / 품목을 고치고, 휴지통으로 삭제합니다.
 export default function SpendingDetailScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
-  const { transactions, updateTransaction, removeTransaction } = useAppData();
+  const { transactions, updateTransaction, removeTransaction, customCategories, addCategory } = useAppData();
   const scrollRef = useRef(null);
   const nextKey = useRef(1);
 
@@ -127,9 +130,10 @@ export default function SpendingDetailScreen({ navigation, route }) {
       Alert.alert('입력을 확인해 주세요', itemsError);
       return;
     }
-    // 이름 / 날짜 / 총액 / 품목만 바꾸고, 카테고리·아이콘·출처는 그대로 둡니다.
+    // 이름 / 카테고리 / 날짜 / 총액 / 품목을 바꾸고, 아이콘·출처는 그대로 둡니다.
     updateTransaction(id, {
       title: draft.title.trim(),
+      category: draft.category,
       amount: draftTotal,
       date: draft.date,
       items: toSavedItems(draftItems),
@@ -188,7 +192,7 @@ export default function SpendingDetailScreen({ navigation, route }) {
 
   const [y, m, d] = date.split('-').map(Number);
   const fridgeCount = countFridgeItems(items);
-  // 영수증으로 기록한 지출은 "영수증 · 식료품" 처럼 보여줍니다. (카테고리가 "영수증"이면 한 번만)
+  // 영수증으로 기록한 지출은 "영수증 · 식품" 처럼 보여줍니다. (카테고리가 "영수증"이면 한 번만)
   const label =
     source === 'receipt'
       ? category && category !== t.receiptLabel
@@ -247,6 +251,18 @@ export default function SpendingDetailScreen({ navigation, route }) {
               keyboardType="number-pad"
               suffix="원"
               marginTop={18}
+            />
+
+            <CategorySelector
+              style={styles.categoryBox}
+              customCategories={customCategories}
+              // '영수증' 같은 예전 카테고리는 선택지에 없으므로 선택 표시 없이 그대로 둡니다.
+              value={getCategoryOptions(customCategories).includes(draft.category) ? draft.category : null}
+              onChange={(next) =>
+                patchDraft({ category: next ?? resolveCategory(null, countFridgeItems(draftItems)) })
+              }
+              onAddCategory={addCategory}
+              hint={null}
             />
 
             {showMismatch ? (
@@ -369,6 +385,9 @@ export default function SpendingDetailScreen({ navigation, route }) {
 }
 
 const styles = StyleSheet.create({
+  categoryBox: {
+    marginTop: 24,
+  },
   container: {
     flex: 1,
     backgroundColor: colors.background,

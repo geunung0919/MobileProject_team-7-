@@ -1,4 +1,5 @@
-import { daysBetween, pad } from './format';
+import { daysBetween, fromDateString, pad } from './format';
+import { isRoutineOnDay } from './time';
 import { getFridgeEntries, badgeDueLabel } from './recipes';
 
 // 홈 화면의 요약 값을 저장소 데이터로 계산합니다.
@@ -40,8 +41,11 @@ export function getHeroLine(first) {
 }
 
 // "오늘 챙길 일"의 루틴/할 일 줄에 보여줄 상태와 요약 글자
-export function getTaskSummaries(routines, todos, baseDate) {
-  // 루틴: 아직 안 한 것 (이른 시간 순)
+export function getTaskSummaries(allRoutines, todos, baseDate) {
+  // 루틴: 오늘 요일에 하는 것만 (baseDate 는 "YYYY-MM-DD")
+  const today = fromDateString(baseDate).getDay();
+  const routines = allRoutines.filter((r) => isRoutineOnDay(r, today));
+  // 아직 안 한 것 (이른 시간 순)
   const pendingRoutines = routines
     .filter((r) => !r.doneToday)
     .sort((a, b) => a.time.localeCompare(b.time));
@@ -57,9 +61,11 @@ export function getTaskSummaries(routines, todos, baseDate) {
 
   return {
     routine: {
-      status: routines.length ? `${doneRoutines} / ${routines.length} 완료` : '루틴 없음',
+      status: routines.length ? `${doneRoutines} / ${routines.length} 완료` : allRoutines.length ? '오늘은 쉬는 날' : '루틴 없음',
       summary: !routines.length
-        ? '생활 루틴을 추가해 보세요.'
+        ? allRoutines.length
+          ? '오늘 할 루틴이 없어요.'
+          : '생활 루틴을 추가해 보세요.'
         : pendingRoutines.length
           ? `${titles(pendingRoutines)} 남음`
           : '오늘 루틴을 모두 마쳤어요.',

@@ -17,8 +17,10 @@ import FormField from '../components/FormField';
 import DatePickerSheet from '../components/DatePickerSheet';
 import PurchaseItemCard from '../components/PurchaseItemCard';
 import AddItemButton from '../components/AddItemButton';
+import CategorySelector from '../components/CategorySelector';
 import { sampleReceipt, receiptTexts } from '../data/spending/receipt';
 import { useAppData } from '../store/AppDataContext';
+import { resolveCategory } from '../utils/category';
 import {
   formatNumber,
   formatDotDate,
@@ -49,6 +51,7 @@ function toDraft(receipt) {
   const date = isValidDateString(receipt.date) ? receipt.date : toDateString(new Date());
   return {
     store: receipt.store ?? '',
+    category: null, // 선택 안 하면 저장할 때 자동으로 정해집니다
     date,
     time: receipt.time ?? '',
     total: String(parseAmount(receipt.total) || ''),
@@ -67,7 +70,7 @@ function toDraft(receipt) {
 // 인식이 틀릴 수 있어서 [수정] 으로 상호명 / 구매일 / 총액 / 품목을 직접 고칠 수 있습니다.
 export default function ReceiptResultScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
-  const { addTransaction, addFridgeItem } = useAppData();
+  const { addTransaction, addFridgeItem, customCategories, addCategory } = useAppData();
   const t = receiptTexts;
   const scrollRef = useRef(null);
   const nextKey = useRef(1);
@@ -150,7 +153,7 @@ export default function ReceiptResultScreen({ navigation, route }) {
       title: store.trim(),
       amount: total,
       date,
-      category: '영수증',
+      category: resolveCategory(draft.category, fridgeCount),
       icon: 'receipt-text-outline',
       source: 'receipt',
       items: toSavedItems(items),
@@ -259,6 +262,14 @@ export default function ReceiptResultScreen({ navigation, route }) {
             </Text>
           </View>
         )}
+
+        <CategorySelector
+          style={{ marginTop: 24 }}
+          customCategories={customCategories}
+          value={draft.category}
+          onChange={(next) => patchDraft({ category: next })}
+          onAddCategory={addCategory}
+        />
 
         {mismatchBanner}
 

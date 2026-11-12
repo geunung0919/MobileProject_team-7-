@@ -42,7 +42,8 @@ export const chartColors = {
   mint: '#9ECCB6',
   lime: '#C2D9A8',
   gray: '#D9DED7',
-  fallback: ['#B7CFA0', '#8FBFA6', '#CFE0C0', '#BFC8C2'],
+  other: '#BFC8C2',
+  fallback: ['#B7CFA0', '#8FBFA6', '#CFE0C0', '#A9BFB2', '#C9D8B6'],
 };
 
 export const fonts = {
