@@ -1,0 +1,4 @@
+import React from 'react';
+import {View,Text,Pressable} from 'react-native';
+import {styles} from './UI';
+export default function Choices({label,options,value,onChange,multiple=false}){return <View style={{gap:8}}><Text style={styles.label}>{label}</Text><View style={{flexDirection:'row',flexWrap:'wrap',gap:8}}>{options.map(o=>{const chosen=multiple?value.includes(o.value):value===o.value;return <Pressable key={String(o.value)} accessibilityRole={multiple?'checkbox':'radio'} accessibilityLabel={`${label}: ${o.label}`} accessibilityState={{checked:chosen}} onPress={()=>onChange(multiple?(chosen?value.filter(x=>x!==o.value):[...value,o.value]):o.value)} style={{padding:12,minHeight:44,borderRadius:15,backgroundColor:chosen?'#217451':'#e8f2eb'}}><Text style={{color:chosen?'white':'#17664b'}}>{o.label}</Text></Pressable>;})}</View></View>;}

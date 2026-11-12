@@ -1,0 +1,16 @@
+{
+  "repository": "geunung0919/MobileProject_team-7-",
+  "branch": "main",
+  "commit": "7aaca5f906bd32ebefe23601658c33a50c9f0126",
+  "path": "UIUX",
+  "integrationFiles": [
+    "screens/FridgeScreen.js",
+    "screens/FridgeAddScreen.js",
+    "screens/RecipeListScreen.js",
+    "screens/RecipeDetailScreen.js",
+    "screens/HomeScreen.js",
+    "store/AppDataContext.js",
+    "components/FridgeItemRow.js",
+    "components/ActionMenu.js"
+  ]
+}

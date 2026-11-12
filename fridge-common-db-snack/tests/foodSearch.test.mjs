@@ -1,0 +1,12 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {recipes} from '../module3/data/seed.js';
+import {searchRecipes} from '../module3/domain/recipeSearch.mjs';
+import {presentRecipe} from '../integration/recipes.mjs';
+import {planMeal} from '../module3/domain/transactions.mjs';
+const recipe=recipes.find(r=>r.id==='tomato-spaghetti');
+const stocked=recipe.ingredients.map((i,n)=>({...i,id:String(n),category:'food',expiresAt:'2099-01-01',remainingCost:1000}));
+test('스파게티/파스타 검색은 빈 재고에서도 결과와 도구를 제공한다',()=>{for(const query of ['스파게티','파스타','토마토 파스타'])assert(searchRecipes(recipes,[],{query}).some(r=>r.id===recipe.id));assert.deepEqual(recipe.tools,['pot','pan']);assert.equal(searchRecipes(recipes,[],{query:'존재하지않는음식'}).length,0);});
+test('소스 50g 보유하면 100g 부족하며 다른 단위는 합산하지 않는다',()=>{const row=presentRecipe(recipe,[{...stocked[1],quantity:50},{...stocked[1],id:'other',quantity:3,unit:'병'}]).ingredients[1];assert.equal(row.held,50);assert.equal(row.shortage,100);assert.equal(row.unitMismatch,true);});
+test('충분한 재고만 조리 계획을 만들며 조회는 재고를 변경하지 않는다',()=>{const before=JSON.stringify(stocked);assert.equal(presentRecipe(recipe,stocked).missing.length,0);assert.equal(planMeal(stocked,recipe.ingredients).changes.length,4);assert.equal(JSON.stringify(stocked),before);assert.throws(()=>planMeal([],recipe.ingredients));});
+test('기한 지난 재고는 충분 판정에서 제외된다',()=>{assert.equal(presentRecipe(recipe,stocked.map(i=>({...i,expiresAt:'2000-01-01'}))).missing.length,4);});
