@@ -78,3 +78,5 @@ serviceAccountKey.json
 # ==========================================
 .DS_Store
 *.pem
+
+/functions/.secret.local

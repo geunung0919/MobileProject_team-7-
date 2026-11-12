@@ -1,12 +1,22 @@
 
 const {setGlobalOptions} = require("firebase-functions/v2");
 const {onRequest} = require("firebase-functions/v2/https");
+const {defineSecret} = require("firebase-functions/params");
 
 // Firebase 사용자 인증
 const {verifyUser} = require("./middleware/auth");
 
 // Firestore 사용자 프로필 관리
 const {getProfile, saveProfile} = require("./modules/core/profile");
+
+// 지도·생활정보 API
+const {
+  handlePlacesRequest,
+} = require("./modules/map/placesHandler");
+
+// Google Places API 키 (비밀정보)
+// 실제 API 키 값은 이 파일에 작성하지 않습니다.
+const placesApiKey = defineSecret("PLACES_API_KEY");
 
 // 팀 공통 모듈
 const core = require("./modules/core");
@@ -38,10 +48,16 @@ setGlobalOptions({
 exports.api = onRequest(
     {
       cors: true,
+      secrets: [placesApiKey],
     },
     async (req, res) => {
+      // ====================================
       // 1. 서버 상태 확인
-      if (req.method === "GET" && req.path === "/health") {
+      // ====================================
+      if (
+        req.method === "GET" &&
+        req.path === "/health"
+      ) {
         return res.status(200).json({
           success: true,
           service: "solo-living-ai",
@@ -50,8 +66,13 @@ exports.api = onRequest(
         });
       }
 
+      // ====================================
       // 2. 전체 모듈 조회
-      if (req.method === "GET" && req.path === "/modules") {
+      // ====================================
+      if (
+        req.method === "GET" &&
+        req.path === "/modules"
+      ) {
         return res.status(200).json({
           success: true,
           count: modules.length,
@@ -59,12 +80,17 @@ exports.api = onRequest(
         });
       }
 
+      // ====================================
       // 3. 개별 모듈 상태 확인
+      // ====================================
       const match = req.path.match(
           /^\/modules\/([a-z]+)\/status\/?$/,
       );
 
-      if (req.method === "GET" && match) {
+      if (
+        req.method === "GET" &&
+        match
+      ) {
         const moduleId = match[1];
 
         const selectedModule = modules.find(
@@ -84,8 +110,47 @@ exports.api = onRequest(
         });
       }
 
-      // 4. 로그인한 사용자 정보 확인
-      if (req.method === "GET" && req.path === "/auth/me") {
+      // ====================================
+      // 4. 지도·생활정보 API
+      // ====================================
+      const placesPaths = [
+        "/places/nearby",
+        "/places/search",
+        "/places/details",
+        "/places/address-search",
+      ];
+
+      if (placesPaths.includes(req.path)) {
+        // 현재 지도 API는 GET만 지원
+        if (req.method !== "GET") {
+          return res.status(404).json({
+            error: "요청한 주소가 없습니다.",
+          });
+        }
+
+        // Firebase 로그인 사용자 검증
+        const user = await verifyUser(req, res);
+
+        if (!user) {
+          return;
+        }
+
+        // 기존 Node.js 지도 서버와 동일한
+        // 요청·응답 구조를 유지하는 처리기
+        return handlePlacesRequest(
+            req,
+            res,
+            placesApiKey.value(),
+        );
+      }
+
+      // ====================================
+      // 5. 로그인한 사용자 정보 확인
+      // ====================================
+      if (
+        req.method === "GET" &&
+        req.path === "/auth/me"
+      ) {
         const user = await verifyUser(req, res);
 
         if (!user) {
@@ -98,8 +163,13 @@ exports.api = onRequest(
         });
       }
 
-      // 5. 내 프로필 조회
-      if (req.method === "GET" && req.path === "/profile") {
+      // ====================================
+      // 6. 내 프로필 조회
+      // ====================================
+      if (
+        req.method === "GET" &&
+        req.path === "/profile"
+      ) {
         const user = await verifyUser(req, res);
 
         if (!user) {
@@ -114,7 +184,10 @@ exports.api = onRequest(
             profile: profile,
           });
         } catch (error) {
-          console.error("Profile read failed:", error);
+          console.error(
+              "Profile read failed:",
+              error,
+          );
 
           return res.status(500).json({
             success: false,
@@ -123,8 +196,13 @@ exports.api = onRequest(
         }
       }
 
-      // 6. 내 프로필 저장 및 수정
-      if (req.method === "PUT" && req.path === "/profile") {
+      // ====================================
+      // 7. 내 프로필 저장 및 수정
+      // ====================================
+      if (
+        req.method === "PUT" &&
+        req.path === "/profile"
+      ) {
         const user = await verifyUser(req, res);
 
         if (!user) {
@@ -157,7 +235,10 @@ exports.api = onRequest(
             profile: profile,
           });
         } catch (error) {
-          console.error("Profile save failed:", error);
+          console.error(
+              "Profile save failed:",
+              error,
+          );
 
           return res.status(500).json({
             success: false,
@@ -166,7 +247,9 @@ exports.api = onRequest(
         }
       }
 
-      // 7. 정의되지 않은 API
+      // ====================================
+      // 8. 정의되지 않은 API
+      // ====================================
       return res.status(404).json({
         success: false,
         error: "존재하지 않는 API 경로입니다.",
