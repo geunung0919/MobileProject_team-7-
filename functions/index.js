@@ -15,6 +15,7 @@ const refrigerator = require("./modules/refrigerator");
 const sharing = require("./modules/sharing");
 const map = require("./modules/map");
 const emergency = require("./modules/emergency");
+const ai = require("./modules/ai");
 
 // 팀 공통 모듈 등록
 const modules = [
@@ -24,6 +25,7 @@ const modules = [
   sharing,
   map,
   emergency,
+  ai,
 ];
 
 // Firebase Cloud Functions 기본 설정
