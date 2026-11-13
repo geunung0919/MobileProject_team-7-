@@ -12,14 +12,14 @@ import { analyzeRecipe, getFridgeEntries } from '../utils/recipes';
 import { toDateString } from '../utils/format';
 import { colors, fonts, spacing } from '../theme';
 
-// 냉장고 > AI 레시피 추천 > 레시피 상세. params: { id }
+// 냉장고 > AI 레시피 추천 > 레시피 상세. params: { id, recipe? } — AI 레시피는 저장하지 않으므로 객체를 통째로 받습니다.
 export default function RecipeDetailScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
   const t = recipeData.texts;
   const { fridgeItems, removeFridgeItem } = useAppData();
   const baseDate = toDateString(new Date());
 
-  const recipe = recipeData.recipes.find((r) => r.id === route.params?.id);
+  const recipe = route.params?.recipe ?? recipeData.recipes.find((r) => r.id === route.params?.id);
   const entries = useMemo(
     () => getFridgeEntries(fridgeItems, baseDate, fridgeData.urgentWithinDays),
     [fridgeItems, baseDate]

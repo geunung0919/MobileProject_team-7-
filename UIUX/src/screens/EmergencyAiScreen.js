@@ -16,6 +16,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import BackHeader from '../components/BackHeader';
 import IconBox from '../components/IconBox';
 import { aiEmergencyData, getEmergencyReply } from '../data/lifeInfo/aiEmergency';
+import { emergencyGuides } from '../data/lifeInfo/emergencyGuides';
+import { askEmergency, isAiServerEnabled } from '../api/aiManager';
+import { toEmergencyMessage } from '../api/aiFormat';
 import { colors, fonts, spacing } from '../theme';
 
 // 생활정보 > 비상매뉴얼 > AI 비상 매뉴얼 (AI 자취 매니저와는 별도의 채팅 화면)
@@ -35,9 +38,25 @@ export default function EmergencyAiScreen({ navigation }) {
   const send = (raw) => {
     const text = raw.trim();
     if (!text || typing) return;
+    const before = messages; // 서버에 보낼 이전 대화
     setMessages((prev) => [...prev, { id: `u${nextId.current++}`, from: 'user', text }]);
     setInput('');
     setTyping(true);
+
+    // AI 서버가 설정돼 있으면 검증된 FAQ 기반 AI 답변 + 화면의 전화 버튼·'자세히 보기'.
+    // 서버 호출이 실패하면 기존 안내(키워드로 찾은 대처 방법)를 그대로 보여 줍니다. 비상 상황이라 빈 답을 두지 않습니다.
+    if (isAiServerEnabled) {
+      const local = getEmergencyReply(text);
+      askEmergency(text, before)
+        .then((res) => toEmergencyMessage(res, local, aiEmergencyData.situations, emergencyGuides))
+        .catch(() => local)
+        .then((reply) => {
+          setMessages((prev) => [...prev, { id: `a${nextId.current++}`, from: 'ai', ...reply }]);
+          setTyping(false);
+        });
+      return;
+    }
+
     timerRef.current = setTimeout(() => {
       const reply = getEmergencyReply(text);
       setMessages((prev) => [...prev, { id: `a${nextId.current++}`, from: 'ai', ...reply }]);

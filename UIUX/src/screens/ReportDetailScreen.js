@@ -8,6 +8,7 @@ import { reportTexts, pastReports } from '../data/lifeInfo/reports';
 import { spendingData } from '../data/spending/spending';
 import { fridgeData } from '../data/fridge/fridge';
 import { useAppData } from '../store/AppDataContext';
+import { useTodayReport } from '../hooks/useAi';
 import { getMonthlyReport, buildPastReport } from '../utils/reportSummary';
 import { formatNumber, toDateString } from '../utils/format';
 import { colors, fonts, spacing } from '../theme';
@@ -33,6 +34,13 @@ export default function ReportDetailScreen({ navigation, route }) {
     });
   }, [reportId, transactions, fridgeItems]);
 
+  // 이번 달 리포트(reportId 없음)는 숫자는 앱이 계산하고, 'AI 한마디'와 'AI 제안'만 AI 리포트로 바꿉니다.
+  // (서버가 없거나 실패하면 기존 계산 문장 그대로. 지난 리포트는 아직 더미 데이터)
+  const { report: aiReport } = useTodayReport();
+  const useAi = !reportId && !!aiReport?.today_message;
+  const comment = useAi ? aiReport.today_message : report.comment;
+  const tips = useAi && aiReport.actions?.length ? aiReport.actions : report.tips;
+
   const { spent, budget, remaining, usedPercent, prevDiffPercent, categories, fridge } = report;
   const barWidth = `${Math.min(usedPercent, 100)}%`;
   const fridgeStats = [
@@ -57,7 +65,7 @@ export default function ReportDetailScreen({ navigation, route }) {
           onBack={() => navigation.goBack()}
         />
 
-        <AiSayCard label={t.aiLabel} text={report.comment} />
+        <AiSayCard label={t.aiLabel} text={comment} />
 
         <View style={styles.sectionRow}>
           <Text style={styles.sectionTitle}>{t.spendingTitle}</Text>
@@ -116,7 +124,7 @@ export default function ReportDetailScreen({ navigation, route }) {
 
         <Text style={styles.sectionTitleSolo}>{t.tipsTitle}</Text>
         <View style={styles.tipsCard}>
-          {report.tips.map((tip, i) => (
+          {tips.map((tip, i) => (
             <View key={tip} style={[styles.tipRow, i > 0 && styles.tipRowNext]}>
               <View style={styles.tipNumber}>
                 <Text style={styles.tipNumberText}>{i + 1}</Text>

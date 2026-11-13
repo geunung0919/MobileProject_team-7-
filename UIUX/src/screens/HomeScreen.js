@@ -11,6 +11,7 @@ import { homeData } from '../data/home/home';
 import { spendingData } from '../data/spending/spending';
 import { fridgeData } from '../data/fridge/fridge';
 import { useAppData } from '../store/AppDataContext';
+import { useTodayReport } from '../hooks/useAi';
 import {
   getSpendingSummary,
   getFridgeSummary,
@@ -24,6 +25,8 @@ export default function HomeScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const { hero, spending, fridge, tasks } = homeData;
   const { transactions, fridgeItems, todos, routines } = useAppData();
+  // AI 리포트: 서버가 설정돼 있으면 오늘의 한마디를 AI 문장으로 (없거나 실패하면 아래 기존 문장)
+  const { report: aiReport } = useTodayReport();
 
   // 홈의 숫자는 저장소 데이터로 계산합니다 (다른 탭에서 바꾸면 홈에 바로 반영).
   const now = new Date();
@@ -56,7 +59,7 @@ export default function HomeScreen({ navigation }) {
           label={hero.label}
           badge={hero.badge}
           title={hero.title}
-          description={`${getHeroLine(first)}\n${hero.closing}`}
+          description={aiReport?.today_message ?? `${getHeroLine(first)}\n${hero.closing}`}
         />
 
         {/* 소비 / 냉장고 요약 */}
@@ -105,7 +108,6 @@ export default function HomeScreen({ navigation }) {
             <TaskRow
               key={task.id}
               title={task.title}
-              icon={task.icon}
               status={summary.tasks[task.id].status}
               summary={summary.tasks[task.id].summary}
               isLast={i === tasks.length - 1}

@@ -19,6 +19,8 @@ import { spendingData } from '../data/spending/spending';
 import { fridgeData } from '../data/fridge/fridge';
 import { reportTexts } from '../data/lifeInfo/reports';
 import { useAppData } from '../store/AppDataContext';
+import { isAiServerEnabled, sendChat } from '../api/aiManager';
+import { useTodayReport } from '../hooks/useAi';
 import { getMonthlyReport } from '../utils/reportSummary';
 import { toDateString } from '../utils/format';
 import { colors, fonts, spacing } from '../theme';
@@ -41,6 +43,8 @@ export default function AiManagerScreen({ navigation }) {
       urgentWithinDays: fridgeData.urgentWithinDays,
     });
   }, [transactions, fridgeItems]);
+  // AI 서버가 설정돼 있으면 'AI 한마디'를 AI 리포트 문장으로 (없거나 실패하면 위 계산 문장)
+  const { report: aiReport } = useTodayReport();
   const [messages, setMessages] = useState([{ id: 'greeting', from: 'ai', text: greeting }]);
   const [input, setInput] = useState('');
   const [typing, setTyping] = useState(false);
@@ -53,10 +57,23 @@ export default function AiManagerScreen({ navigation }) {
   const send = (raw) => {
     const text = raw.trim();
     if (!text || typing) return;
+    const before = messages; // 서버에 보낼 이전 대화
     setMessages((prev) => [...prev, { id: `u${nextId.current++}`, from: 'user', text }]);
     setInput('');
     setTyping(true);
-    // 생각하는 것처럼 보이도록 잠깐 기다렸다가 답합니다.
+
+    // AI 서버가 설정돼 있으면 실제 AI 답변 (실패하면 안내 문구 + 키워드 바로가기 버튼)
+    if (isAiServerEnabled) {
+      sendChat(text, before)
+        .catch(() => ({ text: '지금은 답변을 받을 수 없어요. 잠시 후 다시 물어봐 주세요.', action: getReply(text).action }))
+        .then((reply) => {
+          setMessages((prev) => [...prev, { id: `a${nextId.current++}`, from: 'ai', text: reply.text, action: reply.action }]);
+          setTyping(false);
+        });
+      return;
+    }
+
+    // 서버가 없으면 기존처럼 미리 적어 둔 답변. 생각하는 것처럼 보이도록 잠깐 기다렸다가 답합니다.
     timerRef.current = setTimeout(() => {
       const reply = getReply(text);
       setMessages((prev) => [...prev, { id: `a${nextId.current++}`, from: 'ai', ...reply }]);
@@ -92,7 +109,7 @@ export default function AiManagerScreen({ navigation }) {
           if (messages.length > 1 || typing) scrollRef.current?.scrollToEnd({ animated: true });
         }}
       >
-        <AiSayCard label={reportTexts.detail.aiLabel} text={report.comment} style={styles.sayCard} />
+        <AiSayCard label={reportTexts.detail.aiLabel} text={aiReport?.today_message ?? report.comment} style={styles.sayCard} />
 
         {messages.map((m) =>
           m.from === 'user' ? (

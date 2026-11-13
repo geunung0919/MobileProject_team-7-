@@ -8,6 +8,8 @@ import IconBox from '../components/IconBox';
 import { recipeData } from '../data/fridge/recipes';
 import { fridgeData } from '../data/fridge/fridge';
 import { useAppData } from '../store/AppDataContext';
+import { useServerRecipes } from '../hooks/useAi';
+import { recipeErrorText } from '../api/aiFormat';
 import { analyzeRecipe, badgeDueLabel, getFridgeEntries, shortDueLabel } from '../utils/recipes';
 import { toDateString } from '../utils/format';
 import { colors, fonts, spacing } from '../theme';
@@ -17,6 +19,9 @@ export default function RecipeListScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const t = recipeData.texts;
   const { fridgeItems } = useAppData();
+  // AI 서버가 설정돼 있으면 AI 추천 레시피, 아니면 data/fridge/recipes.js 의 예시 레시피
+  const server = useServerRecipes();
+  const sourceRecipes = server.enabled ? server.data?.recipes ?? [] : recipeData.recipes;
   const baseDate = toDateString(new Date()); // 기준일 = 오늘
 
   const entries = useMemo(
@@ -28,10 +33,10 @@ export default function RecipeListScreen({ navigation }) {
   // 추천 순서는 그대로 두고, 냉장고에 재료가 하나라도 있는 레시피만 보여줍니다.
   const cards = useMemo(
     () =>
-      recipeData.recipes
+      sourceRecipes
         .map((recipe) => ({ recipe, ...analyzeRecipe(recipe, entries) }))
         .filter((c) => c.owned.length > 0),
-    [entries]
+    [entries, sourceRecipes]
   );
 
   return (
@@ -75,16 +80,20 @@ export default function RecipeListScreen({ navigation }) {
           <Text style={styles.countText}>{t.count(cards.length)}</Text>
         </View>
 
-        {cards.length === 0 ? (
+        {server.enabled && server.loading ? (
           <View style={styles.empty}>
-            <Text style={styles.emptyTitle}>{t.empty}</Text>
+            <Text style={styles.emptyTitle}>AI가 레시피를 고르고 있어요…</Text>
+          </View>
+        ) : cards.length === 0 ? (
+          <View style={styles.empty}>
+            <Text style={styles.emptyTitle}>{server.enabled && (server.error || server.data?.reason) ? recipeErrorText(server.error ? null : server.data) : t.empty}</Text>
             <Text style={styles.emptyHint}>{t.emptyHint}</Text>
           </View>
         ) : (
           cards.map(({ recipe, owned, missing, urgent }) => (
             <Pressable
               key={recipe.id}
-              onPress={() => navigation.navigate('RecipeDetail', { id: recipe.id })}
+              onPress={() => navigation.navigate('RecipeDetail', { id: recipe.id, recipe })}
               accessibilityRole="button"
               style={({ pressed }) => [styles.card, pressed && styles.pressed]}
             >
