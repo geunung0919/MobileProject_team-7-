@@ -1,7 +1,0 @@
-node_modules/
-lib/
-# 키·로컬 설정 (절대 올리지 말 것)
-.env.eval
-.secret.local
-.env.local
-eval-results.json

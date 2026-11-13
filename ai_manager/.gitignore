@@ -1,6 +1,0 @@
-# Firebase Emulator 로그
-firebase-debug.log*
-firestore-debug.log*
-ui-debug.log*
-*.log
-.firebase/
