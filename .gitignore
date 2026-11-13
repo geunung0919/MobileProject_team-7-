@@ -80,3 +80,7 @@ serviceAccountKey.json
 *.pem
 
 /functions/.secret.local
+
+.env.local
+
+*.js.bak

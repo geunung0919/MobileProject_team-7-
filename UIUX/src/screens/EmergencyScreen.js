@@ -411,7 +411,7 @@ export default function EmergencyScreen({ navigation }) {
           </Pressable>
 
           <Text style={styles.aiStatus}>
-            AI 상담 기능 연결 준비 중
+            생활안전 AI 상담을 이용할 수 있어요.
           </Text>
 
           <Text style={styles.aiWarning}>

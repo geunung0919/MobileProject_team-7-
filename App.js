@@ -1,5 +1,6 @@
 
 import React from 'react';
+import './firebase/firebaseConfig';
 import { View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -26,7 +27,7 @@ const Stack = createNativeStackNavigator();
 
 // 개발할 화면 선택
 // 'emergency' 또는 'map'
-const DEV_SCREEN = 'map';
+const DEV_SCREEN = 'emergency';
 
 export default function App() {
   const [fontsLoaded] = useFonts({
