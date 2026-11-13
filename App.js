@@ -19,15 +19,15 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import SurvivalMapScreen from './UIUX/src/screens/SurvivalMapScreen';
 import EmergencyScreen from './UIUX/src/screens/EmergencyScreen';
 import EmergencyDetailScreen from './UIUX/src/screens/EmergencyDetailScreen';
-
-// AI 상담 임시 화면
 import EmergencyAIChatScreen from './UIUX/src/screens/EmergencyAIChatScreen';
+
+// Firebase 로그인 테스트 화면
+import AuthTestScreen from './AuthTestScreen';
 
 const Stack = createNativeStackNavigator();
 
-// 개발할 화면 선택
-// 'emergency' 또는 'map'
-const DEV_SCREEN = 'emergency';
+// 개발 화면 선택: 'auth', 'map', 'emergency'
+const DEV_SCREEN = 'auth';
 
 export default function App() {
   const [fontsLoaded] = useFonts({
@@ -47,21 +47,30 @@ export default function App() {
     );
   }
 
+  const initialScreen =
+    DEV_SCREEN === 'auth'
+      ? 'AuthTest'
+      : DEV_SCREEN === 'map'
+      ? 'SurvivalMap'
+      : 'Emergency';
+
   return (
     <SafeAreaProvider>
       <StatusBar style="dark" />
 
       <NavigationContainer>
         <Stack.Navigator
-          initialRouteName={
-            DEV_SCREEN === 'map'
-              ? 'SurvivalMap'
-              : 'Emergency'
-          }
+          initialRouteName={initialScreen}
           screenOptions={{
             headerShown: false,
           }}
         >
+          {/* Firebase 인증 테스트 */}
+          <Stack.Screen
+            name="AuthTest"
+            component={AuthTestScreen}
+          />
+
           {/* 지도 화면 */}
           <Stack.Screen
             name="SurvivalMap"
@@ -80,7 +89,7 @@ export default function App() {
             component={EmergencyDetailScreen}
           />
 
-          {/* AI 상담 임시 화면 */}
+          {/* AI 상담 화면 */}
           <Stack.Screen
             name="EmergencyAIChat"
             component={EmergencyAIChatScreen}
