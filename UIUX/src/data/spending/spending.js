@@ -3,12 +3,14 @@ import { sampleReceipt } from './receipt';
 // 소비 화면 더미 데이터. icon 은 MaterialCommunityIcons 이름입니다.
 // - daysAgo: 더미 전용. 오늘로부터 며칠 전 지출인지 (AppDataContext 가 실제 date 로 바꿔 줌)
 //   실제 데이터에는 date("YYYY-MM-DD")를 넣으세요.
-// - source: 'receipt' 면 영수증 지출 (상세에서 "영수증 · 식료품" 으로 표시)
+// - source: 'receipt' 면 영수증 지출 (상세에서 "영수증 · 식품" 으로 표시)
 // - items: 구매 품목 [{ id, name, unitPrice, quantity, inFridge }] (없으면 상세에 품목 없이 표시)
 
 export const spendingData = {
   budget: 1000000,
-  // 카테고리를 고르지 않은 지출(직접 입력 등)의 기본값
+  // 고정 카테고리. 나머지 카테고리는 사용자가 직접 추가합니다 (store 의 customCategories).
+  foodCategory: '식품',
+  // 카테고리를 고르지 않은 지출(식품이 없을 때)의 기본값
   defaultCategory: '기타',
   defaultIcon: 'wallet-outline',
   transactions: [
@@ -16,7 +18,7 @@ export const spendingData = {
       id: 't1',
       title: '이마트 성수점',
       daysAgo: 0,
-      category: '식료품',
+      category: '식품',
       amount: 48500,
       icon: 'basket-outline',
       source: 'receipt',

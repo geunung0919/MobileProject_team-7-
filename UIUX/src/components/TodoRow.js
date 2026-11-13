@@ -6,7 +6,8 @@ import { colors, fonts } from '../theme';
 
 // 할 일 목록의 한 줄: 체크박스 + 제목 + 마감 안내.
 // subText(제목 아래 글자), extraText(뒤에 " · " 로 붙는 초록 글씨), tone('normal' | 'today' | 'overdue'),
-// overdue(기한 지난 할 일 전용 카드 모양), done(완료: 초록 체크 + 취소선), vertical(위아래 여백), onToggle(체크를 눌렀을 때)
+// overdue(기한 지난 할 일 전용 카드 모양), done(완료: 초록 체크 + 취소선), disabled(오늘은 쉬는 항목: 흐리게, 체크 불가),
+// vertical(위아래 여백), onToggle(체크를 눌렀을 때)
 export default function TodoRow({
   title,
   subText,
@@ -15,6 +16,7 @@ export default function TodoRow({
   tone = 'normal',
   overdue = false,
   done = false,
+  disabled = false,
   onToggle,
 }) {
   return (
@@ -23,14 +25,16 @@ export default function TodoRow({
         styles.row,
         overdue ? styles.overdueRow : styles.divider,
         done && styles.compact,
+        disabled && styles.disabled,
         vertical != null && { paddingVertical: vertical },
       ]}
     >
       <Pressable
         onPress={onToggle}
+        disabled={disabled}
         hitSlop={12}
         accessibilityRole="checkbox"
-        accessibilityState={{ checked: done }}
+        accessibilityState={{ checked: done, disabled }}
         accessibilityLabel={title}
         style={[
           styles.checkbox,
@@ -83,6 +87,9 @@ const styles = StyleSheet.create({
   },
   compact: {
     paddingVertical: 7,
+  },
+  disabled: {
+    opacity: 0.5,
   },
   divider: {
     borderBottomWidth: StyleSheet.hairlineWidth * 2,

@@ -17,7 +17,9 @@ import PrimaryButton from '../components/PrimaryButton';
 import DatePickerSheet from '../components/DatePickerSheet';
 import PurchaseItemCard from '../components/PurchaseItemCard';
 import AddItemButton from '../components/AddItemButton';
+import CategorySelector from '../components/CategorySelector';
 import { useAppData } from '../store/AppDataContext';
+import { resolveCategory } from '../utils/category';
 import { formatNumber, formatDotDate, toDateString, fromDateString } from '../utils/format';
 import {
   createEmptyItem,
@@ -33,12 +35,13 @@ import { colors, fonts, spacing } from '../theme';
 
 export default function ManualEntryScreen({ navigation }) {
   const insets = useSafeAreaInsets();
-  const { addTransaction, addFridgeItem } = useAppData();
+  const { addTransaction, addFridgeItem, customCategories, addCategory } = useAppData();
   const scrollRef = useRef(null);
   const nextKey = useRef(2); // 품목 카드를 구분하는 번호 (첫 카드는 1)
 
   const [storeName, setStoreName] = useState('');
   const [date, setDate] = useState(new Date());
+  const [category, setCategory] = useState(null); // 선택 안 하면 저장할 때 자동으로 정해집니다
   const [items, setItems] = useState([createEmptyItem(1)]);
   // 열려 있는 날짜 시트가 다루는 칸: null(닫힘) | 'purchase'(구매일) | 품목 key(그 품목의 유통기한)
   const [dateTarget, setDateTarget] = useState(null);
@@ -92,6 +95,7 @@ export default function ManualEntryScreen({ navigation }) {
       title: storeName.trim(),
       amount: total,
       date: dateStr,
+      category: resolveCategory(category, fridgeCount),
       source: 'manual',
       items: toSavedItems(items, (it, index) => `m${index + 1}`),
     });
@@ -145,6 +149,14 @@ export default function ManualEntryScreen({ navigation }) {
           rightIcon="calendar-month-outline"
           onPress={() => openDateSheet('purchase')}
           marginTop={18}
+        />
+
+        <CategorySelector
+          style={styles.categoryBox}
+          customCategories={customCategories}
+          value={category}
+          onChange={setCategory}
+          onAddCategory={addCategory}
         />
 
         <View style={styles.sectionHeader}>
@@ -210,6 +222,9 @@ const styles = StyleSheet.create({
     fontFamily: fonts.regular,
     fontSize: 15,
     color: colors.textSecondary,
+  },
+  categoryBox: {
+    marginTop: 24,
   },
   sectionHeader: {
     marginTop: 30,

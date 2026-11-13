@@ -15,8 +15,9 @@ import PrimaryButton from './PrimaryButton';
 import FieldLabel from './FieldLabel';
 import SheetInput from './SheetInput';
 import SegmentedControl from './SegmentedControl';
+import WeekdayPicker from './WeekdayPicker';
 import { pad } from '../utils/format';
-import { to24HourString } from '../utils/time';
+import { ALL_DAYS, to24HourString, formatRepeatDays } from '../utils/time';
 import { colors, fonts } from '../theme';
 
 // 키보드/선택 목록이 열려도 시트가 넘치지 않도록 입력 영역 높이를 제한합니다 (넘치면 스크롤).
@@ -30,13 +31,15 @@ const HOURS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 const MINUTES = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55]; // 5분 단위
 
 
-// "루틴 추가" 시트. onSubmit({ title, time }): time 은 24시간제 "HH:mm" (예: "19:00")
-// 열 때마다 입력값이 초기화됩니다 (오전 08시 00분 시작).
+// "루틴 추가" 시트. onSubmit({ title, time, days }): time 은 24시간제 "HH:mm" (예: "19:00"),
+// days 는 반복 요일 번호 배열 (0=일요일 ... 6=토요일).
+// 열 때마다 입력값이 초기화됩니다 (오전 08시 00분 시작, 요일은 모두 선택).
 export default function AddRoutineSheet({ visible, onClose, onSubmit }) {
   const [name, setName] = useState('');
   const [period, setPeriod] = useState('am');
   const [hour, setHour] = useState(8);
   const [minute, setMinute] = useState(0);
+  const [days, setDays] = useState(ALL_DAYS);
   const [openPicker, setOpenPicker] = useState(null); // 'hour' | 'minute' | null (펼쳐진 선택 목록)
 
   useEffect(() => {
@@ -45,6 +48,7 @@ export default function AddRoutineSheet({ visible, onClose, onSubmit }) {
       setPeriod('am');
       setHour(8);
       setMinute(0);
+      setDays(ALL_DAYS);
       setOpenPicker(null);
     }
   }, [visible]);
@@ -59,7 +63,7 @@ export default function AddRoutineSheet({ visible, onClose, onSubmit }) {
       Alert.alert('입력을 확인해 주세요', '루틴 이름을 입력해 주세요.');
       return;
     }
-    onSubmit({ title: name.trim(), time: to24HourString(period, hour, minute) });
+    onSubmit({ title: name.trim(), time: to24HourString(period, hour, minute), days });
     onClose();
   };
 
@@ -124,9 +128,12 @@ export default function AddRoutineSheet({ visible, onClose, onSubmit }) {
             })}
           </View>
         ) : null}
+
+        <FieldLabel label="반복 요일" tag="필수" required style={styles.labelSpaced} />
+        <WeekdayPicker days={days} onChange={setDays} />
       </ScrollView>
 
-      <Text style={styles.helper}>매일 반복되며, 시간순으로 목록에 담겨요.</Text>
+      <Text style={styles.helper}>{formatRepeatDays(days)} 반복되며, 시간순으로 목록에 담겨요.</Text>
       <PrimaryButton label="추가하기" onPress={handleSubmit} />
     </BottomSheet>
   );

@@ -9,7 +9,7 @@ import AddRoutineSheet from '../components/AddRoutineSheet';
 import Fab from '../components/Fab';
 import { routineData } from '../data/lifeInfo/routines';
 import { useAppData } from '../store/AppDataContext';
-import { formatRoutineTime } from '../utils/time';
+import { formatRoutineTime, formatRepeatDays, getRoutineDays, isRoutineOnDay } from '../utils/time';
 import { colors, fonts, spacing } from '../theme';
 
 export default function RoutineScreen({ navigation }) {
@@ -20,16 +20,26 @@ export default function RoutineScreen({ navigation }) {
   const { routines: items, addRoutine, toggleRoutine: toggleDone } = useAppData();
   const [addVisible, setAddVisible] = useState(false);
 
-  // 이른 시간 순 ("HH:mm" 문자열은 그대로 비교해도 시간 순서가 맞습니다)
-  const sorted = useMemo(() => [...items].sort((a, b) => a.time.localeCompare(b.time)), [items]);
+  // 이른 시간 순 ("HH:mm" 문자열은 그대로 비교해도 시간 순서가 맞습니다).
+  // 오늘 요일에 하는 루틴(todayItems)과 오늘은 쉬는 루틴(restItems)으로 나눕니다.
+  const today = new Date().getDay();
+  const { todayItems, restItems } = useMemo(() => {
+    const sorted = [...items].sort((a, b) => a.time.localeCompare(b.time));
+    return {
+      todayItems: sorted.filter((r) => isRoutineOnDay(r, today)),
+      restItems: sorted.filter((r) => !isRoutineOnDay(r, today)),
+    };
+  }, [items, today]);
 
-  const doneCount = items.filter((i) => i.doneToday).length;
+  const doneCount = todayItems.filter((i) => i.doneToday).length;
   const summaryTitle =
-    items.length > 0 && doneCount === items.length
+    todayItems.length > 0 && doneCount === todayItems.length
       ? '오늘 루틴을 모두 마쳤어요'
       : doneCount > 0
         ? `오늘은 ${doneCount}개를 완료했어요`
-        : '오늘은 아직 완료한 루틴이 없어요';
+        : todayItems.length > 0
+          ? '오늘은 아직 완료한 루틴이 없어요'
+          : '오늘은 쉬는 날이에요';
 
   return (
     <View style={styles.container}>
@@ -44,7 +54,7 @@ export default function RoutineScreen({ navigation }) {
         <BackHeader title="생활 루틴 설정" onBack={() => navigation.goBack()} />
 
         <SummaryBanner
-          label="매일 반복하는 나의 루틴"
+          label="요일마다 반복하는 나의 루틴"
           title={summaryTitle}
           description="작은 습관도 하나씩, 마치면 체크해 주세요."
         />
@@ -57,21 +67,36 @@ export default function RoutineScreen({ navigation }) {
           <Text style={styles.sortText}>{routineData.sortLabel}</Text>
         </View>
 
-        {sorted.length > 0 ? (
-          sorted.map((item) => (
-            <TodoRow
-              key={item.id}
-              title={item.title}
-              subText={formatRoutineTime(item.time)}
-              extraText={item.doneToday ? '오늘 완료' : undefined}
-              done={item.doneToday}
-              vertical={17}
-              onToggle={() => toggleDone(item.id)}
-            />
-          ))
-        ) : (
+        {items.length === 0 ? (
           <Text style={styles.emptyText}>아직 루틴이 없어요. + 버튼으로 추가해 보세요.</Text>
-        )}
+        ) : null}
+
+        {todayItems.map((item) => (
+          <TodoRow
+            key={item.id}
+            title={item.title}
+            subText={`${formatRoutineTime(item.time)} · ${formatRepeatDays(getRoutineDays(item))}`}
+            extraText={item.doneToday ? '오늘 완료' : undefined}
+            done={item.doneToday}
+            vertical={17}
+            onToggle={() => toggleDone(item.id)}
+          />
+        ))}
+
+        {restItems.length > 0 ? (
+          <View>
+            <Text style={styles.restTitle}>오늘은 쉬는 루틴</Text>
+            {restItems.map((item) => (
+              <TodoRow
+                key={item.id}
+                title={item.title}
+                subText={`${formatRoutineTime(item.time)} · ${formatRepeatDays(getRoutineDays(item))}`}
+                vertical={17}
+                disabled
+              />
+            ))}
+          </View>
+        ) : null}
       </ScrollView>
 
       <Fab hasTabBar={false} accessibilityLabel="루틴 추가" onPress={() => setAddVisible(true)} />
@@ -116,6 +141,13 @@ const styles = StyleSheet.create({
   sortText: {
     fontFamily: fonts.regular,
     fontSize: 14,
+    color: colors.textSecondary,
+  },
+  restTitle: {
+    marginTop: 24,
+    marginBottom: 2,
+    fontFamily: fonts.bold,
+    fontSize: 16,
     color: colors.textSecondary,
   },
   emptyText: {

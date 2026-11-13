@@ -105,6 +105,7 @@ export default function HomeScreen({ navigation }) {
             <TaskRow
               key={task.id}
               title={task.title}
+              icon={task.icon}
               status={summary.tasks[task.id].status}
               summary={summary.tasks[task.id].summary}
               isLast={i === tasks.length - 1}

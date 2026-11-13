@@ -5,7 +5,6 @@ import {
   Pressable,
   KeyboardAvoidingView,
   Keyboard,
-  Alert,
   Platform,
   StyleSheet,
 } from 'react-native';
@@ -20,6 +19,7 @@ import PrimaryButton from '../components/PrimaryButton';
 import { fridgeData } from '../data/fridge/fridge';
 import { useAppData } from '../store/AppDataContext';
 import { formatDotDate, toDateString, fromDateString, addDays } from '../utils/format';
+import { confirmAction, showNotice } from '../utils/confirm';
 import { colors, fonts, spacing } from '../theme';
 
 // "1개 · 1L" 같은 예전 형식의 글자에서 수량 숫자와 단위를 뽑아냅니다. (amount / unit 이 없는 항목용)
@@ -91,11 +91,11 @@ export default function FridgeAddScreen({ navigation, route }) {
 
   const handleSave = () => {
     if (!name.trim() || !(Number(quantity) > 0) || !unit || !expiryDate) {
-      Alert.alert('입력을 확인해 주세요', '식재료 이름, 수량, 단위, 유통기한을 입력해 주세요.');
+      showNotice('입력을 확인해 주세요', '식재료 이름, 수량, 단위, 유통기한을 입력해 주세요.');
       return;
     }
     if (purchaseDate && toDateString(expiryDate) < toDateString(purchaseDate)) {
-      Alert.alert('날짜를 확인해 주세요', '유통기한은 구매일보다 빠를 수 없어요.');
+      showNotice('날짜를 확인해 주세요', '유통기한은 구매일보다 빠를 수 없어요.');
       return;
     }
     // 저장할 값: { name, quantity(숫자), unit, purchaseDate(선택 안 했으면 null), expiry }
@@ -112,18 +112,18 @@ export default function FridgeAddScreen({ navigation, route }) {
     navigation.goBack();
   };
 
+  // 확인창은 confirmAction 을 씁니다 (Alert.alert 는 웹 미리보기에서 아무 반응이 없어 삭제 버튼이 안 눌리는 것처럼 보입니다).
   const handleDelete = () => {
-    Alert.alert('식재료를 삭제할까요?', `'${name.trim() || '이 식재료'}'이(가) 냉장고에서 삭제돼요.`, [
-      { text: '취소', style: 'cancel' },
-      {
-        text: '삭제',
-        style: 'destructive',
-        onPress: () => {
-          removeFridgeItem(editId);
-          navigation.goBack();
-        },
+    confirmAction({
+      title: '식재료를 삭제할까요?',
+      message: `'${name.trim() || '이 식재료'}'이(가) 냉장고에서 삭제돼요.`,
+      confirmLabel: '삭제',
+      destructive: true,
+      onConfirm: () => {
+        removeFridgeItem(editId);
+        navigation.goBack();
       },
-    ]);
+    });
   };
 
   const sheet = getDateConfig(activeTarget);
