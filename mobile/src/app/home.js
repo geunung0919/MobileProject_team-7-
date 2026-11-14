@@ -31,8 +31,14 @@ export default function HomeScreen() {
     },
     {
       name: 'AI 자취 매니저',
-      description: 'AI 생활 상담 및 맞춤형 리포트',
+      description: 'Firebase AI 생활 상담',
       route: '/ai-manager',
+      requiresServer: false,
+    },
+    {
+      name: 'AI 생활 리포트',
+      description: '오늘·지난주·과거 생활 리포트',
+      route: '/ai-report',
       requiresServer: false,
     },
     {
@@ -134,16 +140,12 @@ export default function HomeScreen() {
         </Text>
 
         <Text style={styles.small}>
-          AI 리포트 상세 · 지난 리포트 목록
-        </Text>
-
-        <Text style={styles.small}>
           공유 · 케어
         </Text>
 
         <Text style={localStyles.notice}>
-          해당 기능의 화면 및 DB 연동이 완료되면
-          활성화할 예정입니다.
+          중앙 DB와 사용자별 데이터 연동이 완료되면
+          나머지 기능을 연결할 예정입니다.
         </Text>
       </Card>
     </Page>
