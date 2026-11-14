@@ -57,7 +57,7 @@ export default function HomeScreen() {
       name: '생활 루틴',
       description: '반복 일정과 완료 기록',
       route: '/routine',
-      requiresServer: true,
+      requiresServer: false,
     },
     {
       name: '온보딩',
