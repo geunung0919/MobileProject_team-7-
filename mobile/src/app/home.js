@@ -30,6 +30,12 @@ export default function HomeScreen() {
       requiresServer: false,
     },
     {
+      name: 'AI 자취 매니저',
+      description: 'AI 생활 상담 및 맞춤형 리포트',
+      route: '/ai-manager',
+      requiresServer: false,
+    },
+    {
       name: '냉장고 · 레시피',
       description: '식재료 재고, 식사, 장보기 관리',
       route: '/fridge',
@@ -128,7 +134,7 @@ export default function HomeScreen() {
         </Text>
 
         <Text style={styles.small}>
-          AI 자취 매니저
+          AI 리포트 상세 · 지난 리포트 목록
         </Text>
 
         <Text style={styles.small}>
@@ -136,8 +142,8 @@ export default function HomeScreen() {
         </Text>
 
         <Text style={localStyles.notice}>
-          각 기능의 최신 코드와 Firebase 연결을
-          확인한 후 활성화할 예정입니다.
+          해당 기능의 화면 및 DB 연동이 완료되면
+          활성화할 예정입니다.
         </Text>
       </Card>
     </Page>
