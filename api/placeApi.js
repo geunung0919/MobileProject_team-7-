@@ -31,8 +31,12 @@ const FIREBASE_SERVER_URL =
 
 const REQUEST_TIMEOUT = 20000;
 
-// 개발 에뮬레이터에서만 테스트 로그인 허용
+// 개발용 로그인 설정
 const ENABLE_DEV_TEST_LOGIN = true;
+
+// 클라우드 테스트 로그인은 명시적으로 허용할 때만 사용
+const ENABLE_CLOUD_TEST_LOGIN =
+  process.env.EXPO_PUBLIC_ENABLE_CLOUD_TEST_LOGIN === 'true';
 
 const getServerUrl = () => {
   return PLACE_API_MODE === 'firebase'
@@ -69,40 +73,58 @@ const buildFilterParams = (filters = {}) => {
 // 3. Firebase 개발용 인증
 // ========================================
 
-// 모든 동시 API 요청이 하나의 토큰 발급/복구 작업 공유
+// 동시 API 요청은 하나의 로그인 작업 공유
 let tokenPromise = null;
 
 const canUseTestLogin = () => {
   return (
     __DEV__ &&
-    USE_EMULATOR &&
-    ENABLE_DEV_TEST_LOGIN
+    ENABLE_DEV_TEST_LOGIN &&
+    (
+      USE_EMULATOR ||
+      (
+        environment.firebaseTarget === 'cloud' &&
+        ENABLE_CLOUD_TEST_LOGIN
+      )
+    )
   );
 };
 
 const signInForTesting = async () => {
   if (!canUseTestLogin()) {
     throw new Error(
-      '개발용 테스트 로그인은 Firebase 에뮬레이터에서만 사용할 수 있습니다.'
+      'Firebase 로그인이 필요합니다.'
     );
   }
 
-  console.log('[Firebase] 개발용 테스트 로그인 시작');
+  console.log('[Firebase] 개발용 익명 로그인 시작');
 
-  const credential = await signInAnonymously(auth);
+  try {
+    const credential = await signInAnonymously(auth);
 
-  console.log('[Firebase] 개발용 테스트 로그인 성공');
+    console.log('[Firebase] 개발용 익명 로그인 성공');
 
-  return credential.user;
+    return credential.user;
+  } catch (error) {
+    if (
+      error?.code === 'auth/operation-not-allowed'
+    ) {
+      throw new Error(
+        'Firebase Authentication에서 익명 로그인을 ' +
+        '활성화해야 합니다.'
+      );
+    }
+
+    throw error;
+  }
 };
 
-// 실제 토큰 발급 및 복구 처리
 const acquireFirebaseIdToken = async () => {
   await auth.authStateReady();
 
   let user = auth.currentUser;
 
-  // 로그인 상태가 없을 경우
+  // 로그인 상태가 없는 경우
   if (!user) {
     if (!canUseTestLogin()) {
       throw new Error(
@@ -123,6 +145,7 @@ const acquireFirebaseIdToken = async () => {
       'auth/user-not-found',
     ];
 
+    // 개발용 익명 계정만 자동 복구
     const canRecover =
       canUseTestLogin() &&
       user.isAnonymous &&
@@ -133,11 +156,10 @@ const acquireFirebaseIdToken = async () => {
     }
 
     console.warn(
-      '[Firebase] 이전 테스트 계정 토큰 무효화 감지'
+      '[Firebase] 이전 익명 로그인 토큰이 유효하지 않습니다.'
     );
 
-    // 그사이 다른 계정으로 변경됐다면
-    // 이전 사용자로 로그아웃하지 않음
+    // 인증 작업 중 사용자가 변경된 경우
     const currentUser = auth.currentUser;
 
     if (
@@ -147,23 +169,24 @@ const acquireFirebaseIdToken = async () => {
       return currentUser.getIdToken();
     }
 
-    console.log('[Firebase] 인증 복구 시작');
+    console.log('[Firebase] 개발용 인증 복구 시작');
 
-    // 개발용 익명 로그인 상태만 초기화
+    // Firebase 로그인 상태만 정리
+    // 냉장고·루틴 AsyncStorage는 삭제하지 않음
     await signOut(auth);
 
-    // 새 테스트 사용자 생성
+    // 클라우드 또는 에뮬레이터에 새 익명 로그인
     const newUser = await signInForTesting();
 
     const newToken = await newUser.getIdToken();
 
-    console.log('[Firebase] 인증 복구 완료');
+    console.log('[Firebase] 개발용 인증 복구 완료');
 
     return newToken;
   }
 };
 
-// 동시 요청을 하나의 인증 처리로 통합
+// 중복 인증 요청 방지
 const getFirebaseIdToken = async () => {
   if (tokenPromise) {
     return tokenPromise;
@@ -176,7 +199,6 @@ const getFirebaseIdToken = async () => {
   try {
     return await pending;
   } finally {
-    // 성공/실패와 관계없이 다음 인증 요청 허용
     if (tokenPromise === pending) {
       tokenPromise = null;
     }
@@ -199,7 +221,7 @@ const readResponse = async (path, fallbackMessage) => {
       Accept: 'application/json',
     };
 
-    // Firebase Functions에서만 인증 토큰 사용
+    // Firebase Cloud Functions 인증
     if (PLACE_API_MODE === 'firebase') {
       const token = await getFirebaseIdToken();
 
@@ -235,13 +257,20 @@ const readResponse = async (path, fallbackMessage) => {
     if (!response.ok) {
       if (response.status === 401) {
         throw new Error(
-          'Firebase 인증에 실패했습니다. 로그인 상태를 확인해 주세요.'
+          'Firebase 인증에 실패했습니다. ' +
+          '로그인 상태를 확인해 주세요.'
         );
       }
 
+      const serverMessage =
+        typeof data?.error === 'string'
+          ? data.error
+          : typeof data?.message === 'string'
+            ? data.message
+            : null;
+
       throw new Error(
-        data?.error ||
-        data?.message ||
+        serverMessage ||
         `${fallbackMessage} (HTTP ${response.status})`
       );
     }
@@ -270,7 +299,7 @@ const readResponse = async (path, fallbackMessage) => {
       throw new Error(
         '서버에 연결할 수 없습니다.\n' +
         `서버: ${serverUrl}\n` +
-        '컴퓨터와 휴대폰의 Wi-Fi 및 서버 실행 상태를 확인해 주세요.'
+        '네트워크 연결을 확인해 주세요.'
       );
     }
 
