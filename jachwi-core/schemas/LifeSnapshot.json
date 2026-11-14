@@ -1,0 +1,84 @@
+{
+  "$defs": {
+    "Life": {
+      "additionalProperties": false,
+      "properties": {
+        "routines": {
+          "items": {
+            "$ref": "#/$defs/Routine"
+          },
+          "maxItems": 500,
+          "title": "Routines",
+          "type": "array"
+        },
+        "exhausted": {
+          "default": false,
+          "title": "Exhausted",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "routines"
+      ],
+      "title": "Life",
+      "type": "object"
+    },
+    "Routine": {
+      "additionalProperties": false,
+      "properties": {
+        "routine_id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Routine Id",
+          "type": "string"
+        },
+        "title": {
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        },
+        "due_date": {
+          "format": "date",
+          "title": "Due Date",
+          "type": "string"
+        },
+        "completed": {
+          "title": "Completed",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "routine_id",
+        "title",
+        "due_date",
+        "completed"
+      ],
+      "title": "Routine",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "source_updated_at": {
+      "format": "date-time",
+      "title": "Source Updated At",
+      "type": "string"
+    },
+    "data": {
+      "$ref": "#/$defs/Life"
+    }
+  },
+  "required": [
+    "source_updated_at",
+    "data"
+  ],
+  "title": "LifeSnapshot",
+  "type": "object"
+}

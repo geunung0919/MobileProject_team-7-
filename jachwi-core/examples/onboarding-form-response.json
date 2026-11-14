@@ -1,0 +1,216 @@
+{
+  "form_version": "1.0",
+  "steps": [
+    {
+      "id": "experience",
+      "title": "자취 상태",
+      "fields": [
+        {
+          "name": "living_months",
+          "label": "자취한 지 얼마나 됐나요?",
+          "widget": "integer",
+          "option_labels": {},
+          "skip_value": null,
+          "empty_label": null,
+          "help_text": "개월 단위로 입력해 주세요. 건너뛰면 미입력으로 저장해요."
+        },
+        {
+          "name": "priority",
+          "label": "자취하는 목표는 무엇인가요?",
+          "widget": "single_select",
+          "option_labels": {
+            "save_money": "생활비 절약",
+            "reduce_waste": "식재료 낭비 줄이기",
+            "build_routine": "생활 습관 만들기"
+          },
+          "skip_value": null,
+          "empty_label": null,
+          "help_text": "가장 먼저 이루고 싶은 목표 하나를 선택해 주세요."
+        }
+      ]
+    },
+    {
+      "id": "cooking",
+      "title": "요리 환경",
+      "fields": [
+        {
+          "name": "cooking_tools",
+          "label": "어떤 조리 도구가 있나요?",
+          "widget": "multi_select",
+          "option_labels": {
+            "microwave": "전자레인지",
+            "stove": "가스레인지·인덕션",
+            "rice_cooker": "밥솥",
+            "air_fryer": "에어프라이어"
+          },
+          "skip_value": null,
+          "empty_label": "보유한 도구 없음",
+          "help_text": "여러 개 선택할 수 있어요. 없음은 빈 목록([]), 건너뛰기는 null로 전송해요."
+        },
+        {
+          "name": "cooking_days_per_week",
+          "label": "일주일에 며칠 요리하나요?",
+          "widget": "integer",
+          "option_labels": {},
+          "skip_value": null,
+          "empty_label": null,
+          "help_text": "0일부터 7일까지 입력해 주세요."
+        }
+      ]
+    },
+    {
+      "id": "budget_region",
+      "title": "예산·지역",
+      "fields": [
+        {
+          "name": "monthly_budget_krw",
+          "label": "월 생활비 목표는 얼마인가요?",
+          "widget": "integer",
+          "option_labels": {},
+          "skip_value": null,
+          "empty_label": null,
+          "help_text": "원 단위로 입력해 주세요. 0원과 미입력은 달라요."
+        },
+        {
+          "name": "region_code",
+          "label": "거주 지역을 선택해 주세요",
+          "widget": "region_search",
+          "option_labels": {},
+          "skip_value": null,
+          "empty_label": null,
+          "help_text": "지역 검색은 별도 연결이 필요해요. 선택한 법정동 코드 10자리만 보내며 건너뛸 수 있어요."
+        }
+      ]
+    },
+    {
+      "id": "inventory",
+      "title": "초기 재고",
+      "fields": [
+        {
+          "name": "initial_inventory_state",
+          "label": "냉장고는 어떤 상태인가요?",
+          "widget": "single_select",
+          "option_labels": {
+            "empty": "보유한 재료 없음",
+            "needs_registration": "재료 등록 필요",
+            "not_entered": "나중에 설정"
+          },
+          "skip_value": "not_entered",
+          "empty_label": null,
+          "help_text": "실제 재료 목록은 냉장고 화면에서 등록해요."
+        }
+      ]
+    }
+  ],
+  "input_schema": {
+    "additionalProperties": false,
+    "properties": {
+      "living_months": {
+        "anyOf": [
+          {
+            "maximum": 1200,
+            "minimum": 0,
+            "type": "integer"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Living Months"
+      },
+      "cooking_days_per_week": {
+        "anyOf": [
+          {
+            "maximum": 7,
+            "minimum": 0,
+            "type": "integer"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Cooking Days Per Week"
+      },
+      "cooking_tools": {
+        "anyOf": [
+          {
+            "items": {
+              "enum": [
+                "microwave",
+                "stove",
+                "rice_cooker",
+                "air_fryer"
+              ],
+              "type": "string"
+            },
+            "maxItems": 4,
+            "type": "array"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Cooking Tools"
+      },
+      "monthly_budget_krw": {
+        "anyOf": [
+          {
+            "maximum": 1000000000,
+            "minimum": 0,
+            "type": "integer"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Monthly Budget Krw"
+      },
+      "region_code": {
+        "anyOf": [
+          {
+            "pattern": "^[0-9]{10}$",
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Region Code"
+      },
+      "priority": {
+        "anyOf": [
+          {
+            "enum": [
+              "save_money",
+              "reduce_waste",
+              "build_routine"
+            ],
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Priority"
+      },
+      "initial_inventory_state": {
+        "default": "not_entered",
+        "enum": [
+          "not_entered",
+          "empty",
+          "needs_registration"
+        ],
+        "title": "Initial Inventory State",
+        "type": "string"
+      }
+    },
+    "title": "Onboarding",
+    "type": "object"
+  }
+}

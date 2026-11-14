@@ -1,0 +1,239 @@
+{
+  "$defs": {
+    "Diagnosis": {
+      "additionalProperties": false,
+      "properties": {
+        "rule_version": {
+          "default": "1.1",
+          "title": "Rule Version",
+          "type": "string"
+        },
+        "experience": {
+          "enum": [
+            "unknown",
+            "new",
+            "experienced"
+          ],
+          "title": "Experience",
+          "type": "string"
+        },
+        "cooking_environment": {
+          "enum": [
+            "unknown",
+            "no_tools",
+            "microwave_only",
+            "equipped"
+          ],
+          "title": "Cooking Environment",
+          "type": "string"
+        },
+        "cooking_frequency": {
+          "enum": [
+            "unknown",
+            "rare",
+            "regular"
+          ],
+          "title": "Cooking Frequency",
+          "type": "string"
+        },
+        "missing_fields": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Missing Fields",
+          "type": "array"
+        },
+        "suggested_actions": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Suggested Actions",
+          "type": "array"
+        }
+      },
+      "required": [
+        "experience",
+        "cooking_environment",
+        "cooking_frequency",
+        "missing_fields",
+        "suggested_actions"
+      ],
+      "title": "Diagnosis",
+      "type": "object"
+    },
+    "Onboarding": {
+      "additionalProperties": false,
+      "properties": {
+        "living_months": {
+          "anyOf": [
+            {
+              "maximum": 1200,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Living Months"
+        },
+        "cooking_days_per_week": {
+          "anyOf": [
+            {
+              "maximum": 7,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cooking Days Per Week"
+        },
+        "cooking_tools": {
+          "anyOf": [
+            {
+              "items": {
+                "enum": [
+                  "microwave",
+                  "stove",
+                  "rice_cooker",
+                  "air_fryer"
+                ],
+                "type": "string"
+              },
+              "maxItems": 4,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cooking Tools"
+        },
+        "monthly_budget_krw": {
+          "anyOf": [
+            {
+              "maximum": 1000000000,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Monthly Budget Krw"
+        },
+        "region_code": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9]{10}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Region Code"
+        },
+        "priority": {
+          "anyOf": [
+            {
+              "enum": [
+                "save_money",
+                "reduce_waste",
+                "build_routine"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Priority"
+        },
+        "initial_inventory_state": {
+          "default": "not_entered",
+          "enum": [
+            "not_entered",
+            "empty",
+            "needs_registration"
+          ],
+          "title": "Initial Inventory State",
+          "type": "string"
+        }
+      },
+      "title": "Onboarding",
+      "type": "object"
+    },
+    "OnboardingAction": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "title": "Code",
+          "type": "string"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "target": {
+          "title": "Target",
+          "type": "string"
+        },
+        "owner_module": {
+          "enum": [
+            2,
+            3,
+            5
+          ],
+          "title": "Owner Module",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "code",
+        "label",
+        "target",
+        "owner_module"
+      ],
+      "title": "OnboardingAction",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "profile": {
+      "$ref": "#/$defs/Onboarding"
+    },
+    "diagnosis": {
+      "$ref": "#/$defs/Diagnosis"
+    },
+    "saved": {
+      "const": false,
+      "default": false,
+      "title": "Saved",
+      "type": "boolean"
+    },
+    "actions": {
+      "items": {
+        "$ref": "#/$defs/OnboardingAction"
+      },
+      "title": "Actions",
+      "type": "array"
+    }
+  },
+  "required": [
+    "profile",
+    "diagnosis",
+    "actions"
+  ],
+  "title": "OnboardingPreview",
+  "type": "object"
+}

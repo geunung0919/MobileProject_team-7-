@@ -1,0 +1,119 @@
+{
+  "$defs": {
+    "Inventory": {
+      "additionalProperties": false,
+      "properties": {
+        "items": {
+          "items": {
+            "$ref": "#/$defs/InventoryItem"
+          },
+          "maxItems": 500,
+          "title": "Items",
+          "type": "array"
+        }
+      },
+      "required": [
+        "items"
+      ],
+      "title": "Inventory",
+      "type": "object"
+    },
+    "InventoryItem": {
+      "additionalProperties": false,
+      "properties": {
+        "item_id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Item Id",
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "quantity": {
+          "exclusiveMinimum": 0,
+          "maximum": 1000000,
+          "title": "Quantity",
+          "type": "number"
+        },
+        "unit": {
+          "enum": [
+            "g",
+            "ml",
+            "piece",
+            "pack"
+          ],
+          "title": "Unit",
+          "type": "string"
+        },
+        "storage": {
+          "enum": [
+            "fridge",
+            "freezer",
+            "room"
+          ],
+          "title": "Storage",
+          "type": "string"
+        },
+        "target_date": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Target Date"
+        },
+        "date_source": {
+          "default": "unknown",
+          "enum": [
+            "label",
+            "estimate",
+            "unknown"
+          ],
+          "title": "Date Source",
+          "type": "string"
+        }
+      },
+      "required": [
+        "item_id",
+        "name",
+        "quantity",
+        "unit",
+        "storage"
+      ],
+      "title": "InventoryItem",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "source_updated_at": {
+      "format": "date-time",
+      "title": "Source Updated At",
+      "type": "string"
+    },
+    "data": {
+      "$ref": "#/$defs/Inventory"
+    }
+  },
+  "required": [
+    "source_updated_at",
+    "data"
+  ],
+  "title": "InventorySnapshot",
+  "type": "object"
+}

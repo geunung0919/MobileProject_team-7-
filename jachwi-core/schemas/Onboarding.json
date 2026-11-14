@@ -1,0 +1,111 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "living_months": {
+      "anyOf": [
+        {
+          "maximum": 1200,
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Living Months"
+    },
+    "cooking_days_per_week": {
+      "anyOf": [
+        {
+          "maximum": 7,
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Cooking Days Per Week"
+    },
+    "cooking_tools": {
+      "anyOf": [
+        {
+          "items": {
+            "enum": [
+              "microwave",
+              "stove",
+              "rice_cooker",
+              "air_fryer"
+            ],
+            "type": "string"
+          },
+          "maxItems": 4,
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Cooking Tools"
+    },
+    "monthly_budget_krw": {
+      "anyOf": [
+        {
+          "maximum": 1000000000,
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Monthly Budget Krw"
+    },
+    "region_code": {
+      "anyOf": [
+        {
+          "pattern": "^[0-9]{10}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Region Code"
+    },
+    "priority": {
+      "anyOf": [
+        {
+          "enum": [
+            "save_money",
+            "reduce_waste",
+            "build_routine"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Priority"
+    },
+    "initial_inventory_state": {
+      "default": "not_entered",
+      "enum": [
+        "not_entered",
+        "empty",
+        "needs_registration"
+      ],
+      "title": "Initial Inventory State",
+      "type": "string"
+    }
+  },
+  "title": "Onboarding",
+  "type": "object"
+}
