@@ -22,19 +22,25 @@ export default function Layout() {
           options={{ title: '개발 서버 연결' }}
         />
 
-        {/* 통합 홈 */}
+        {/* 통합 홈 화면 */}
         <Stack.Screen
           name="home"
           options={{ title: '자취생존 AI 홈' }}
         />
 
-        {/* 지도 */}
+        {/* 지도 · 생활정보 */}
         <Stack.Screen
           name="map"
           options={{ headerShown: false }}
         />
 
-        {/* 소비 관리 */}
+        {/* 비상 매뉴얼 + AI 채팅 */}
+        <Stack.Screen
+          name="emergency"
+          options={{ headerShown: false }}
+        />
+
+        {/* 가계부 · 소비 관리 */}
         <Stack.Screen
           name="spending"
           options={{
@@ -61,7 +67,7 @@ export default function Layout() {
           options={{ title: '생활 루틴' }}
         />
 
-        {/* 냉장고 및 레시피 */}
+        {/* 냉장고 · 레시피 */}
         <Stack.Screen
           name="fridge"
           options={{ headerShown: false }}

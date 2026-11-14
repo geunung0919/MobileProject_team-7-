@@ -24,6 +24,12 @@ export default function HomeScreen() {
       requiresServer: false,
     },
     {
+      name: '비상 매뉴얼 · AI',
+      description: '생활 응급상황 대처 및 AI 상담',
+      route: '/emergency',
+      requiresServer: false,
+    },
+    {
       name: '냉장고 · 레시피',
       description: '식재료 재고, 식사, 장보기 관리',
       route: '/fridge',
@@ -123,10 +129,6 @@ export default function HomeScreen() {
 
         <Text style={styles.small}>
           AI 자취 매니저
-        </Text>
-
-        <Text style={styles.small}>
-          AI 비상 매뉴얼
         </Text>
 
         <Text style={styles.small}>
