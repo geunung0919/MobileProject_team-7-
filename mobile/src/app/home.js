@@ -45,7 +45,7 @@ export default function HomeScreen() {
       name: '냉장고 · 레시피',
       description: '식재료 재고, 식사, 장보기 관리',
       route: '/fridge',
-      requiresServer: true,
+      requiresServer: false,
     },
     {
       name: '가계부 · 소비 관리',
