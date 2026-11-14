@@ -20,6 +20,7 @@ import BackButton from '../components/BackButton';
 import { TAB_BAR_HEIGHT } from '../components/TabBar';
 
 import { emergencyData } from '../data/lifeInfo/emergency';
+
 import {
   colors,
   fonts,
@@ -30,7 +31,7 @@ const SCREEN_X = 20;
 const CONTACT_GAP = 10;
 const GRID_GAP = 9;
 
-// 제목 또는 검색 키워드에 검색어가 포함되는지 확인
+// 검색어와 상황별 키워드 비교
 const matches = (item, query) => {
   const keyword = query.toLowerCase();
 
@@ -42,7 +43,7 @@ const matches = (item, query) => {
   );
 };
 
-// 카드를 두 개씩 묶어 2열로 표시
+// 상황별 카드를 2열로 정렬
 const toRows = (items) => {
   const rows = [];
 
@@ -57,8 +58,7 @@ export default function EmergencyScreen({ navigation }) {
   const insets = useSafeAreaInsets();
 
   const [query, setQuery] = useState('');
-  const [disasterExpanded, setDisasterExpanded] =
-    useState(false);
+  const [disasterExpanded, setDisasterExpanded] = useState(false);
 
   const {
     eyebrow,
@@ -73,7 +73,7 @@ export default function EmergencyScreen({ navigation }) {
 
   const trimmed = query.trim();
 
-  // 생활안전 문제 검색
+  // 생활안전 상황 검색
   const visibleGroups = useMemo(
     () =>
       groups
@@ -102,7 +102,6 @@ export default function EmergencyScreen({ navigation }) {
     );
   }, [disasterMenu, trimmed]);
 
-  // 검색어가 재난 항목에 해당하면 자동으로 펼치기
   const showDisasterItems =
     disasterExpanded || trimmed.length > 0;
 
@@ -110,16 +109,18 @@ export default function EmergencyScreen({ navigation }) {
     visibleGroups.length > 0 ||
     visibleDisasterItems.length > 0;
 
-  // 뒤로 가기
+  // 이전 화면으로 이동
   const handleBack = () => {
     if (navigation.canGoBack()) {
       navigation.goBack();
-    } else {
+    } else if (navigation.getState().routeNames.includes('LifeInfo')) {
       navigation.navigate('LifeInfo');
+    } else {
+      navigation.navigate('Emergency');
     }
   };
 
-  // 긴급 연락처 연결
+  // 긴급 연락처 전화
   const handleCall = ({ number, label }) => {
     Alert.alert(`${number}에 전화할까요?`, label, [
       {
@@ -142,7 +143,7 @@ export default function EmergencyScreen({ navigation }) {
     ]);
   };
 
-  // 상황별 상세 화면 이동
+  // 상황별 상세 화면
   const openDetail = ({
     id,
     title: detailTitle,
@@ -155,14 +156,12 @@ export default function EmergencyScreen({ navigation }) {
     });
   };
 
-  // AI 상담 화면 이동
-  // TODO: 진혁이의 AI 기능 통합 시
-  // EmergencyAIChatScreen 내부에 실제 AI 로직 연결
+  // 정진혁 AI 비상 매뉴얼 화면으로 이동
   const openAIChat = () => {
-    navigation.navigate('EmergencyAIChat');
+    navigation.navigate('EmergencyAi');
   };
 
-  // 2열 카드 렌더링
+  // 상황별 카드 2열 렌더링
   const renderCards = (items, tone = 'default') =>
     toRows(items).map((row, rowIndex) => (
       <View
@@ -261,8 +260,7 @@ export default function EmergencyScreen({ navigation }) {
             <Text
               style={[
                 styles.groupTitle,
-                groupIndex > 0 &&
-                  styles.groupTitleNext,
+                groupIndex > 0 && styles.groupTitleNext,
                 group.tone === 'accent' &&
                   styles.groupTitleAccent,
               ]}
@@ -274,7 +272,7 @@ export default function EmergencyScreen({ navigation }) {
           </View>
         ))}
 
-        {/* 재난 행동요령 별도 메뉴 */}
+        {/* 재난 행동요령 */}
         {disasterMenu &&
           (!trimmed ||
             visibleDisasterItems.length > 0) && (
@@ -303,17 +301,11 @@ export default function EmergencyScreen({ navigation }) {
                 </View>
 
                 <View style={styles.disasterTexts}>
-                  <Text
-                    style={styles.disasterTitle}
-                  >
+                  <Text style={styles.disasterTitle}>
                     {disasterMenu.title}
                   </Text>
 
-                  <Text
-                    style={
-                      styles.disasterDescription
-                    }
-                  >
+                  <Text style={styles.disasterDescription}>
                     {disasterMenu.description}
                   </Text>
                 </View>
@@ -330,9 +322,7 @@ export default function EmergencyScreen({ navigation }) {
               </Pressable>
 
               {showDisasterItems && (
-                <View
-                  style={styles.disasterContent}
-                >
+                <View style={styles.disasterContent}>
                   {renderCards(
                     visibleDisasterItems,
                     'default'
@@ -365,9 +355,7 @@ export default function EmergencyScreen({ navigation }) {
                 원하는 상황을 찾지 못했나요?
               </Text>
 
-              <Text
-                style={styles.aiDescription}
-              >
+              <Text style={styles.aiDescription}>
                 AI 생활안전 도우미에게
                 직접 질문해 보세요.
               </Text>
@@ -522,7 +510,6 @@ const styles = StyleSheet.create({
     color: c.textSecondary,
   },
 
-  // 재난 행동요령 영역
   disasterSection: {
     marginTop: 24,
   },
@@ -575,7 +562,6 @@ const styles = StyleSheet.create({
     opacity: 0.75,
   },
 
-  // AI 상담 카드
   aiSection: {
     marginTop: 24,
     padding: 18,

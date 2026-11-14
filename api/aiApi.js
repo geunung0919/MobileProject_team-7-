@@ -16,7 +16,7 @@ import { environment } from '../config/environment';
 const REGION = 'asia-northeast3';
 
 // Firebase Functions 초기화
-const functions = getFunctions(app, REGION);
+export const functions = getFunctions(app, REGION);
 
 // 개발 환경에서는 로컬 에뮬레이터 연결
 if (USE_EMULATOR) {
