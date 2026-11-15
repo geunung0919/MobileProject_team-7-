@@ -30,20 +30,20 @@ const firebaseConfig = {
 // Firebase 앱 중복 초기화 방지
 const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 
-// React Native 로그인 상태를 AsyncStorage에 저장
-let auth;
-
-try {
-  auth = initializeAuth(app, {
-    persistence: getReactNativePersistence(AsyncStorage),
-  });
-} catch (error) {
-  if (error.code === "auth/already-initialized") {
-    auth = getAuth(app);
-  } else {
+// 웹은 Firebase의 브라우저 저장소를 사용한다. AsyncStorage 어댑터는 네이티브 전용이다.
+function getProjectAuth() {
+  if (Platform.OS === "web") return getAuth(app);
+  try {
+    return initializeAuth(app, {
+      persistence: getReactNativePersistence(AsyncStorage),
+    });
+  } catch (error) {
+    if (error.code === "auth/already-initialized") return getAuth(app);
     throw error;
   }
 }
+
+const auth = getProjectAuth();
 
 // Firestore 연결
 const db = getFirestore(app);

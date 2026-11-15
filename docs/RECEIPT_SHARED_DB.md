@@ -72,6 +72,15 @@ ai_manager/functions/src/adapters.ts:
 - 재고 purchasedAt/expiresAt을 읽으며 기존 purchaseDate/expiry도 계속 지원.
 - 알려지지 않은 품목 금액은 식비에 추정 추가하지 않는다(따라서 식비는 일부 누락 가능).
 
+## Expo Go 없이 웹에서 확인
+
+저장 API 배포가 완료된 뒤 저장소 루트에서 `npm ci`, `npm run receipt:web`을 실행한다.
+이 명령은 `solo-living-ai`의 배포된 API를 연결한 소비·냉장고 웹 화면을 띄운다.
+PC는 터미널에 나온 웹 주소를 연다. 아이폰 Safari로 열려면 PC 서버를 켠 채 같은 Wi-Fi에서
+터미널의 `Metro waiting on` 주소 중 `exp://`를 `http://`로 바꿔 접속한다.
+개발 서버의 LAN 주소이므로 공개 Wi-Fi에서는 사용하지 않는다.
+첫 검증은 로그인 후 사진 없이 영수증을 직접 입력하면 된다.
+
 ## 앱에서 확인하는 순서
 루트 `.env.local`에 다음을 설정하고 루트에서 `npm ci`, `npx expo start --clear`를 실행한다. 개발 클라이언트는 새 네이티브 패키지가 들어간 빌드가 필요할 수 있다.
 
