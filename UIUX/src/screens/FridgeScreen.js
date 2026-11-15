@@ -21,7 +21,7 @@ import { colors, fonts, spacing } from '../theme';
 export default function FridgeScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const { urgentWithinDays } = fridgeData;
-  const { fridgeItems: items } = useAppData();
+  const { fridgeItems: items, sharedReceipts, sharedUid, visibleShared, sharedError, refreshShared } = useAppData();
   const now = new Date();
   const baseDate = toDateString(now); // 기준일 = 오늘
   const [filter, setFilter] = useState('all'); // 'all' | 'urgent'
@@ -64,6 +64,12 @@ export default function FridgeScreen({ navigation }) {
           onPress={() => navigation.navigate('RecipeList')}
         />
 
+        {sharedReceipts ? <View style={{ gap: 8, marginVertical: 16 }}>
+          <Text style={styles.sectionTitle}>서버에 등록한 식재료</Text>
+          <SoftButton label={sharedUid ? '서버 목록 새로고침' : '로그인'} onPress={() => sharedUid ? refreshShared(sharedUid).catch(() => {}) : navigation.navigate('SharedLogin')} />
+          {sharedError ? <Text accessibilityRole="alert">{sharedError}</Text> : null}
+          {visibleShared?.inventory.map((row) => <Text key={row.id}>{row.name} · {row.quantity}{row.unit} · {row.dateType === 'unknown' ? '기한 미입력' : row.expiresAt}</Text>)}
+        </View> : null}
         <Text style={styles.sectionTitle}>보관 중인 식재료</Text>
 
         <View style={styles.chipRow}>

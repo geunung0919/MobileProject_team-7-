@@ -37,7 +37,9 @@ export function toExpense(raw: Raw): Expense | null {
   if (FOOD_CATEGORIES.includes(category)) food_amount = amount;
   else if (Array.isArray(raw.items)) {
     for (const it of raw.items as Raw[]) {
-      if (it?.inFridge === true) food_amount += (num(it.unitPrice) ?? 0) * (num(it.quantity) ?? 1);
+      if (it?.reviewStatus === "confirmed") {
+        if (["ingredient", "prepared_food"].includes(String(it.itemType))) food_amount += num(it.linePaidAmount) ?? 0;
+      } else if (it?.inFridge === true) food_amount += (num(it.unitPrice) ?? 0) * (num(it.quantity) ?? 1);
     }
     food_amount = Math.min(food_amount, amount);
   }
@@ -52,8 +54,8 @@ export function toInventoryItem(id: string, raw: Raw): InventoryItem | null {
     item_name: name,
     quantity: num(first(raw.amount, typeof raw.quantity === "number" ? raw.quantity : undefined)), // 앱의 quantity는 표시용 글자
     unit: str(raw.unit),
-    purchase_date: str(first(raw.purchaseDate, raw.purchase_date)),
-    expiry_date: str(first(raw.expiry, raw.expiry_date)),
+    purchase_date: str(first(raw.purchasedAt, raw.purchaseDate, raw.purchase_date)),
+    expiry_date: str(first(raw.expiresAt, raw.expiry, raw.expiry_date)),
   };
 }
 

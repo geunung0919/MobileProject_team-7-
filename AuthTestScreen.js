@@ -16,7 +16,7 @@ import {
 
 import { auth } from "./firebase/firebaseConfig";
 
-export default function AuthTestScreen() {
+export default function AuthTestScreen({ navigation, route }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [user, setUser] = useState(null);
@@ -55,6 +55,12 @@ export default function AuthTestScreen() {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Firebase 로그인 테스트</Text>
+
+      {route?.name === "SharedLogin" ? (
+        <TouchableOpacity style={styles.button} onPress={() => navigation.goBack()}>
+          <Text style={styles.buttonText}>소비 화면으로 돌아가기</Text>
+        </TouchableOpacity>
+      ) : null}
 
       {user ? (
         <>

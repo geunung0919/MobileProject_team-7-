@@ -8,6 +8,9 @@ import React, {
   useState,
 } from 'react';
 import { AppState } from 'react-native';
+import { onAuthStateChanged } from 'firebase/auth';
+import { auth } from '../../../firebase/firebaseConfig';
+import { listTransactions, listFridgeItems } from '../../../api/receiptApi';
 import { spendingData } from '../data/spending/spending';
 import { fridgeData } from '../data/fridge/fridge';
 import { todoData } from '../data/lifeInfo/todos';
@@ -23,7 +26,35 @@ import { clearRoutineChecks } from '../utils/time';
 
 const AppDataContext = createContext(null);
 
-export function AppDataProvider({ children }) {
+export function AppDataProvider({ children, sharedReceipts = false }) {
+  const [sharedUid, setSharedUid] = useState(null);
+  const [sharedRows, setSharedRows] = useState(null);
+  const [sharedError, setSharedError] = useState('');
+  const generation = useRef(0);
+  const refreshShared = useCallback(async (uid) => {
+    const ticket = ++generation.current;
+    try {
+      const [spent, stock] = await Promise.all([listTransactions(uid), listFridgeItems(uid)]);
+      if (ticket !== generation.current || auth.currentUser?.uid !== uid) return;
+      setSharedRows({ uid, spending: spent.items, inventory: stock.items });
+      setSharedError(spent.possiblyTruncated || stock.possiblyTruncated ? '서버 목록 일부만 표시돼요.' : '');
+    } catch (error) {
+      if (ticket === generation.current && auth.currentUser?.uid === uid) setSharedError(error.message);
+      throw error;
+    }
+  }, []);
+  useEffect(() => {
+    if (!sharedReceipts) return;
+    const stop = onAuthStateChanged(auth, (user) => {
+      generation.current++;
+      setSharedUid(user?.uid ?? null);
+      setSharedRows(null);
+      setSharedError('');
+      if (user) refreshShared(user.uid).catch(() => {});
+    });
+    return () => { generation.current++; stop(); };
+  }, [sharedReceipts, refreshShared]);
+  const visibleShared = sharedRows?.uid === sharedUid ? sharedRows : null;
   const nextId = useRef(1);
   const makeId = (prefix) => `${prefix}-new-${Date.now()}-${nextId.current++}`;
 
@@ -174,6 +205,7 @@ export function AppDataProvider({ children }) {
 
   const value = useMemo(
     () => ({
+      sharedReceipts, sharedUid, visibleShared, sharedError, refreshShared,
       transactions,
       addTransaction,
       updateTransaction,
@@ -194,6 +226,7 @@ export function AppDataProvider({ children }) {
       updateSetting,
     }),
     [
+      sharedReceipts, sharedUid, visibleShared, sharedError, refreshShared,
       transactions,
       addTransaction,
       updateTransaction,

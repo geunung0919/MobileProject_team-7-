@@ -7,6 +7,8 @@ import RecipeListScreen from '../screens/RecipeListScreen';
 import RecipeDetailScreen from '../screens/RecipeDetailScreen';
 import TodoScreen from '../screens/TodoScreen';
 import RoutineScreen from '../screens/RoutineScreen';
+import SharedReceiptScreen from '../screens/SharedReceiptScreen';
+import AuthTestScreen from '../../../AuthTestScreen';
 import ReceiptResultScreen from '../screens/ReceiptResultScreen';
 import SpendingAnalysisScreen from '../screens/SpendingAnalysisScreen';
 import SpendingDetailScreen from '../screens/SpendingDetailScreen';
@@ -24,6 +26,8 @@ export default function RootNavigator() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="Tabs" component={TabNavigator} />
+      <Stack.Screen name="SharedReceipt" component={SharedReceiptScreen} />
+      <Stack.Screen name="SharedLogin" component={AuthTestScreen} />
       <Stack.Screen name="ManualEntry" component={ManualEntryScreen} />
       <Stack.Screen name="FridgeAdd" component={FridgeAddScreen} />
       <Stack.Screen name="RecipeList" component={RecipeListScreen} />

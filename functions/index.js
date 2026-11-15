@@ -247,6 +247,39 @@ exports.api = onRequest(
         }
       }
 
+      if (req.path === "/finance/receipts/confirm" ||
+          req.path === "/finance/transactions" ||
+          req.path === "/refrigerator/items") {
+        const user = await verifyUser(req, res);
+        if (!user) return;
+        const {getFirestore} = require("firebase-admin/firestore");
+        const db = getFirestore();
+        try {
+          if (req.path === "/finance/receipts/confirm" &&
+              req.method === "POST") {
+            const {confirmReceipt} = require("./modules/finance/receipts");
+            const result = await confirmReceipt(db, user.uid, req.body);
+            return res.status(result.replayed ? 200 : 201).json(result);
+          }
+          if (req.method === "GET" &&
+              req.path !== "/finance/receipts/confirm") {
+            const collection = req.path === "/finance/transactions" ?
+              "transactions" : "fridgeItems";
+            const snapshot = await db
+                .collection(`users/${user.uid}/${collection}`).limit(500).get();
+            return res.json({items: snapshot.docs.map((doc) =>
+              ({...doc.data(), id: doc.id})),
+            limit: 500, possiblyTruncated: snapshot.size === 500});
+          }
+          return res.status(405).json({error: "지원하지 않는 메서드입니다."});
+        } catch (error) {
+          return res.status(error.status || 503).json({
+            error: error.status ?
+              error.message : "저장소 연결을 확인해 주세요.",
+          });
+        }
+      }
+
       // ====================================
       // 8. 정의되지 않은 API
       // ====================================

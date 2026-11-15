@@ -20,7 +20,7 @@ const RECENT_LIMIT = 10;
 export default function SpendingScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const { budget, addOptions } = spendingData;
-  const { transactions } = useAppData();
+  const { transactions, sharedReceipts, sharedUid, visibleShared, sharedError, refreshShared } = useAppData();
   // 처음에는 오늘이 속한 달을 보여줍니다.
   const [period, setPeriod] = useState(() => {
     const now = new Date();
@@ -45,7 +45,7 @@ export default function SpendingScreen({ navigation }) {
     if (id === 'receipt') {
       // TODO: 카메라 화면이 완성되면 'ReceiptCamera' 로 이동하고, 인식 결과를 navigate('ReceiptResult', { receipt }) 로 넘기세요.
       // (형식: src/data/spending/receipt.js) 지금은 카메라가 없어서 샘플 결과 화면을 바로 보여줍니다.
-      navigation.navigate('ReceiptResult');
+      navigation.navigate(sharedReceipts ? (sharedUid ? 'SharedReceipt' : 'SharedLogin') : 'ReceiptResult');
     }
   };
 
@@ -93,6 +93,15 @@ export default function SpendingScreen({ navigation }) {
         <ScreenHeader title="소비" right={monthSelector} />
 
         <BudgetCard budget={budget} spent={spent} />
+        {sharedReceipts ? <View style={{ gap: 8, marginVertical: 16 }}>
+          <Text style={styles.sectionTitle}>서버 소비 기록</Text>
+          <SoftButton label={sharedUid ? '영수증 저장' : '로그인'} onPress={() => navigation.navigate(sharedUid ? 'SharedReceipt' : 'SharedLogin')} />
+          {sharedUid ? <SoftButton label="서버 목록 새로고침" onPress={() => refreshShared(sharedUid).catch(() => {})} /> : null}
+          {sharedError ? <Text accessibilityRole="alert">{sharedError}</Text> : null}
+          {visibleShared?.spending.filter((row) => row.date?.startsWith(monthKey)).sort(compareDateDesc).map((row) => (
+            <Text key={row.id}>{row.date} · {row.title} · {Number(row.amount).toLocaleString()}원</Text>
+          ))}
+        </View> : null}
 
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>최근 지출 내역</Text>

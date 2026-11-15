@@ -17,6 +17,7 @@ export default function FormField({
   onPress,
   hint,
   editable = true,
+  secureTextEntry = false,
   marginTop = 28,
 }) {
   const box = (
@@ -29,6 +30,7 @@ export default function FormField({
         <TextInput
           style={[styles.input, !editable && styles.inputDisabled]}
           editable={editable}
+          secureTextEntry={secureTextEntry}
           value={value}
           onChangeText={onChangeText}
           placeholder={placeholder}

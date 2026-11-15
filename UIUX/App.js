@@ -13,7 +13,7 @@ import RootNavigator from './src/navigation/RootNavigator';
 import { AppDataProvider } from './src/store/AppDataContext';
 import { colors } from './src/theme';
 
-export default function App() {
+export default function App({ sharedReceipts = false }) {
   const [fontsLoaded] = useFonts({
     NotoSansKR_400Regular,
     NotoSansKR_500Medium,
@@ -26,7 +26,7 @@ export default function App() {
 
   return (
     <SafeAreaProvider>
-      <AppDataProvider>
+      <AppDataProvider sharedReceipts={sharedReceipts}>
         <NavigationContainer>
           <StatusBar style="dark" />
           <RootNavigator />
