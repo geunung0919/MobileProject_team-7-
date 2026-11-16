@@ -66,14 +66,14 @@ const styles = StyleSheet.create({
   },
   inputBox: {
     flex: 1,
-    minHeight: 58,
+    height: 58,
     justifyContent: 'center',
     backgroundColor: colors.cardBg,
     borderRadius: 20,
     paddingHorizontal: 18,
   },
   input: {
-    height: '100%',
+    flex: 1,
     paddingVertical: 0,
     fontFamily: fonts.regular,
     fontSize: 17,
@@ -81,7 +81,7 @@ const styles = StyleSheet.create({
   },
   unitButton: {
     width: 128,
-    minHeight: 58,
+    height: 58,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
