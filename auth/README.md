@@ -24,6 +24,8 @@
 | `signUp({ loginId, password, confirm, birthDate })` | 회원가입(birthDate 는 'YYYY-MM-DD'). 성공하면 stage='onboarding' |
 | `completeOnboarding({ nickname, profile })` | 온보딩 저장. `{ nickname, profile, diagnosis }` 반환. stage 는 결과 화면을 위해 'onboarding' 유지 |
 | `finishOnboarding()` | 결과 화면의 [시작하기] → stage='app' |
+| `updateProfile(changes)` | 생활 데이터 수정. 바꾼 항목만 넘기면 기존 값과 합쳐 저장하고 새 profile 반환 (예: `{ monthly_budget_krw: 700000 }`) |
+| `updateNickname(nickname)` | 닉네임만 변경 (중복이면 field='nickname') |
 | `logout()` / `withdraw(password)` / `reloadAccount()` | 로그아웃 / 회원 탈퇴 / 오류 시 다시 불러오기 |
 | `user.uid`, `loginId`, `member.nickname`, `profile` | 로그인 사용자, 아이디, 닉네임, 생활 정보 |
 
@@ -70,8 +72,17 @@ try { await signUp(form); } catch (e) { setErrors({ [e.field]: e.message }); }
 
 다른 모듈은 `users/{uid}` 의 다른 필드나 하위 컬렉션을 쓰면 됩니다. 월 예산은 `profile.monthly_budget_krw` 를 읽으면 됩니다.
 
+## 서버 (Cloud Functions, `functions/modules/core`)
+
+- `GET /profile`: 내 회원 정보 (`nickname`, `profile`, `onboarded` 포함)
+- `PUT /profile` `{ nickname }`: 닉네임 변경. 앱과 같은 규칙(2~12자)·중복 검사. 규칙 위반 400, 중복 409 (`field: "nickname"`)
+- `cleanupDeletedUser`: 로그인 계정이 삭제되면 `users/{uid}` 전체(소비·영수증·냉장고 등 하위 데이터 포함)와 닉네임 선점 문서를 지웁니다.
+  `users/{uid}` 밖에 사용자 데이터를 두는 모듈이 생기면 `accountCleanup.js` 에 추가해야 합니다.
+- 테스트: `cd functions && node --test tests/core-account.test.js`
+
 ## 배포 전 확인
 1. Firebase 콘솔 → Authentication → 로그인 방법 → 이메일/비밀번호 사용 설정
 2. `firestore.rules` 배포 (`nicknames` 규칙 추가됨): `firebase deploy --only firestore:rules`
+3. Cloud Functions 배포 (닉네임 규칙·탈퇴 정리): `firebase deploy --only functions`
 
 테스트: `node --test auth/authRules.test.mjs auth/onboardingRules.test.mjs`

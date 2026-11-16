@@ -59,6 +59,24 @@ export async function signUpWithId({ loginId, password, birthDate }) {
 // 온보딩 저장: (한 트랜잭션) 닉네임 선점·변경 + 회원 정보 + 생활 정보.
 // 닉네임을 바꾸면 예전 선점 문서를 지웁니다. 같은 닉네임을 다른 사람이 쓰고 있으면 nickname/taken 오류.
 export async function saveOnboarding(uid, { nickname, profile, ruleVersion }) {
+  await claimNickname(uid, nickname, {
+    profile,
+    onboarding: { completed_at: serverTimestamp(), rule_version: ruleVersion },
+  });
+}
+
+// 닉네임만 바꾸기 (생활 데이터 수정·마이페이지)
+export async function changeNickname(uid, nickname) {
+  await claimNickname(uid, nickname, {});
+}
+
+// 생활 정보만 바꾸기 (생활 데이터 수정). profile 은 전체를 넘깁니다(빠진 항목이 지워지지 않게 화면에서 기존 값과 합쳐서).
+export async function updateProfileData(uid, profile) {
+  await withTimeout(setDoc(userRef(uid), { profile, profile_updated_at: serverTimestamp() }, { merge: true }), SAVE_TIMEOUT_MS);
+}
+
+// 한 트랜잭션: 새 닉네임 선점 → 예전 선점 문서 삭제 → 회원 정보(+추가 필드) 저장
+async function claimNickname(uid, nickname, extra) {
   const key = nicknameKey(nickname);
   await withTimeout(runTransaction(db, async (tx) => {
     const user = await tx.get(userRef(uid));
@@ -69,8 +87,7 @@ export async function saveOnboarding(uid, { nickname, profile, ruleVersion }) {
     if (oldKey && oldKey !== key) tx.delete(nicknameRef(oldKey));
     tx.set(userRef(uid), {
       member: { nickname, nickname_key: key, updated_at: serverTimestamp() },
-      profile,
-      onboarding: { completed_at: serverTimestamp(), rule_version: ruleVersion },
+      ...extra,
     }, { merge: true });
   }), SAVE_TIMEOUT_MS);
 }
@@ -94,7 +111,8 @@ export async function loadAccount(uid) {
 export const signOutAccount = () => signOut(auth);
 
 // 회원 탈퇴: 비밀번호로 다시 인증 → 닉네임 선점 문서·회원 문서 삭제 → 로그인 계정 삭제.
-// 다른 모듈이 users/{uid} 아래에 만든 하위 컬렉션은 앱에서 지울 수 없어 Cloud Function 정리가 필요합니다(팀 확인 필요).
+// 다른 모듈이 users/{uid} 아래에 만든 하위 컬렉션(소비·냉장고 등)은 로그인 계정이 지워질 때
+// Cloud Function(functions/modules/core/accountCleanup.js)이 모두 지웁니다.
 export async function withdrawAccount(password) {
   const user = auth.currentUser;
   if (!user) { const e = new Error('로그인이 필요해요.'); e.code = 'auth/requires-recent-login'; throw e; }

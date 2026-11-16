@@ -211,23 +211,12 @@ exports.api = onRequest(
 
         const nickname = req.body && req.body.nickname;
 
-        // 닉네임 입력값 검증
-        if (
-          typeof nickname !== "string" ||
-          nickname.trim().length === 0 ||
-          nickname.trim().length > 30
-        ) {
-          return res.status(400).json({
-            success: false,
-            error: "닉네임은 1~30자 사이여야 합니다.",
-          });
-        }
-
+        // 닉네임 규칙(2~12자, 한글·영문·숫자)과 중복 검사는 saveProfile 이 합니다.
         try {
           const profile = await saveProfile(
               user.uid,
               user.email,
-              nickname.trim(),
+              nickname,
           );
 
           return res.status(200).json({
@@ -235,6 +224,20 @@ exports.api = onRequest(
             profile: profile,
           });
         } catch (error) {
+          if (error.code === "nickname/invalid") {
+            return res.status(400).json({
+              success: false,
+              field: "nickname",
+              error: error.message,
+            });
+          }
+          if (error.code === "nickname/taken") {
+            return res.status(409).json({
+              success: false,
+              field: "nickname",
+              error: error.message,
+            });
+          }
           console.error(
               "Profile save failed:",
               error,
@@ -256,3 +259,15 @@ exports.api = onRequest(
       });
     },
 );
+
+// 회원 탈퇴 정리: 로그인 계정이 삭제되면 users/{uid} 전체(하위 컬렉션 포함)와 닉네임 선점 문서를 지웁니다.
+const functionsV1 = require("firebase-functions/v1");
+const {cleanupUserData} = require("./modules/core/accountCleanup");
+
+exports.cleanupDeletedUser = functionsV1
+    .region("asia-northeast3")
+    .auth.user()
+    .onDelete(async (user) => {
+      const result = await cleanupUserData(user.uid);
+      console.log("Deleted user data cleaned:", result);
+    });

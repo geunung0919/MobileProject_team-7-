@@ -3,6 +3,7 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../firebase/firebaseConfig';
 import {
   loginIdOf, loadAccount, signOutAccount, signUpWithId, signInWithId, saveOnboarding, withdrawAccount,
+  updateProfileData, changeNickname,
 } from './firebaseAccount';
 import { normalizeLoginId, validatePassword, validateBirthDate, authErrorMessage } from './authRules';
 import { normalizeNickname } from './nickname';
@@ -16,6 +17,8 @@ import { diagnose, EMPTY_PROFILE } from './onboardingRules';
 //   auth.signUp({loginId, password, confirm, birthDate})  → 실패 시 throw (error.field, error.message 포함)
 //   auth.completeOnboarding({nickname, profile})          → 저장 후 {nickname, profile, diagnosis} 반환
 //   auth.finishOnboarding()        결과 화면에서 [시작하기]를 누를 때 → stage 가 'app' 으로
+//   auth.updateProfile(changes)    생활 데이터 수정: 바꾼 항목만 넘기면 기존 값과 합쳐 저장 → 새 profile 반환
+//   auth.updateNickname(nickname)  닉네임만 변경 (중복이면 field='nickname' 오류)
 //   auth.user.uid / auth.member.nickname / auth.profile    로그인 사용자·닉네임·생활 정보
 //   auth.logout() / auth.withdraw(password) / auth.reloadAccount()
 const AuthContext = createContext(null);
@@ -111,6 +114,26 @@ export function AuthProvider({ children }) {
       },
 
       finishOnboarding: () => setHoldOnboarding(false),
+
+      async updateProfile(changes) {
+        if (!state.user) throw asFieldError({ code: 'auth/requires-recent-login' });
+        const unknown = Object.keys(changes || {}).filter((k) => !(k in EMPTY_PROFILE));
+        if (unknown.length) throw fail('form', `알 수 없는 항목이에요: ${unknown.join(', ')}`, 'validation/unknown-field');
+        const next = { ...EMPTY_PROFILE, ...(account.profile || {}), ...changes };
+        try { await updateProfileData(state.user.uid, next); } catch (e) { throw asFieldError(e); }
+        setState((prev) => (typeof prev.account === 'object' ? { ...prev, account: { ...prev.account, profile: next } } : prev));
+        return next;
+      },
+
+      async updateNickname(nickname) {
+        const name = normalizeNickname(nickname);
+        if (name.message) throw fail('nickname', name.message);
+        if (!state.user) throw asFieldError({ code: 'auth/requires-recent-login' });
+        try { await changeNickname(state.user.uid, name.nickname); } catch (e) { throw asFieldError(e); }
+        setState((prev) => (typeof prev.account === 'object'
+          ? { ...prev, account: { ...prev.account, member: { ...(prev.account.member || {}), nickname: name.nickname } } } : prev));
+        return name.nickname;
+      },
       logout: signOutAccount,
       async withdraw(password) {
         try { await withdrawAccount(password); } catch (e) { throw asFieldError(e); }
