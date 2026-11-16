@@ -15,6 +15,7 @@ export default function QuantityField({
   unitPlaceholder = '단위 선택',
   onPressUnit,
   hint,
+  editable = true, // false 면 읽기 전용 (수량 입력과 단위 선택이 막힘)
 }) {
   return (
     <View style={styles.wrapper}>
@@ -27,6 +28,7 @@ export default function QuantityField({
             onChangeText={onChangeText}
             placeholder={placeholder}
             placeholderTextColor={colors.placeholder}
+            editable={editable}
             keyboardType="decimal-pad"
             maxLength={6}
             accessibilityLabel={label}
@@ -35,6 +37,7 @@ export default function QuantityField({
 
         <Pressable
           onPress={onPressUnit}
+          disabled={!editable}
           accessibilityRole="button"
           accessibilityLabel="단위 선택"
           style={({ pressed }) => [styles.unitButton, pressed && styles.pressed]}
@@ -42,7 +45,7 @@ export default function QuantityField({
           <Text style={styles.unitText} numberOfLines={1}>
             {unit || unitPlaceholder}
           </Text>
-          <Ionicons name="chevron-down" size={22} color={colors.green} />
+          {editable ? <Ionicons name="chevron-down" size={22} color={colors.green} /> : null}
         </Pressable>
       </View>
       {hint ? <Text style={styles.hint}>{hint}</Text> : null}

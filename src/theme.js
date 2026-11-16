@@ -26,6 +26,7 @@ export const colors = {
   inputBorder: '#E3E7E4',
   // 상태/강조 색 (비상매뉴얼, 자취생존맵)
   danger: '#C34242',
+  expired: '#B3261E', // 유통기한 지남(폐기 필요) 강조용 진한 빨강 (흰 글자 6:1 이상)
   dangerBg: '#FFF5F4',
   dangerBorder: '#F2DAD7',
   accent: '#087F79',

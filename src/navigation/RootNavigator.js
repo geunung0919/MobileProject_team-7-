@@ -3,6 +3,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import TabNavigator from './TabNavigator';
 import ManualEntryScreen from '../screens/ManualEntryScreen';
 import FridgeAddScreen from '../screens/FridgeAddScreen';
+import FridgeDiscardScreen from '../screens/FridgeDiscardScreen';
 import RecipeListScreen from '../screens/RecipeListScreen';
 import RecipeDetailScreen from '../screens/RecipeDetailScreen';
 import TodoScreen from '../screens/TodoScreen';
@@ -29,6 +30,8 @@ export default function RootNavigator() {
       <Stack.Screen name="Tabs" component={TabNavigator} />
       <Stack.Screen name="ManualEntry" component={ManualEntryScreen} />
       <Stack.Screen name="FridgeAdd" component={FridgeAddScreen} />
+      {/* 유통기한이 지난 식재료 폐기. params: { id } */}
+      <Stack.Screen name="FridgeDiscard" component={FridgeDiscardScreen} />
       <Stack.Screen name="RecipeList" component={RecipeListScreen} />
       <Stack.Screen name="RecipeDetail" component={RecipeDetailScreen} />
       <Stack.Screen name="Todo" component={TodoScreen} />
