@@ -6,7 +6,6 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  Alert,
 } from "react-native";
 import {
   onAuthStateChanged,
@@ -16,11 +15,29 @@ import {
 
 import { auth } from "./firebase/firebaseConfig";
 
+const loginErrors = {
+  "auth/invalid-credential": "solo-living-ai에 등록한 테스트 계정 이메일과 비밀번호를 다시 확인해 주세요.",
+  "auth/user-not-found": "solo-living-ai에 등록한 테스트 계정 이메일과 비밀번호를 다시 확인해 주세요.",
+  "auth/wrong-password": "solo-living-ai에 등록한 테스트 계정 이메일과 비밀번호를 다시 확인해 주세요.",
+  "auth/invalid-email": "이메일 주소 형식을 확인해 주세요.",
+  "auth/operation-not-allowed": "Firebase Authentication에서 이메일/비밀번호 로그인 방법을 켜 주세요.",
+  "auth/network-request-failed": "Firebase에 연결하지 못했어요. 인터넷 연결을 확인하고 다시 시도해 주세요.",
+  "auth/too-many-requests": "로그인 시도가 너무 많아요. 잠시 뒤 다시 시도해 주세요.",
+  "auth/user-disabled": "이 테스트 계정이 비활성화되어 있어요.",
+};
+
+function describeAuthError(error, fallback) {
+  const code = typeof error?.code === "string" && /^auth\/[a-z0-9-]+$/.test(error.code) ? error.code : null;
+  const message = (code && loginErrors[code]) || fallback;
+  return code ? `${message} (${code})` : message;
+}
+
 export default function AuthTestScreen({ navigation, route }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -31,24 +48,29 @@ export default function AuthTestScreen({ navigation, route }) {
   }, []);
 
   const handleLogin = async () => {
+    setErrorMessage("");
+    if (!email.trim() || !password) {
+      setErrorMessage("이메일과 비밀번호를 모두 입력해 주세요.");
+      return;
+    }
     setLoading(true);
 
     try {
       await signInWithEmailAndPassword(auth, email.trim(), password);
-      Alert.alert("성공", "로그인 성공!");
+      setPassword("");
     } catch (error) {
-      Alert.alert("로그인 실패", error.message);
+      setErrorMessage(describeAuthError(error, "로그인하지 못했어요."));
     } finally {
       setLoading(false);
     }
   };
 
   const handleLogout = async () => {
+    setErrorMessage("");
     try {
       await signOut(auth);
-      Alert.alert("성공", "로그아웃 완료!");
     } catch (error) {
-      Alert.alert("로그아웃 실패", error.message);
+      setErrorMessage(describeAuthError(error, "로그아웃하지 못했어요."));
     }
   };
 
@@ -61,6 +83,8 @@ export default function AuthTestScreen({ navigation, route }) {
           <Text style={styles.buttonText}>소비 화면으로 돌아가기</Text>
         </TouchableOpacity>
       ) : null}
+
+      {errorMessage ? <Text accessibilityRole="alert" style={styles.error}>{errorMessage}</Text> : null}
 
       {user ? (
         <>
@@ -118,6 +142,7 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     marginBottom: 24,
   },
+  error: { color: "#b91c1c", marginVertical: 12 },
   input: {
     borderWidth: 1,
     borderColor: "#ddd",
