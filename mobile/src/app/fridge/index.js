@@ -16,7 +16,7 @@ export default function Fridge(){
  <View style={{gap:8}}>{[['재고 관리 · 사용/폐기','inventory'],['장보기 목록','shopping'],['식사 · 폐기 기록','meal'],['날짜 알림','inventory/alerts'],['변경 기록','inventory/history']].map(([title,path])=><Button key={path} secondary title={title} onPress={()=>router.push('/fridge/'+path)}/>)}</View>
  <SyncStatus/>
  <Text style={styles.label}>보관 중인 식재료</Text><Button secondary title={urgentOnly?`날짜 임박 ${state.inventory.filter(urgent).length} · 전체 보기`:`전체 ${state.inventory.length} · 임박만 보기`} onPress={()=>setUrgentOnly(v=>!v)}/>
- {items.map(i=>{const days=daysLeft(i.expiresAt);return <Pressable accessibilityRole="button" key={i.id} onPress={()=>router.push('/fridge/inventory/'+i.id)} style={{paddingVertical:18,borderBottomWidth:1,borderColor:'#e0e8df'}}><Text style={styles.label}>{i.name}　{Number.isNaN(days)?'기한 미확정':days===0?'오늘까지':days<0?'기한 경과':days+'일 남음'}</Text><Text style={styles.muted}>{i.quantity}{i.unit} · {i.expiresAt||'날짜 입력 필요'}</Text></Pressable>;})}
+ {items.map(i=>{const days=daysLeft(i.expiresAt);return <View key={i.id}><Pressable accessibilityRole="button" onPress={()=>router.push('/fridge/inventory/'+i.id)} style={{paddingVertical:18,borderBottomWidth:1,borderColor:'#e0e8df'}}><Text style={styles.label}>{i.name}　<Text style={days<0?{color:'#C34242',backgroundColor:'#FFF5F4'}:undefined}>{Number.isNaN(days)?'기한 미확정':days===0?'오늘까지':days<0?'폐기 필요':days+'일 남음'}</Text></Text><Text style={styles.muted}>{i.quantity}{i.unit} · {i.expiresAt||'날짜 입력 필요'}</Text></Pressable>{days<0&&<Button secondary title="폐기처분 · 수량 확인" onPress={()=>router.push('/fridge/inventory/discard/'+i.id)}/>}</View>;})}
  {!items.length&&<Text>등록된 식재료가 없어요.</Text>}
  </Page>;
 }
