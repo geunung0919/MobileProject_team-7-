@@ -22,6 +22,9 @@ export function reviewedPayload(draft) {
         throw new Error(`${name}: 실제 재고 수량·단위와 보관 방법을 선택해 주세요.`);
       }
       if (item.dateType !== 'unknown' && !validDate(item.expiresAt)) throw new Error(`${name}: 기한 날짜를 확인해 주세요.`);
+      if (item.dateType !== 'unknown' && item.expiresAt < draft.purchasedAt) {
+        throw new Error(`${name}: 기한은 구매일보다 빠를 수 없어요.`);
+      }
       Object.assign(entry, { quantity: Number(item.quantity), unit: item.unit, storageMethod: item.storageMethod,
         dateType: item.dateType, expiresAt: item.dateType === 'unknown' ? null : item.expiresAt });
     }

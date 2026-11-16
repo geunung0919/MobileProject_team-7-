@@ -22,7 +22,7 @@ const formatDiff = (diff) => {
 export default function SpendingAnalysisScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
   const [tab, setTab] = useState('category');
-  const { sharedReceipts, visibleShared, sharedError } = useAppData();
+  const { sharedReceipts, visibleShared } = useAppData();
   const now = new Date();
   const year = route.params?.year ?? now.getFullYear();
   const month = route.params?.month ?? now.getMonth() + 1;
@@ -51,7 +51,7 @@ export default function SpendingAnalysisScreen({ navigation, route }) {
     };
   }, [visibleShared, year, month]);
   const { period, budget, spent, categories, months } = sharedReceipts ? live : analysisData;
-  const available = !sharedReceipts || (visibleShared && !visibleShared.spendingTruncated && !sharedError);
+  const available = !sharedReceipts || (visibleShared?.spending && !visibleShared.spendingTruncated && !visibleShared.spendingError);
   const t = analysisTexts;
 
   return (
@@ -76,7 +76,7 @@ export default function SpendingAnalysisScreen({ navigation, route }) {
           <Text style={styles.title}>{t.title}</Text>
         </View>
 
-        {!available ? <Text accessibilityRole="alert">{sharedError || (visibleShared ?
+        {!available ? <Text accessibilityRole="alert">{visibleShared?.spendingError || (visibleShared?.spendingTruncated ?
           '기록이 너무 많아 전체 분석을 표시할 수 없어요. 월 총지출은 소비 화면에서 확인해 주세요.' : '서버 기록을 불러오는 중이에요.')}</Text> : <>
         <AnalysisSummaryCard
           periodLabel={`${period.year}년 ${period.month}월`}

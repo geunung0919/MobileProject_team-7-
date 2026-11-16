@@ -22,7 +22,7 @@ const RECENT_LIMIT = 10;
 export default function SpendingScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const { budget, addOptions } = spendingData;
-  const { transactions, sharedReceipts, sharedUid, visibleShared, sharedError, refreshShared } = useAppData();
+  const { transactions, sharedReceipts, sharedUid, visibleShared, refreshShared } = useAppData();
   // 처음에는 오늘이 속한 달을 보여줍니다.
   const [period, setPeriod] = useState(() => {
     const now = new Date();
@@ -64,11 +64,12 @@ export default function SpendingScreen({ navigation }) {
   activeBudget.current = budgetKey;
   const budgetRow = monthly?.key === budgetKey ? monthly.data : null;
   useEffect(() => {
+    setBudgetText('');
+  }, [budgetKey]);
+  useEffect(() => {
     let active = true;
     if (!budgetKey) return;
-    setMonthly(null);
     setBudgetNotice(null);
-    setBudgetText('');
     loadBudget(monthKey, sharedUid).then((row) => {
       if (!active) return;
       setMonthly({ key: budgetKey, data: row });
@@ -86,7 +87,10 @@ export default function SpendingScreen({ navigation }) {
     setBudgetSaving(true);
     try {
       await saveBudget(monthKey, Number(budgetText), sharedUid, useAsDefault);
-      if (activeBudget.current === budgetKey) setReloadBudget((n) => n + 1);
+      if (activeBudget.current === budgetKey) {
+        setBudgetText('');
+        setReloadBudget((n) => n + 1);
+      }
     } catch (error) {
       if (activeBudget.current === budgetKey) setBudgetNotice({ key: budgetKey, text: error.message });
     } finally {
@@ -152,9 +156,10 @@ export default function SpendingScreen({ navigation }) {
           {sharedUid ? <SoftButton label="결제 내역 가져오기" onPress={() => navigation.navigate('SharedReceipt', { source: 'payment' })} /> : null}
           <SoftButton label={sharedUid ? '영수증 저장' : '로그인'} onPress={() => navigation.navigate(sharedUid ? 'SharedReceipt' : 'SharedLogin')} />
           {sharedUid ? <SoftButton label="서버 목록 새로고침" onPress={() => refreshShared(sharedUid).catch(() => {})} /> : null}
-          {sharedError ? <Text accessibilityRole="alert">{sharedError}</Text> : null}
+          {visibleShared?.spendingError ? <Text accessibilityRole="alert">{visibleShared.spendingError}</Text> : null}
+          {visibleShared?.spendingTruncated ? <Text>서버 지출 목록은 최근 500건까지만 표시돼요.</Text> : null}
           {sharedUid ? <SoftButton label="소비 분석 보기" onPress={() => navigation.navigate('SpendingAnalysis', { year: period.year, month: period.month })} /> : null}
-          {visibleShared?.spending.filter((row) => row.date?.startsWith(monthKey)).sort(compareDateDesc).map((row) => (
+          {visibleShared?.spending?.filter((row) => row.date?.startsWith(monthKey)).sort(compareDateDesc).map((row) => (
             <Text key={row.id}>{row.date} · {row.title} · {Number(row.amount).toLocaleString()}원</Text>
           ))}
         </View> : null}

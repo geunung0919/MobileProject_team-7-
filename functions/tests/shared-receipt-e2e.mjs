@@ -43,6 +43,10 @@ try {
   const path = '/finance/receipts/confirm';
   assert.equal((await req(path, null, payload))[0], 401);
   assert.equal((await req(path, token, { ...payload, items: payload.items.map((item) => ({ ...item, inventorySelected: true })) }))[0], 422);
+  const expired = { ...payload, items: payload.items.map((item) => item.inventorySelected ?
+    { ...item, dateType: 'package', expiresAt: '2025-12-31' } : item) };
+  assert.equal((await req(path, token, expired))[0], 422);
+  assert.deepEqual((await req('/finance/transactions', token))[1].items, []);
   const results = await Promise.all([req(path, token, payload), req(path, token, payload)]);
   assert.deepEqual(results.map(([status]) => status).sort(), [200, 201], JSON.stringify(results));
   assert.equal(results[0][1].expenseId, results[1][1].expenseId);

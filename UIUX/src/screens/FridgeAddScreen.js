@@ -138,8 +138,9 @@ export default function FridgeAddScreen({ navigation, route }) {
       setPending({ uid: sharedUid, payload });
       try {
         await createFridgeItem(payload, sharedUid);
-        await refreshShared(sharedUid);
+        setPending(null);
         if (navigation.isFocused()) navigation.goBack();
+        void refreshShared(sharedUid);
       } catch (error) {
         if (error.status === 422 || error.status === 409 || error.status === 405) setPending(null);
         setMessage(error.status === 405 ? '팀 서버에 냉장고 저장 기능을 먼저 배포해 주세요.' : (error.message || '저장을 확인하지 못했어요.'));

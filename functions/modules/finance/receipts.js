@@ -52,8 +52,10 @@ function normalize(body) {
       if (!["refrigerated", "frozen", "room"].includes(raw.storageMethod)) fail("보관 방법 확인 필요");
       if (!["package", "reference", "unknown"].includes(raw.dateType)) fail("날짜 유형 확인 필요");
       if (raw.dateType === "unknown" && raw.expiresAt) fail("기한 미입력은 날짜를 비워 주세요.");
+      const expiresAt = raw.dateType === "unknown" ? null : date(raw.expiresAt);
+      if (expiresAt && expiresAt < purchasedAt) fail("기한은 구매일보다 빠를 수 없어요.");
       Object.assign(item, {quantity: raw.quantity, unit: raw.unit, storageMethod: raw.storageMethod,
-        dateType: raw.dateType, expiresAt: raw.dateType === "unknown" ? null : date(raw.expiresAt)});
+        dateType: raw.dateType, expiresAt});
     }
     return item;
   }).sort((a, b) => a.receiptItemId.localeCompare(b.receiptItemId));

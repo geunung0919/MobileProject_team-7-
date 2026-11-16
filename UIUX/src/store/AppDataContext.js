@@ -29,19 +29,29 @@ const AppDataContext = createContext(null);
 export function AppDataProvider({ children, sharedReceipts = false }) {
   const [sharedUid, setSharedUid] = useState(null);
   const [sharedRows, setSharedRows] = useState(null);
-  const [sharedError, setSharedError] = useState('');
   const generation = useRef(0);
   const refreshShared = useCallback(async (uid) => {
+    if (!uid || auth.currentUser?.uid !== uid) return;
     const ticket = ++generation.current;
-    try {
-      const [spent, stock] = await Promise.all([listTransactions(uid), listFridgeItems(uid)]);
-      if (ticket !== generation.current || auth.currentUser?.uid !== uid) return;
-      setSharedRows({ uid, spending: spent.items, spendingTruncated: spent.possiblyTruncated, inventory: stock.items });
-      setSharedError(spent.possiblyTruncated || stock.possiblyTruncated ? '서버 목록 일부만 표시돼요.' : '');
-    } catch (error) {
-      if (ticket === generation.current && auth.currentUser?.uid === uid) setSharedError(error.message);
-      throw error;
-    }
+    const update = async (key, load) => {
+      try {
+        const result = await load(uid);
+        if (ticket !== generation.current || auth.currentUser?.uid !== uid) return;
+        setSharedRows((previous) => ({
+          ...(previous?.uid === uid ? previous : {}), uid,
+          [key]: result.items,
+          [`${key}Truncated`]: result.possiblyTruncated,
+          [`${key}Error`]: '',
+        }));
+      } catch (error) {
+        if (ticket !== generation.current || auth.currentUser?.uid !== uid) return;
+        setSharedRows((previous) => ({
+          ...(previous?.uid === uid ? previous : {}), uid,
+          [`${key}Error`]: error.message || '서버 목록을 불러오지 못했어요.',
+        }));
+      }
+    };
+    await Promise.all([update('spending', listTransactions), update('inventory', listFridgeItems)]);
   }, []);
   useEffect(() => {
     if (!sharedReceipts) return;
@@ -49,8 +59,7 @@ export function AppDataProvider({ children, sharedReceipts = false }) {
       generation.current++;
       setSharedUid(user?.uid ?? null);
       setSharedRows(null);
-      setSharedError('');
-      if (user) refreshShared(user.uid).catch(() => {});
+      if (user) refreshShared(user.uid);
     });
     return () => { generation.current++; stop(); };
   }, [sharedReceipts, refreshShared]);
@@ -205,7 +214,7 @@ export function AppDataProvider({ children, sharedReceipts = false }) {
 
   const value = useMemo(
     () => ({
-      sharedReceipts, sharedUid, visibleShared, sharedError, refreshShared,
+      sharedReceipts, sharedUid, visibleShared, refreshShared,
       transactions,
       addTransaction,
       updateTransaction,
@@ -226,7 +235,7 @@ export function AppDataProvider({ children, sharedReceipts = false }) {
       updateSetting,
     }),
     [
-      sharedReceipts, sharedUid, visibleShared, sharedError, refreshShared,
+      sharedReceipts, sharedUid, visibleShared, refreshShared,
       transactions,
       addTransaction,
       updateTransaction,

@@ -139,9 +139,10 @@ export default function SharedReceiptScreen({ navigation, route }) {
       if (notificationId) {
         try { markProcessedNotifications([notificationId]); } catch { /* saved; reimport remains idempotent */ }
       }
-      await refreshShared(sharedUid);
       await AsyncStorage.removeItem(key);
-      if (auth.currentUser?.uid === sharedUid) navigation.goBack();
+      setPending(null);
+      if (auth.currentUser?.uid === sharedUid && navigation.isFocused()) navigation.goBack();
+      void refreshShared(sharedUid);
     } catch (error) {
       setMessage(error.status === 405 ? '팀 서버에 소비 저장 기능을 먼저 배포해 주세요.' : (error.message || '저장 상태를 확인하지 못했어요. 같은 요청으로 다시 시도해 주세요.'));
     } finally {

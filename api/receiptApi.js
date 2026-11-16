@@ -22,9 +22,12 @@ async function request(path, body, expectedUid) {
       headers: {'Content-Type': 'application/json', Authorization: `Bearer ${token}`},
       ...(body ? {body: JSON.stringify(body)} : {}),
     });
-    const data = await response.json();
+    const data = await response.json().catch(() => null);
+    if (response.ok && (data === null || typeof data !== 'object' || Array.isArray(data))) {
+      throw new Error('서버 응답을 읽지 못했어요. 잠시 후 다시 시도해 주세요.');
+    }
     if (!response.ok) {
-      const error = new Error(data.error || '서버 요청 실패');
+      const error = new Error(typeof data?.error === 'string' ? data.error : `서버 요청에 실패했어요. (${response.status})`);
       error.status = response.status;
       throw error;
     }
