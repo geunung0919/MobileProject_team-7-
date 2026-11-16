@@ -21,3 +21,21 @@ export async function recognizeReceipt(asset, token) {
     return data;
   } finally { clearTimeout(timer); }
 }
+
+export async function previewPayment(rawText, source, token) {
+  if (!receiptOcrBase || !token.trim()) throw new Error('분석 서버와 개발용 토큰을 설정해 주세요.');
+  if (!/^https?:$/.test(new URL(receiptOcrBase).protocol)) throw new Error('분석 서버 주소를 확인해 주세요.');
+  if (!rawText.trim() || rawText.length > 5000) throw new Error('결제 원문은 5,000자 이하로 입력해 주세요.');
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 20000);
+  try {
+    const response = await fetch(`${receiptOcrBase}/api/v1/me/spending/imports/preview`, {
+      method: 'POST', signal: controller.signal,
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token.trim()}` },
+      body: JSON.stringify({ raw_text: rawText, source, use_ai_fallback: false }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(typeof data.detail === 'string' ? data.detail : `결제 분석 실패 (${response.status})`);
+    return data;
+  } finally { clearTimeout(timer); }
+}

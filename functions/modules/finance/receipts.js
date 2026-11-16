@@ -59,10 +59,10 @@ function normalize(body) {
   }).sort((a, b) => a.receiptItemId.localeCompare(b.receiptItemId));
   const knownTotal = items.reduce((n, item) => n + (item.linePaidAmount || 0), 0);
   if (knownTotal > amount) fail("품목별 실제 결제 금액 합계가 총 결제 금액보다 커요.");
-  if (body.source !== undefined && !["manual", "ocr"].includes(body.source)) fail("입력 방식 확인 필요");
+  if (body.source !== undefined && !["manual", "ocr", "sms", "kakao", "notification", "commerce"].includes(body.source)) fail("입력 방식 확인 필요");
   // Keep the digest of existing OCR requests unchanged.
   return {requestId, receiptId, title, purchasedAt, amount, items,
-    ...(body.source === "manual" ? {source: "manual"} : {})};
+    ...(body.source && body.source !== "ocr" ? {source: body.source} : {})};
 }
 async function confirmReceipt(db, uid, body) {
   const input = normalize(body);
@@ -91,7 +91,7 @@ async function confirmReceipt(db, uid, body) {
     tx.create(request, {digest, result, createdAt: stamp});
     tx.create(db.doc(`${root}/transactions/${expenseId}`), {
       id: expenseId, receiptId: input.receiptId, title: input.title, amount: input.amount,
-      date: input.purchasedAt, category: input.source === "manual" ? "직접 입력" : "영수증", source: input.source || "ocr", items: input.items, createdAt: stamp,
+      date: input.purchasedAt, category: input.source === "manual" ? "직접 입력" : input.source ? "결제 가져오기" : "영수증", source: input.source || "ocr", items: input.items, createdAt: stamp,
     });
     for (const item of input.items) {
       tx.create(db.doc(`${receipt.path}/items/${item.receiptItemId}`), {...item, expenseId});

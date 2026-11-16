@@ -12,7 +12,7 @@ export default function AnalysisSummaryCard({
   budget,
   remainingLabel,
 }) {
-  const remaining = budget - spent;
+  const remaining = budget == null ? null : budget - spent;
   return (
     <View style={styles.card}>
       <View style={styles.topRow}>
@@ -23,6 +23,7 @@ export default function AnalysisSummaryCard({
         <Text style={styles.bigText}>{formatNumber(spent)}</Text>
         <Text style={styles.bigUnit}>원</Text>
       </View>
+      {budget != null ? <>
       <View style={styles.divider} />
       <View style={styles.bottomRow}>
         <View>
@@ -34,6 +35,7 @@ export default function AnalysisSummaryCard({
           <Text style={styles.remainingValue}>{formatNumber(remaining)}원</Text>
         </View>
       </View>
+      </> : null}
     </View>
   );
 }

@@ -36,7 +36,7 @@ export function AppDataProvider({ children, sharedReceipts = false }) {
     try {
       const [spent, stock] = await Promise.all([listTransactions(uid), listFridgeItems(uid)]);
       if (ticket !== generation.current || auth.currentUser?.uid !== uid) return;
-      setSharedRows({ uid, spending: spent.items, inventory: stock.items });
+      setSharedRows({ uid, spending: spent.items, spendingTruncated: spent.possiblyTruncated, inventory: stock.items });
       setSharedError(spent.possiblyTruncated || stock.possiblyTruncated ? '서버 목록 일부만 표시돼요.' : '');
     } catch (error) {
       if (ticket === generation.current && auth.currentUser?.uid === uid) setSharedError(error.message);

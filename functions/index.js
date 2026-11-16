@@ -247,6 +247,23 @@ exports.api = onRequest(
         }
       }
 
+      if (req.path === "/finance/budget" || req.path === "/routines") {
+        const user = await verifyUser(req, res);
+        if (!user) return;
+        const {getFirestore} = require("firebase-admin/firestore");
+        try {
+          const handler = req.path === "/finance/budget" ?
+            require("./modules/finance/budgets").handleBudget :
+            require("./modules/routines").handleRoutines;
+          return await handler(getFirestore(), user.uid, req, res);
+        } catch (error) {
+          console.error("Shared finance or routine request failed", {
+            path: req.path, code: error.code,
+          });
+          return res.status(503).json({error: "서버 연결을 확인해 주세요."});
+        }
+      }
+
       if (req.path === "/finance/receipts/confirm" ||
           req.path === "/finance/transactions" ||
           req.path === "/refrigerator/items") {
@@ -259,7 +276,7 @@ exports.api = onRequest(
               req.path === "/finance/transactions") && req.method === "POST") {
             const {confirmReceipt} = require("./modules/finance/receipts");
             const source = req.path === "/finance/transactions" ?
-              "manual" : "ocr";
+              (req.body?.source ?? "manual") : "ocr";
             const result = await confirmReceipt(db, user.uid,
                 {...req.body, source});
             return res.status(result.replayed ? 200 : 201).json(result);
@@ -275,10 +292,12 @@ exports.api = onRequest(
             const collection = req.path === "/finance/transactions" ?
               "transactions" : "fridgeItems";
             const snapshot = await db
-                .collection(`users/${user.uid}/${collection}`).limit(500).get();
-            return res.json({items: snapshot.docs.map((doc) =>
+                .collection(`users/${user.uid}/${collection}`);
+            const records = await (collection === "transactions" ?
+              snapshot.orderBy("date", "desc") : snapshot).limit(501).get();
+            return res.json({items: records.docs.slice(0, 500).map((doc) =>
               ({...doc.data(), id: doc.id})),
-            limit: 500, possiblyTruncated: snapshot.size === 500});
+            limit: 500, possiblyTruncated: records.size > 500});
           }
           return res.status(405).json({error: "지원하지 않는 메서드입니다."});
         } catch (error) {

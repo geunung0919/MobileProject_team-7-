@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { createRequire } from 'node:module';
 import { once } from 'node:events';
-import { emptyLine, reviewedPayload } from '../../UIUX/src/utils/sharedReceipt.mjs';
+import { emptyLine, reviewedPayload, draftFromPayment } from '../../UIUX/src/utils/sharedReceipt.mjs';
 
 const project = 'demo-shared-receipts';
 assert.equal(process.env.GCLOUD_PROJECT, project);
@@ -81,7 +81,44 @@ try {
   const rice = inventory.find(({ id }) => id === directWrites[0][1].id);
   assert.deepEqual([rice.source, rice.quantity, rice.unit, rice.expiresAt], ['manual', 2000, 'g', null]);
   assert.deepEqual((await req(fridgePath, other))[1].items, []);
-  console.log('Auth → Functions → Firestore: receipt, manual expense, direct stock, replay and UID isolation passed.');
+  const payment = draftFromPayment({
+    candidate: { title: '마트', amount_krw: 700, spent_on: '2026-01-01', transaction_kind: 'expense' },
+    fingerprint: '1234567890abcdef',
+  }, 'kakao');
+  const paymentPayload = reviewedPayload(payment);
+  assert.equal((await req(spendPath, token, paymentPayload))[0], 201);
+  assert.equal((await req(spendPath, token, paymentPayload))[0], 200);
+  assert.equal((await req(spendPath, token))[1].items.find((row) => row.receiptId === payment.receiptId).source, 'kakao');
+  assert.throws(() => draftFromPayment({ candidate: { transaction_kind: 'non_expense' } }, 'sms'));
+
+  const budgetPath = '/finance/budget';
+  const month = '2026-01';
+  assert.equal((await req(budgetPath, token, { month, budget: -1 }))[0], 422);
+  assert.equal((await req(budgetPath, token, { month, budget: 20000, useAsDefault: true }))[0], 200);
+  assert.deepEqual(await req(`${budgetPath}?month=${month}`, token),
+    [200, { month, budget: 20000, source: 'onboarding', spent: 9900 }]);
+  assert.equal((await req(budgetPath, token, { month, budget: 12000 }))[0], 200);
+  assert.deepEqual(await req(`${budgetPath}?month=${month}`, token),
+    [200, { month, budget: 12000, source: 'monthly', spent: 9900 }]);
+  assert.deepEqual(await req(`${budgetPath}?month=${month}`, other),
+    [200, { month, budget: null, source: null, spent: 0 }]);
+
+  const routinePath = '/routines';
+  const routine = { action: 'save', id: randomUUID(), title: '스트레칭', time: '08:15', repeatDays: [] };
+  assert.equal((await req(routinePath, null, routine))[0], 401);
+  assert.equal((await req(routinePath, token, routine))[0], 200);
+  const [, initial] = await req(routinePath, token);
+  assert.equal(initial.items[0].doneToday, false);
+  assert.equal((await req(routinePath, other, { action: 'complete', id: routine.id, date: initial.date, completed: true }))[0], 409);
+  assert.equal((await req(routinePath, token, { action: 'complete', id: routine.id, date: '2000-01-01', completed: true }))[0], 409);
+  assert.equal((await req(routinePath, token, { action: 'complete', id: routine.id, date: initial.date, completed: true }))[0], 200);
+  assert.equal((await req(routinePath, token))[1].items[0].doneToday, true);
+  assert.equal((await req(routinePath, token, { ...routine, title: '수정 루틴' }))[0], 200);
+  assert.equal((await req(routinePath, token))[1].items[0].title, '수정 루틴');
+  assert.equal((await req(routinePath, token, { action: 'archive', id: routine.id }))[0], 200);
+  assert.deepEqual((await req(routinePath, token))[1].items, []);
+  assert.deepEqual((await req(routinePath, other))[1].items, []);
+  console.log('Auth → Functions → Firestore: receipt, manual expense, payment, stock, budgets, routines, replay and UID isolation passed.');
 } finally {
   server.closeAllConnections();
   server.close();

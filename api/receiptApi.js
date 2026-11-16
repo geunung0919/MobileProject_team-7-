@@ -37,3 +37,8 @@ export const listTransactions = (uid) => request('/finance/transactions', undefi
 export const listFridgeItems = (uid) => request('/refrigerator/items', undefined, uid);
 export const createFridgeItem = (item, uid) => request('/refrigerator/items', item, uid);
 export const createTransaction = (reviewed, uid) => request('/finance/transactions', reviewed, uid);
+
+export const loadBudget = (month, uid) => request(`/finance/budget?month=${encodeURIComponent(month)}`, undefined, uid);
+export const saveBudget = (month, budget, uid, useAsDefault = false) => request('/finance/budget', { month, budget, useAsDefault }, uid);
+export const listRoutines = (uid) => request('/routines', undefined, uid);
+export const writeRoutine = (body, uid) => request('/routines', body, uid);

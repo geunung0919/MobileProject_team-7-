@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { View, Text, ScrollView, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import SharedRoutineScreen from './SharedRoutineScreen';
 import BackHeader from '../components/BackHeader';
 import SummaryBanner from '../components/SummaryBanner';
 import TodoRow from '../components/TodoRow';
@@ -11,7 +12,12 @@ import { useAppData } from '../store/AppDataContext';
 import { formatRoutineTime } from '../utils/time';
 import { colors, fonts, spacing } from '../theme';
 
-export default function RoutineScreen({ navigation }) {
+export default function RoutineScreen(props) {
+  const { sharedReceipts } = useAppData();
+  return sharedReceipts ? <SharedRoutineScreen {...props} /> : <LocalRoutineScreen {...props} />;
+}
+
+function LocalRoutineScreen({ navigation }) {
   const insets = useSafeAreaInsets();
 
   // 루틴 목록은 공용 저장소(AppDataContext)에 있어 화면을 나갔다 와도 유지되고 홈에도 반영됩니다.
