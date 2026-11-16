@@ -2,7 +2,7 @@ import {auth} from '../firebase/firebaseConfig';
 import {environment} from '../config/environment';
 
 // Callers retain receiptId, receiptItemId and requestId across retries.
-async function request(path, body, expectedUid) {
+async function request(path, body, expectedUid, method = body ? 'POST' : 'GET') {
   await auth.authStateReady();
   const user = auth.currentUser;
   if (!user) throw new Error('로그인 후 저장해 주세요.');
@@ -18,7 +18,7 @@ async function request(path, body, expectedUid) {
     const token = await user.getIdToken();
     if (auth.currentUser?.uid !== user.uid) throw new Error('계정이 변경됐어요.');
     const response = await fetch(`${base.replace(/\/$/, '')}${path}`, {
-      method: body ? 'POST' : 'GET', signal: controller.signal,
+      method, signal: controller.signal,
       headers: {'Content-Type': 'application/json', Authorization: `Bearer ${token}`},
       ...(body ? {body: JSON.stringify(body)} : {}),
     });
@@ -45,3 +45,7 @@ export const loadBudget = (month, uid) => request(`/finance/budget?month=${encod
 export const saveBudget = (month, budget, uid, useAsDefault = false) => request('/finance/budget', { month, budget, useAsDefault }, uid);
 export const listRoutines = (uid) => request('/routines', undefined, uid);
 export const writeRoutine = (body, uid) => request('/routines', body, uid);
+
+export const changeFridgeItem = (body, uid) => request('/refrigerator/items/change', body, uid);
+export const loadProfile = (uid) => request('/profile', undefined, uid);
+export const saveProfile = (body, uid) => request('/profile', body, uid, 'PUT');

@@ -1,10 +1,14 @@
-import React from 'react';
-import { View, Text, ScrollView, Pressable, Alert, StyleSheet } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ScreenHeader from '../components/ScreenHeader';
 import SectionTitle from '../components/SectionTitle';
 import MenuRow from '../components/MenuRow';
+import { signOut } from 'firebase/auth';
+import { auth } from '../../../firebase/firebaseConfig';
+import { useAppData } from '../store/AppDataContext';
+import SoftButton from '../components/SoftButton';
 import IconBox from '../components/IconBox';
 import { TAB_BAR_HEIGHT } from '../components/TabBar';
 import { moreData } from '../data/more/more';
@@ -23,12 +27,22 @@ export default function MoreScreen({ navigation }) {
     if (screen) navigation.navigate(screen);
   };
 
-  // TODO: 인증을 붙이면 확인 후 실제 로그아웃 처리를 연결하세요.
-  const handleLogout = () => {
-    Alert.alert('로그아웃할까요?', '', [
-      { text: '취소', style: 'cancel' },
-      { text: '로그아웃', style: 'destructive', onPress: () => {} },
-    ]);
+  const { sharedReceipts, sharedUid } = useAppData();
+  const [confirmUid, setConfirmUid] = useState(null);
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const handleLogout = async () => {
+    if (!sharedUid || auth.currentUser?.uid !== sharedUid || busy) return;
+    setBusy(true);
+    setError('');
+    try {
+      await signOut(auth);
+      setConfirmUid(null);
+    } catch (err) {
+      setError(err.message || '로그아웃하지 못했어요.');
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -49,19 +63,20 @@ export default function MoreScreen({ navigation }) {
           <MenuRow key={menu.id} {...menu} onPress={() => openMenu(menu.id)} />
         ))}
 
-        {/* 로그아웃: 실제 로그아웃 동작은 인증 구현 후 연결 */}
-        <Pressable
-          onPress={handleLogout}
-          accessibilityRole="button"
-          style={({ pressed }) => [styles.logoutRow, pressed && styles.pressed]}
-        >
-          <Text style={styles.logoutText}>{logoutLabel}</Text>
-          <MaterialCommunityIcons name="logout" size={20} color={colors.textSecondary} />
-        </Pressable>
+        {sharedReceipts ? <>
+          {!sharedUid ? <SoftButton label="로그인" onPress={() => navigation.navigate('SharedLogin')} /> :
+            confirmUid === sharedUid ? <View style={{ gap: 8 }}>
+              <Text>이 기기에서 로그아웃할까요?</Text>
+              <SoftButton label={busy ? '로그아웃 중…' : '로그아웃 확인'} onPress={handleLogout} />
+              <SoftButton label="취소" onPress={() => !busy && setConfirmUid(null)} />
+            </View> : <SoftButton label={logoutLabel} onPress={() => setConfirmUid(sharedUid)} />}
+          {error ? <Text accessibilityRole="alert">{error}</Text> : null}
+          <SoftButton label="내 생활 리포트" onPress={() => navigation.navigate('SharedReports')} />
+        </> : null}
 
         {/* 생활 데이터 수정 카드 */}
-        <Pressable
-          onPress={() => {}}
+        {sharedReceipts ? <Pressable
+          onPress={() => navigation.navigate('Spending')}
           accessibilityRole="button"
           style={({ pressed }) => [styles.lifeCard, pressed && styles.pressed]}
         >
@@ -72,11 +87,11 @@ export default function MoreScreen({ navigation }) {
             backgroundColor={colors.badgeBg}
           />
           <View style={styles.lifeTexts}>
-            <Text style={styles.lifeTitle}>{lifeData.title}</Text>
-            <Text style={styles.lifeDescription}>{lifeData.description}</Text>
+            <Text style={styles.lifeTitle}>{sharedReceipts ? '기본 월 예산 관리' : lifeData.title}</Text>
+            <Text style={styles.lifeDescription}>{sharedReceipts ? '소비 화면에서 기본 월 예산을 설정해요.' : lifeData.description}</Text>
           </View>
           <Ionicons name="chevron-forward" size={20} color={colors.green} />
-        </Pressable>
+        </Pressable> : null}
 
         {/* 앱 이용 안내 */}
         <SectionTitle style={[styles.sectionTitle, styles.sectionAfterCard]}>

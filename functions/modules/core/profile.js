@@ -21,13 +21,14 @@ const getProfile = async (uid) => {
 };
 
 // 사용자 프로필 저장 및 수정
-const saveProfile = async (uid, email, nickname) => {
+const saveProfile = async (uid, email, nickname, region) => {
   const userRef = usersCollection().doc(uid);
   const snapshot = await userRef.get();
 
   const profileData = {
     email: email || null,
     nickname: nickname,
+    ...(region === undefined ? {} : {region}),
     updatedAt: FieldValue.serverTimestamp(),
   };
 

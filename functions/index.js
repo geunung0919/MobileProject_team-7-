@@ -210,6 +210,11 @@ exports.api = onRequest(
         }
 
         const nickname = req.body && req.body.nickname;
+        const region = req.body?.region;
+        if (region !== undefined &&
+            (typeof region !== "string" || region.trim().length > 100)) {
+          return res.status(400).json({error: "거주 지역을 확인해 주세요."});
+        }
 
         // 닉네임 입력값 검증
         if (
@@ -228,6 +233,7 @@ exports.api = onRequest(
               user.uid,
               user.email,
               nickname.trim(),
+              region?.trim(),
           );
 
           return res.status(200).json({
@@ -261,6 +267,22 @@ exports.api = onRequest(
             path: req.path, code: error.code,
           });
           return res.status(503).json({error: "서버 연결을 확인해 주세요."});
+        }
+      }
+
+      if (req.path === "/refrigerator/items/change" && req.method === "POST") {
+        const user = await verifyUser(req, res);
+        if (!user) return;
+        const {getFirestore} = require("firebase-admin/firestore");
+        const {changeFridgeItem} = require(
+            "./modules/refrigerator/manualItems");
+        try {
+          return res.json(await changeFridgeItem(getFirestore(), user.uid,
+              req.body));
+        } catch (error) {
+          return res.status(error.status || 503).json({
+            error: error.status ? error.message : "저장소를 확인해 주세요.",
+          });
         }
       }
 

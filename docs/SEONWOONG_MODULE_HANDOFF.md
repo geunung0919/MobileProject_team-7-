@@ -43,3 +43,12 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000
 - `GET/POST /routines`: 목록과 오늘 완료 상태를 조회. `action`에 save/complete/archive 사용. `routines/{id}` 및 `routine_logs/{date}_{id}`. AI 서비스는 별도 배포해야 날짜별 완료 기록을 읽는다.
 
 남은 통합 범위: 실제 운영 Firebase·OCR 배포/기기 테스트, 중앙 코어 온보딩 완료 화면과의 연결, 최종 UI 브랜치 병합. 기존 샘플 홈/냉장고의 별도 기능까지 공통 DB로 전환한 것은 아니다.
+
+## 화면 통합 수정
+
+- 홈 요약은 로그인 계정의 Firestore 지출·예산·재고·루틴을 조회한다. 데이터가 아직 없으면 예시 숫자 대신 대시를 표시한다.
+- 냉장고 직접 등록은 기기에 계정·환경별 요청을 보관해 서버 응답이 끊긴 뒤 다시 열어도 같은 ID를 재사용한다.
+- `POST /refrigerator/items/change`는 `{ action, id, version }`과 수정 값을 받는다. 버전이 다르면 409. 재고 수량을 줄일 때는 냉장고에서 해당 품목을 열어 남은 수량을 입력한다. 레시피 확인만으로 재고를 자동 삭제하지 않는다.
+- 루틴 삭제는 `routine_archive/{id}`로 옮기고, `routine_logs`의 완료 이력을 유지한다. 목록 및 등록 한도에서는 삭제된 행을 제외한다.
+- 더보기에서 Firebase 로그아웃, 개인 프로필의 닉네임·거주 지역, 기기 루틴 알림을 연결했다. 리포트는 배포된 AI Functions의 `listReports`와 `generateDailyReport`가 필요하다.
+- 실제 Firebase 및 별도 OCR 서버 배포, 지도·권한·알림의 실기기 검증은 이 브랜치의 소스/에뮬레이터 검사에 포함되지 않는다. 사진 OCR과 결제 원문 분석을 출시 빌드에서 열려면 운영 인증을 갖춘 HTTPS 분석 서버가 필요하다.

@@ -1,6 +1,16 @@
 // The OCR service is separate from the Firebase write API. Never forward a Firebase token here.
 export const receiptOcrBase = process.env.EXPO_PUBLIC_RECEIPT_OCR_BASE_URL?.trim().replace(/\/$/, '') || '';
 
+async function readAnalysisResponse(response, label) {
+  const data = await response.json().catch(() => null);
+  if (!response.ok) {
+    const message = data?.error?.message ?? data?.detail;
+    throw new Error(typeof message === 'string' ? message : `${label} 실패 (${response.status})`);
+  }
+  if (!data?.candidate) throw new Error(`${label} 결과를 읽지 못했어요.`);
+  return data;
+}
+
 export async function recognizeReceipt(asset, token) {
   if (!receiptOcrBase || !token.trim()) throw new Error('OCR 서버와 개발용 토큰을 설정해 주세요.');
   if (!/^https?:$/.test(new URL(receiptOcrBase).protocol)) throw new Error('OCR 서버 주소를 확인해 주세요.');
@@ -16,9 +26,7 @@ export async function recognizeReceipt(asset, token) {
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token.trim()}` },
       body: JSON.stringify({ image_base64: image, mime_type: mime, use_ai_fallback: false }),
     });
-    const data = await response.json();
-    if (!response.ok) throw new Error(typeof data.detail === 'string' ? data.detail : `OCR 분석 실패 (${response.status})`);
-    return data;
+    return await readAnalysisResponse(response, '영수증 분석');
   } finally { clearTimeout(timer); }
 }
 
@@ -34,8 +42,6 @@ export async function previewPayment(rawText, source, token) {
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token.trim()}` },
       body: JSON.stringify({ raw_text: rawText, source, use_ai_fallback: false }),
     });
-    const data = await response.json();
-    if (!response.ok) throw new Error(typeof data.detail === 'string' ? data.detail : `결제 분석 실패 (${response.status})`);
-    return data;
+    return await readAnalysisResponse(response, '결제 분석');
   } finally { clearTimeout(timer); }
 }

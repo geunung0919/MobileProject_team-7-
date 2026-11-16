@@ -10,13 +10,16 @@ async function handleRoutines(db, uid, req, res) {
   const weekday = days[(new Date(date).getUTCDay() + 6) % 7];
   const routines = root.collection("routines");
   const logs = root.collection("routine_logs");
+  const archive = root.collection("routine_archive");
+  const activeRows = (snapshot) => snapshot.docs.filter((doc) => doc.get("archived") !== true);
   if (req.method === "GET") {
-    const [rows, completed] = await Promise.all([routines.limit(201).get(), logs.where("target_date", "==", date).get()]);
+    const [rows, completed] = await Promise.all([routines.get(), logs.where("target_date", "==", date).get()]);
     const status = new Map(completed.docs.map((doc) => [doc.get("routine_id"), doc.get("completed")]));
-    return res.json({date, items: rows.docs.filter((doc) => doc.get("archived") !== true).slice(0, 200).map((doc) => ({
+    const active = activeRows(rows);
+    return res.json({date, items: active.slice(0, 200).map((doc) => ({
       ...doc.data(), id: doc.id, doneToday: status.get(doc.id) === true,
       scheduledToday: !doc.get("repeat_days")?.length || doc.get("repeat_days").includes(weekday),
-    })), possiblyTruncated: rows.size > 200});
+    })), possiblyTruncated: active.length > 200});
   }
   if (req.method !== "POST") return res.status(405).json({error: "지원하지 않는 메서드입니다."});
   const {action, id, title, time, repeatDays, completed, date: selectedDate} = req.body ?? {};
@@ -30,7 +33,10 @@ async function handleRoutines(db, uid, req, res) {
     const status = await db.runTransaction(async (tx) => {
       const current = await tx.get(ref);
       if (current.get("archived") === true) return 409;
-      if (!current.exists && (await tx.get(routines.limit(200))).size >= 200) return 422;
+      if (!current.exists) {
+        if ((await tx.get(archive.doc(id))).exists) return 409;
+        if (activeRows(await tx.get(routines)).length >= 200) return 422;
+      }
       tx.set(ref, {title: title.trim(), time, repeat_type: repeatDays.length ? "요일 지정" : "매일", repeat_days: repeatDays}, {merge: true});
       return 200;
     });
@@ -43,8 +49,10 @@ async function handleRoutines(db, uid, req, res) {
     const changed = await db.runTransaction(async (tx) => {
       const row = await tx.get(ref);
       if (!row.exists || row.get("archived") === true) return action === "archive";
-      if (action === "archive") tx.update(ref, {archived: true});
-      else {
+      if (action === "archive") {
+        tx.set(archive.doc(id), {...row.data(), archived: true});
+        tx.delete(ref);
+      } else {
         const schedule = row.get("repeat_days");
         if (completed && schedule?.length && !schedule.includes(weekday)) return false;
         tx.set(logs.doc(`${date}_${id}`), {routine_id: id, target_date: date, completed});

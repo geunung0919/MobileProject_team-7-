@@ -69,9 +69,11 @@ export default function FridgeScreen({ navigation }) {
           <SoftButton label={sharedUid ? '서버 목록 새로고침' : '로그인'} onPress={() => sharedUid ? refreshShared(sharedUid).catch(() => {}) : navigation.navigate('SharedLogin')} />
           {visibleShared?.inventoryError ? <Text accessibilityRole="alert">{visibleShared.inventoryError}</Text> : null}
           {visibleShared?.inventoryTruncated ? <Text>서버 식재료 목록 일부만 표시돼요.</Text> : null}
-          {visibleShared?.inventory?.map((row) => <Text key={row.id}>{row.name} · {row.quantity}{row.unit} · {row.dateType === 'unknown' ? '기한 미입력' : row.expiresAt}</Text>)}
+          {visibleShared?.inventory?.map((row) => <SoftButton key={row.id} label={`${row.name} · ${row.quantity}${row.unit} · ${row.expiresAt || '기한 미입력'}`}
+            onPress={() => navigation.navigate('FridgeAdd', { id: row.id })} />)}
         </View> : null}
-        <Text style={styles.sectionTitle}>{sharedReceipts ? '기기 내 예시 식재료' : '보관 중인 식재료'}</Text>
+        {!sharedReceipts ? <>
+        <Text style={styles.sectionTitle}>보관 중인 식재료</Text>
 
         <View style={styles.chipRow}>
           <Chip
@@ -103,6 +105,7 @@ export default function FridgeScreen({ navigation }) {
             />
           ))}
         </View>
+        </> : null}
       </ScrollView>
 
       <Fab accessibilityLabel="식재료 추가" onPress={() => navigation.navigate(sharedReceipts && !sharedUid ? 'SharedLogin' : 'FridgeAdd')} />

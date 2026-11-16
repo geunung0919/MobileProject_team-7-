@@ -56,4 +56,27 @@ async function createManualItem(db, uid, body) {
   });
 }
 
-module.exports = {createManualItem};
+async function changeFridgeItem(db, uid, body) {
+  if (!body || !["update", "delete"].includes(body.action) ||
+      typeof body.id !== "string" || !/^[a-zA-Z0-9_-]{1,90}$/.test(body.id) ||
+      !Number.isSafeInteger(body.version) || body.version < 1) fail("식재료 수정 정보를 확인해 주세요.");
+  const values = body.action === "update" ? normalize({...body, requestId: "edit"}) : null;
+  const ref = db.doc(`users/${uid}/fridgeItems/${body.id}`);
+  return db.runTransaction(async (tx) => {
+    const current = await tx.get(ref);
+    if (!current.exists) fail("식재료를 찾지 못했어요.", 404);
+    const previous = current.data();
+    if (previous.version !== body.version) fail("다른 곳에서 식재료가 바뀌었어요. 목록을 다시 열어 주세요.", 409);
+    if (body.action === "delete") {
+      tx.delete(ref);
+      return {id: body.id, deleted: true};
+    }
+    const version = body.version + 1;
+    const remainingCost = previous.quantity > 0 && Number.isFinite(previous.remainingCost) &&
+      previous.unit === values.unit ? Math.min(previous.remainingCost, Math.round(previous.remainingCost * values.quantity / previous.quantity)) : null;
+    tx.update(ref, {...values, remainingCost, version, updatedAt: new Date().toISOString()});
+    return {id: body.id, version};
+  });
+}
+
+module.exports = {createManualItem, changeFridgeItem};

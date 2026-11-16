@@ -26,9 +26,9 @@ async function signUp() {
   assert.equal(result.status, 200);
   return (await result.json()).idToken;
 }
-async function req(path, token, body) {
+async function req(path, token, body, method = body ? 'POST' : 'GET') {
   const response = await fetch(`${base}${path}`, {
-    method: body ? 'POST' : 'GET', signal: AbortSignal.timeout(20000),
+    method, signal: AbortSignal.timeout(20000),
     headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
     ...(body ? { body: JSON.stringify(body) } : {}),
   });
@@ -85,6 +85,19 @@ try {
   const rice = inventory.find(({ id }) => id === directWrites[0][1].id);
   assert.deepEqual([rice.source, rice.quantity, rice.unit, rice.expiresAt], ['manual', 2000, 'g', null]);
   assert.deepEqual((await req(fridgePath, other))[1].items, []);
+  const stockUpdate = { ...direct, action: 'update', id: rice.id, version: 1, quantity: 1 };
+  assert.equal((await req('/refrigerator/items/change', other, stockUpdate))[0], 404);
+  const updates = await Promise.all([req('/refrigerator/items/change', token, stockUpdate), req('/refrigerator/items/change', token, stockUpdate)]);
+  assert.deepEqual(updates.map(([status]) => status).sort(), [200, 409]);
+  const updatedRice = (await req(fridgePath, token))[1].items.find(({ id }) => id === rice.id);
+  assert.deepEqual([updatedRice.quantity, updatedRice.version], [1000, 2]);
+  assert.equal((await req('/refrigerator/items/change', token, { action: 'delete', id: rice.id, version: 2 }))[0], 200);
+  assert.equal((await req(fridgePath, token, direct))[0], 200);
+  assert.equal((await req(fridgePath, token))[1].items.some(({ id }) => id === rice.id), false);
+  assert.equal((await req('/profile', token, { nickname: '검증용', region: '아산' }, 'PUT'))[0], 200);
+  assert.equal((await req('/profile', token))[1].profile.region, '아산');
+  assert.equal((await req('/profile', other))[1].profile, null);
+
   const payment = draftFromPayment({
     candidate: { title: '마트', amount_krw: 700, spent_on: '2026-01-01', transaction_kind: 'expense' },
     fingerprint: '1234567890abcdef',
@@ -122,6 +135,19 @@ try {
   assert.equal((await req(routinePath, token, { action: 'archive', id: routine.id }))[0], 200);
   assert.deepEqual((await req(routinePath, token))[1].items, []);
   assert.deepEqual((await req(routinePath, other))[1].items, []);
+  assert.equal((await req(routinePath, token, routine))[0], 409);
+  const { getFirestore } = require('firebase-admin/firestore');
+  const { getAuth } = require('firebase-admin/auth');
+  const uid = (await getAuth().verifyIdToken(token)).uid;
+  const db = getFirestore();
+  const batch = db.batch();
+  for (let i = 0; i < 200; i += 1) {
+    batch.set(db.doc(`users/${uid}/routines/old-${i}`), { archived: true });
+  }
+  await batch.commit();
+  const next = { ...routine, id: randomUUID() };
+  assert.equal((await req(routinePath, token, next))[0], 200);
+  assert.deepEqual((await req(routinePath, token))[1].items.map((item) => item.id), [next.id]);
   console.log('Auth → Functions → Firestore: receipt, manual expense, payment, stock, budgets, routines, replay and UID isolation passed.');
 } finally {
   server.closeAllConnections();
