@@ -14,7 +14,7 @@ def photo():
     return {'mime_type':'image/png','image_base64':base64.b64encode(buffer.getvalue()).decode()}
 
 def test_auth_and_preview_without_writing_expenses(client, monkeypatch):
-    monkeypatch.setattr(ocr,'recognize',lambda image:'이마트 천안점\n2026-11-05\n합계 12,300원')
+    monkeypatch.setattr(ocr,'recognize_server',lambda image:('이마트 천안점\n2026-11-05\n합계 12,300원',{}))
     assert client.post(URL,json=photo()).status_code==401
     response=client.post(URL,headers=A,json=photo())
     assert response.status_code==200
@@ -54,20 +54,50 @@ def test_timeout_and_missing_engine_cleanup(monkeypatch):
         seen.append(Path(args[1]));assert seen[-1].exists()
         raise subprocess.TimeoutExpired(args[0],25)
     monkeypatch.setattr(ocr.subprocess,'run',timeout)
-    with pytest.raises(HTTPException) as e:ocr.recognize(Image.new('L',(10,10)))
+    with pytest.raises(HTTPException) as e:ocr.recognize_tesseract(Image.new('L',(10,10)))
     assert e.value.status_code==504 and not seen[-1].exists()
     def missing(*args,**kwargs):raise FileNotFoundError()
     monkeypatch.setattr(ocr.subprocess,'run',missing)
-    with pytest.raises(HTTPException) as e:ocr.recognize(Image.new('L',(10,10)))
+    with pytest.raises(HTTPException) as e:ocr.recognize_tesseract(Image.new('L',(10,10)))
     assert e.value.status_code==503
 
 def test_empty_and_failed_engine_do_not_return_fake_results(monkeypatch):
     for code,status in [(0,422),(1,503)]:
         monkeypatch.setattr(ocr.subprocess,'run',lambda *a,**k:subprocess.CompletedProcess(a,code,b'',b'failure'))
-        with pytest.raises(HTTPException) as e:ocr.recognize(Image.new('L',(10,10)))
+        with pytest.raises(HTTPException) as e:ocr.recognize_tesseract(Image.new('L',(10,10)))
         assert e.value.status_code==status
 
 def test_truncated_text_is_flagged(monkeypatch):
-    monkeypatch.setattr(ocr,'recognize',lambda image:'이마트\n합계 1000원\n'+'x'*6000)
+    monkeypatch.setattr(ocr,'recognize_server',lambda image:('이마트\n합계 1000원\n'+'x'*6000,{}))
     result=ocr.process_image(photo())
     assert len(result['raw_text'])==5000 and result['text_truncated'] and result['needs_review']
+
+
+def test_amount_fallback_pass_fills_missing_total(monkeypatch):
+    outputs = iter([
+        '로컬마트\n두부 2,500\n품명 수량',            # 본문(psm 6): 총액 줄을 못 읽음
+        '로컬마트\n합계 2,500\n',                     # 보조 판독: 총액만 보충
+    ])
+    calls = []
+    def fake_run(args, **kwargs):
+        calls.append(args[args.index('--psm') + 1])
+        return subprocess.CompletedProcess(args, 0, next(outputs).encode(), b'')
+    monkeypatch.setattr(ocr.subprocess, 'run', fake_run)
+    result = ocr.process_image(photo())
+    assert calls == ['6', '6']
+    assert result['candidate']['amount_krw'] == 2500
+    assert result['ocr_meta']['amount_fallback']['amount_krw'] == 2500
+    assert '금액을 자동 추출하지 못했어요.' not in result['warnings']
+    assert any('한 번 더 읽어' in w for w in result['warnings'])
+
+
+def test_extra_pass_timeout_keeps_main_text(monkeypatch):
+    def fake_run(args, **kwargs):
+        if fake_run.count:
+            raise subprocess.TimeoutExpired(args[0], 8)
+        fake_run.count += 1
+        return subprocess.CompletedProcess(args, 0, '로컬마트\n두부 2,500\n품명 수량'.encode(), b'')
+    fake_run.count = 0
+    monkeypatch.setattr(ocr.subprocess, 'run', fake_run)
+    text, meta = ocr.recognize_tesseract(Image.new('L', (10, 10)))
+    assert '두부' in text and 'amount_fallback' not in meta

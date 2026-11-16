@@ -85,6 +85,10 @@ _FULL_DATE_RE = re.compile(
 _SHORT_DATE_RE = re.compile(
     r'(?<![\d./-])(0?[1-9]|1[0-2])[/-](0?[1-9]|[12]\d|3[01])(?!\d)'
 )
+# 두 자리 연도 영수증 날짜: "판매일:23-11-22 19:09" (20~39년만, 전화·사업자번호 조각은 앞뒤 숫자로 걸러짐)
+_YY_DATE_RE = re.compile(
+    r'(?<![\d./-])([23]\d)[./-](0?[1-9]|1[0-2])[./-](0?[1-9]|[12]\d|3[01])(?![\d./-])'
+)
 _KO_DATE_RE = re.compile(
     r'(?:(20\d{2})년\s*)?(0?[1-9]|1[0-2])월\s*(0?[1-9]|[12]\d|3[01])일'
 )
@@ -106,27 +110,30 @@ _CATEGORY_RULES = [
 
 
 _OCR_NUMERIC_TOKEN_RE = re.compile(
-    r'(?<![0-9A-Za-z가-힣])([0-9OIl][0-9OIl,.]{1,18})(?=$|[\s원]|[^0-9A-Za-z가-힣])'
+    r'(?<![0-9A-Za-z가-힣])([0-9OIl][0-9OIlCo¢,.]{1,18})(?=$|[\s원]|[^0-9A-Za-z가-힣])'
 )
+# OCR 이 천 단위 쉼표 뒤에 빈칸을 넣는 경우: "22, 140" → "22,140" (뒤가 정확히 숫자 3자리일 때만)
+_OCR_SPLIT_THOUSANDS_RE = re.compile(r'(?<=\d)[ \t]*[,.][ \t]+(?=\d{3}(?!\d))')
 
 
 def normalize_ocr_numeric_text(value):
     """Fix common OCR substitutions only inside isolated numeric-looking tokens."""
-    translations = str.maketrans({'O': '0', 'I': '1', 'l': '1'})
+    translations = str.maketrans({'O': '0', 'I': '1', 'l': '1', 'C': '0', 'o': '0', '¢': '0'})
 
     def replace(match):
         token = match.group(1)
         if not re.search(r'\d', token):
             return token
         # Keep short unit tokens such as "1l" intact; they are not monetary OCR.
-        if len(token) < 3 and any(char in token for char in 'OIl'):
+        if len(token) < 3 and any(char in token for char in 'OIlCo¢'):
             return token
         fixed = token.translate(translations)
         # Korean receipts often print 1,350 but OCR may turn the separator into a dot.
         fixed = re.sub(r'(?<=\d)\.(?=\d{3}(?:[.,]|$))', ',', fixed)
         return fixed
 
-    return _OCR_NUMERIC_TOKEN_RE.sub(replace, value or '')
+    joined = _OCR_SPLIT_THOUSANDS_RE.sub(',', value or '')
+    return _OCR_NUMERIC_TOKEN_RE.sub(replace, joined)
 
 
 def normalize_import_text(value):
@@ -200,6 +207,12 @@ def extract_date(text, today=None):
         if parsed:
             if not match.group(1) and parsed > today + timedelta(days=7):
                 parsed = _safe_date(year - 1, parsed.month, parsed.day)
+            return parsed, False
+
+    match = _YY_DATE_RE.search(text)
+    if match:
+        parsed = _safe_date(2000 + int(match.group(1)), int(match.group(2)), int(match.group(3)))
+        if parsed and parsed <= today + timedelta(days=7):
             return parsed, False
 
     match = _SHORT_DATE_RE.search(text)
@@ -305,7 +318,35 @@ def extract_receipt_amount(text):
         }
         if amounts:
             return next(iter(amounts)) if len(amounts) == 1 else None
-    return extract_amount(text)
+    return extract_amount(text) or _repeated_receipt_total(text)
+
+
+# 줄 끝 금액: 1,234 / 12,345 / 1234 (전화·사업자번호·바코드처럼 더 긴 숫자는 제외)
+_RECEIPT_LINE_AMOUNT_RE = re.compile(r'(?<![\d,.\-])(\d{1,3}(?:,\d{3})+|\d{4,7})(?![\d,]|[-./:]\d)')
+_RECEIPT_ID_LINE_RE = re.compile(r'\d{2,4}-\d{3,4}-\d{4}|\d{3}-\d{2}-\d{5}|\d{8,}')
+_RECEIPT_TOTAL_HINT_RE = re.compile(r'합|계|총|결제|받을|카드|신용|일시불|승인|TOTAL', re.I)
+
+
+def _repeated_receipt_total(text):
+    """총액 줄 글자가 깨져 못 찾았을 때의 보조 규칙.
+    영수증 총액은 합계·카드 결제·일시불 줄에 두 번 이상 찍히므로, 두 번 이상 나온 금액 중 가장 큰 것을 씁니다.
+    총액 힌트 글자가 있는 줄에서 한 번도 안 나온 금액이면 쓰지 않습니다(품목 단가 반복을 총액으로 오인하지 않게)."""
+    counts, hinted = {}, set()
+    for line in text.splitlines():
+        if _NON_TRANSACTION_AMOUNT_RE.search(line):
+            continue
+        scan = _RECEIPT_ID_LINE_RE.sub(' ', line)
+        found = _RECEIPT_LINE_AMOUNT_RE.findall(scan)
+        if not found:
+            continue
+        amount = _amount_value(found[-1])
+        if amount is None or amount < 100:
+            continue
+        counts[amount] = counts.get(amount, 0) + 1
+        if _RECEIPT_TOTAL_HINT_RE.search(scan):
+            hinted.add(amount)
+    candidates = [amount for amount, seen in counts.items() if seen >= 2 and amount in hinted]
+    return max(candidates) if candidates else None
 
 
 _RECEIPT_TOTAL_ANCHOR_RE = re.compile(
@@ -355,6 +396,8 @@ def parse_import_candidate(raw_text, source='unknown', today=None):
     if source == 'ocr':
         amount = extract_receipt_amount(text)
         date_text = re.sub(r'(?<=\d)[ \t]*([./-])[ \t]*(?=\d)', r'\1', text)
+        # OCR 이 날짜 구분자 '-' 를 '~' 로 읽거나 겹쳐 읽는 경우: "23-10~21", "2024-10-~01"
+        date_text = re.sub(r'(?<=\d)([./-]?)~([./-]?)(?=\d)', lambda m: m.group(1) or m.group(2) or '-', date_text)
         spent_on, date_inferred = extract_date(date_text, today=today)
         title, title_inferred = extract_receipt_merchant(text)
     else:

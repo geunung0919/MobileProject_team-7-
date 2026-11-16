@@ -179,54 +179,82 @@ def _image_quality(image):
     }
 
 
+# 전체 영수증 평가(KORIE 127장) 결과: 여러 결과 중 점수로 하나를 고르면 조각난 psm 11 결과가
+# 절반 이상 뽑혀 품목·상호가 망가졌다. 그래서 본문은 항상 대비 보정 + psm 6 한 번으로 읽고,
+# 총액을 못 찾았을 때만 다른 전처리/배치로 다시 읽어 총액만 보충한다.
+_TESSERACT_MAIN_PASS = ('contrast', '6')
+_TESSERACT_AMOUNT_PASSES = (('unsharp', '6'), ('contrast', '4'))
+
+
+def _run_tesseract(executable, languages, path, psm, timeout):
+    return subprocess.run(
+        [
+            executable, str(path), 'stdout',
+            '-l', languages,
+            '--oem', '1',
+            '--psm', psm,
+            '-c', 'preserve_interword_spaces=1',
+        ],
+        capture_output=True,
+        timeout=timeout,
+        check=False,
+        env={**os.environ, 'OMP_THREAD_LIMIT': '1'},
+    )
+
+
+def _ocr_amount(text):
+    try:
+        return parse_import_candidate(text[:5000], source='ocr')['candidate'].get('amount_krw')
+    except Exception:
+        return None
+
+
 def recognize_tesseract(image):
     executable = os.getenv('TESSERACT_CMD', 'tesseract')
     languages = os.getenv('OCR_LANGUAGES', 'kor+eng')
-    best_text = ''
-    best_score = -1
-    best_variant = None
-    best_psm = None
-    engine_started = False
-    engine_success = False
+    main_timeout = float(os.getenv('OCR_MAIN_TIMEOUT', '15'))
+    extra_timeout = float(os.getenv('OCR_EXTRA_TIMEOUT', '8'))
+    meta = {'variant': _TESSERACT_MAIN_PASS[0], 'psm': _TESSERACT_MAIN_PASS[1]}
 
     try:
         with tempfile.TemporaryDirectory(prefix='receipt-ocr-') as directory:
-            psm_plan = {
-                'contrast': ('4', '6'),
-                'unsharp': ('6',),
-                'binary': ('4', '6', '11'),
-            }
+            paths = {}
             for variant_name, variant in _ocr_variants(image):
-                path = Path(directory) / f'{variant_name}.png'
-                variant.save(path, format='PNG')
                 try:
-                    for psm in psm_plan[variant_name]:
-                        result = subprocess.run(
-                            [
-                                executable, str(path), 'stdout',
-                                '-l', languages,
-                                '--oem', '1',
-                                '--psm', psm,
-                                '-c', 'preserve_interword_spaces=1',
-                            ],
-                            capture_output=True,
-                            timeout=6,
-                            check=False,
-                            env={**os.environ, 'OMP_THREAD_LIMIT': '1'},
-                        )
-                        engine_started = True
-                        if result.returncode:
-                            continue
-                        engine_success = True
-                        text = result.stdout.decode('utf-8', errors='replace').strip()
-                        score = _receipt_text_score(text)
-                        if score > best_score:
-                            best_text = text
-                            best_score = score
-                            best_variant = variant_name
-                            best_psm = psm
+                    if variant_name in {_TESSERACT_MAIN_PASS[0]} | {name for name, _ in _TESSERACT_AMOUNT_PASSES}:
+                        paths[variant_name] = Path(directory) / f'{variant_name}.png'
+                        variant.save(paths[variant_name], format='PNG')
                 finally:
                     variant.close()
+
+            result = _run_tesseract(
+                executable, languages, paths[_TESSERACT_MAIN_PASS[0]], _TESSERACT_MAIN_PASS[1], main_timeout,
+            )
+            if result.returncode:
+                raise HTTPException(
+                    503,
+                    '서버 OCR 엔진과 한국어 언어팩 설정을 확인해 주세요. 직접 입력도 가능해요.',
+                )
+            text = result.stdout.decode('utf-8', errors='replace').strip()
+            if len(text) < 3:
+                raise HTTPException(
+                    422,
+                    '글자를 충분히 읽지 못했어요. 밝고 선명한 사진으로 다시 시도해 주세요.',
+                )
+            meta['quality_score'] = _receipt_text_score(text)
+
+            if _ocr_amount(text) is None:
+                for variant_name, psm in _TESSERACT_AMOUNT_PASSES:
+                    try:
+                        extra = _run_tesseract(executable, languages, paths[variant_name], psm, extra_timeout)
+                    except subprocess.TimeoutExpired:
+                        continue  # 보조 판독은 실패해도 본문 결과는 그대로 돌려준다
+                    if extra.returncode:
+                        continue
+                    amount = _ocr_amount(extra.stdout.decode('utf-8', errors='replace'))
+                    if amount is not None:
+                        meta['amount_fallback'] = {'amount_krw': amount, 'variant': variant_name, 'psm': psm}
+                        break
     except FileNotFoundError:
         raise HTTPException(
             503,
@@ -237,24 +265,7 @@ def recognize_tesseract(image):
             504,
             '사진 인식 시간이 초과됐어요. 영수증 부분만 잘라 다시 시도해 주세요.',
         ) from None
-
-    if not engine_started:
-        raise HTTPException(503, '서버 OCR 엔진을 시작하지 못했어요. 직접 입력도 가능해요.')
-    if not engine_success:
-        raise HTTPException(
-            503,
-            '서버 OCR 엔진과 한국어 언어팩 설정을 확인해 주세요. 직접 입력도 가능해요.',
-        )
-    if len(best_text) < 3:
-        raise HTTPException(
-            422,
-            '글자를 충분히 읽지 못했어요. 밝고 선명한 사진으로 다시 시도해 주세요.',
-        )
-    return best_text, {
-        'variant': best_variant,
-        'psm': best_psm,
-        'quality_score': best_score,
-    }
+    return text, meta
 
 
 def recognize_server(image):
@@ -335,6 +346,11 @@ def process_image(payload):
     raw_text = text[:5000]
     result = parse_import_candidate(raw_text, source='ocr')
     result['needs_review'] = True
+    fallback = ocr_meta.get('amount_fallback')
+    if fallback and result['candidate'].get('amount_krw') is None:
+        result['candidate']['amount_krw'] = fallback['amount_krw']
+        result['warnings'] = [w for w in result['warnings'] if w != '금액을 자동 추출하지 못했어요.']
+        result['warnings'].append('총액은 사진을 한 번 더 읽어 찾은 값이에요. 영수증과 같은지 확인해 주세요.')
     if image_quality['low_contrast']:
         result['warnings'].append(
             '사진 대비가 낮아 글자를 놓칠 수 있어요. 밝은 곳에서 영수증만 크게 다시 촬영하면 더 정확해져요.'
