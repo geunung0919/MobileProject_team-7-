@@ -20,6 +20,7 @@ export default function FormField({
   hint,
   editable = true,
   marginTop = 28,
+  inputProps, // TextInput 에 그대로 넘길 추가 속성 (예: secureTextEntry, autoCapitalize)
 }) {
   const box = (
     <View style={styles.box}>
@@ -38,6 +39,7 @@ export default function FormField({
           keyboardType={keyboardType}
           maxLength={maxLength}
           accessibilityLabel={label}
+          {...inputProps}
         />
       )}
       {suffix ? <Text style={styles.suffix}>{suffix}</Text> : null}

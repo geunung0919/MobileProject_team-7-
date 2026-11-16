@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, ScrollView, Pressable, Alert, StyleSheet } from 'react-native';
+import { View, ScrollView, Pressable, StyleSheet } from 'react-native';
+import { CommonActions } from '@react-navigation/native';
 import Text from '../components/AppText';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -8,6 +9,7 @@ import SectionTitle from '../components/SectionTitle';
 import MenuRow from '../components/MenuRow';
 import IconBox from '../components/IconBox';
 import { TAB_BAR_HEIGHT } from '../components/TabBar';
+import { confirmAction } from '../utils/confirm';
 import { moreData } from '../data/more/more';
 import { colors, fonts, radius, spacing } from '../theme';
 
@@ -24,12 +26,17 @@ export default function MoreScreen({ navigation }) {
     if (screen) navigation.navigate(screen);
   };
 
-  // TODO: 인증을 붙이면 확인 후 실제 로그아웃 처리를 연결하세요.
+  // 확인 후 첫 화면(Welcome)으로 돌아갑니다. TODO: 인증을 붙이면 실제 로그아웃 처리(토큰 삭제 등)를 함께 연결하세요.
   const handleLogout = () => {
-    Alert.alert('로그아웃할까요?', '', [
-      { text: '취소', style: 'cancel' },
-      { text: '로그아웃', style: 'destructive', onPress: () => {} },
-    ]);
+    confirmAction({
+      title: '로그아웃할까요?',
+      confirmLabel: '로그아웃',
+      destructive: true,
+      onConfirm: () =>
+        (navigation.getParent() ?? navigation).dispatch(
+          CommonActions.reset({ index: 0, routes: [{ name: 'Welcome' }] }),
+        ),
+    });
   };
 
   return (

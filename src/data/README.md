@@ -19,6 +19,7 @@
 | | | `emergency.js`, `emergencyGuides.js` | 비상매뉴얼 상황 목록, 상황별 대처 |
 | | | `survivalMap.js` | 자취생존맵 장소 데이터 |
 | | | `aiManager.js` | AI 자취 매니저 문구와 답변 |
+| `auth/` | (탭 아님) 첫 화면 | `auth.js` | 로그인/회원가입 화면 문구와 입력 확인 안내 |
 | `more/` | 더보기 | `more.js` | 더보기 탭 메뉴 문구 |
 | | | `account.js` | 프로필, 설정, 도움말 데이터 |
 | | | `lifeData.js` | 생활 데이터 수정 화면 문구, 선택지(목표·조리 도구), 처음 값 |
