@@ -18,6 +18,7 @@ import EmergencyAiScreen from '../screens/EmergencyAiScreen';
 import ReportDetailScreen from '../screens/ReportDetailScreen';
 import ReportListScreen from '../screens/ReportListScreen';
 import ProfileScreen from '../screens/ProfileScreen';
+import LifeDataScreen from '../screens/LifeDataScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import HelpScreen from '../screens/HelpScreen';
 
@@ -51,6 +52,7 @@ export default function RootNavigator() {
       <Stack.Screen name="ReportList" component={ReportListScreen} />
       {/* 더보기 하위 화면 */}
       <Stack.Screen name="Profile" component={ProfileScreen} />
+      <Stack.Screen name="LifeData" component={LifeDataScreen} />
       <Stack.Screen name="Settings" component={SettingsScreen} />
       <Stack.Screen name="Help" component={HelpScreen} />
     </Stack.Navigator>

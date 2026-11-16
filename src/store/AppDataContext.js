@@ -13,6 +13,7 @@ import { fridgeData } from '../data/fridge/fridge';
 import { todoData } from '../data/lifeInfo/todos';
 import { routineData } from '../data/lifeInfo/routines';
 import { profileData, settingsData } from '../data/more/account';
+import { lifeDataForm } from '../data/more/lifeData';
 import { addDays, toDateString, parseAmount } from '../utils/format';
 import { ALL_DAYS } from '../utils/time';
 import { clearRoutineChecks } from '../utils/time';
@@ -79,6 +80,7 @@ export function AppDataProvider({ children }) {
   }, [resetRoutinesIfNewDay]);
 
   const [profile, setProfile] = useState(profileData.initial);
+  const [lifeData, setLifeData] = useState(lifeDataForm.initial); // 생활 기본 정보 (자취 기간, 목표, 조리 도구, 요리 일수)
   const [settings, setSettings] = useState(settingsData.initial);
 
   // 소비 추가: { title, amount, date: 'YYYY-MM-DD', category?, icon?, source?, items? }
@@ -179,6 +181,11 @@ export function AppDataProvider({ children }) {
   );
 
   // 개인정보 수정: { nickname?, region? } 중 바꿀 값만 넘깁니다.
+  // 생활 데이터 수정: updateLifeData({ months, goal, tools, cookDays }) 처럼 바꿀 값만 넘깁니다.
+  const updateLifeData = useCallback((patch) => {
+    setLifeData((prev) => ({ ...prev, ...patch }));
+  }, []);
+
   const updateProfile = useCallback((patch) => {
     setProfile((prev) => ({ ...prev, ...patch }));
   }, []);
@@ -208,6 +215,8 @@ export function AppDataProvider({ children }) {
       toggleRoutine,
       profile,
       updateProfile,
+      lifeData,
+      updateLifeData,
       settings,
       updateSetting,
     }),
@@ -230,6 +239,8 @@ export function AppDataProvider({ children }) {
       toggleRoutine,
       profile,
       updateProfile,
+      lifeData,
+      updateLifeData,
       settings,
       updateSetting,
     ]

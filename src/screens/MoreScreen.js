@@ -62,7 +62,7 @@ export default function MoreScreen({ navigation }) {
 
         {/* 생활 데이터 수정 카드 */}
         <Pressable
-          onPress={() => {}}
+          onPress={() => navigation.navigate('LifeData')}
           accessibilityRole="button"
           style={({ pressed }) => [styles.lifeCard, pressed && styles.pressed]}
         >
