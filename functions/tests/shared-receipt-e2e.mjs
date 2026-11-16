@@ -120,6 +120,20 @@ try {
   assert.deepEqual(await req(`${budgetPath}?month=${month}`, other),
     [200, { month, budget: null, source: null, spent: 0 }]);
 
+  const onboardPath = '/onboarding';
+  const setup = { living_months: 8, cooking_days_per_week: 3, monthly_budget_krw: 45000,
+    priority: 'build_routine', cooking_tools: ['microwave'], initial_inventory_state: 'needs_registration' };
+  assert.equal((await req(onboardPath, null, setup, 'PUT'))[0], 401);
+  assert.equal((await req(onboardPath, token, { ...setup, cooking_days_per_week: 8 }, 'PUT'))[0], 422);
+  assert.deepEqual(await req(onboardPath, token, setup, 'PUT'), [200, { profile: setup, completed: true }]);
+  assert.deepEqual(await req(onboardPath, token), [200, { profile: setup, completed: true }]);
+  assert.deepEqual(await req(onboardPath, other), [200, { profile: null, completed: false }]);
+  assert.deepEqual(await req(`${budgetPath}?month=${month}`, token),
+    [200, { month, budget: 12000, source: 'monthly', spent: 9900 }]);
+  assert.deepEqual(await req(`${budgetPath}?month=2026-02`, token),
+    [200, { month: '2026-02', budget: 45000, source: 'onboarding', spent: 0 }]);
+  assert.equal((await req('/profile', token))[1].profile.nickname, '검증용');
+
   const routinePath = '/routines';
   const routine = { action: 'save', id: randomUUID(), title: '스트레칭', time: '08:15', repeatDays: [] };
   assert.equal((await req(routinePath, null, routine))[0], 401);

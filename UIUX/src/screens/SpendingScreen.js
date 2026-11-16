@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useIsFocused } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ScreenHeader from '../components/ScreenHeader';
 import FormField from '../components/FormField';
@@ -21,6 +22,7 @@ const RECENT_LIMIT = 10;
 
 export default function SpendingScreen({ navigation }) {
   const insets = useSafeAreaInsets();
+  const focused = useIsFocused();
   const { budget, addOptions } = spendingData;
   const { transactions, sharedReceipts, sharedUid, visibleShared, refreshShared } = useAppData();
   // 처음에는 오늘이 속한 달을 보여줍니다.
@@ -68,7 +70,7 @@ export default function SpendingScreen({ navigation }) {
   }, [budgetKey]);
   useEffect(() => {
     let active = true;
-    if (!budgetKey) return;
+    if (!focused || !budgetKey) return;
     setBudgetNotice(null);
     loadBudget(monthKey, sharedUid).then((row) => {
       if (!active) return;
@@ -77,7 +79,7 @@ export default function SpendingScreen({ navigation }) {
       if (active) setBudgetNotice({ key: budgetKey, text: error.message });
     });
     return () => { active = false; };
-  }, [budgetKey, monthKey, sharedUid, visibleShared?.spending, reloadBudget]);
+  }, [focused, budgetKey, monthKey, sharedUid, visibleShared?.spending, reloadBudget]);
   const updateBudget = async (useAsDefault = false) => {
     if (budgetSaving || !budgetKey) return;
     if (!/^\d+$/.test(budgetText) || Number(budgetText) <= 0 || Number(budgetText) > 1e9) {

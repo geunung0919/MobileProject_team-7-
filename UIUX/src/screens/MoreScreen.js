@@ -76,7 +76,7 @@ export default function MoreScreen({ navigation }) {
 
         {/* 생활 데이터 수정 카드 */}
         {sharedReceipts ? <Pressable
-          onPress={() => navigation.navigate('Spending')}
+          onPress={() => navigation.navigate(sharedUid ? 'SharedOnboarding' : 'SharedLogin')}
           accessibilityRole="button"
           style={({ pressed }) => [styles.lifeCard, pressed && styles.pressed]}
         >
@@ -87,8 +87,8 @@ export default function MoreScreen({ navigation }) {
             backgroundColor={colors.badgeBg}
           />
           <View style={styles.lifeTexts}>
-            <Text style={styles.lifeTitle}>{sharedReceipts ? '기본 월 예산 관리' : lifeData.title}</Text>
-            <Text style={styles.lifeDescription}>{sharedReceipts ? '소비 화면에서 기본 월 예산을 설정해요.' : lifeData.description}</Text>
+            <Text style={styles.lifeTitle}>{sharedReceipts ? '내 생활 설정' : lifeData.title}</Text>
+            <Text style={styles.lifeDescription}>{sharedReceipts ? '기본 월 예산과 요리 환경을 설정해요.' : lifeData.description}</Text>
           </View>
           <Ionicons name="chevron-forward" size={20} color={colors.green} />
         </Pressable> : null}

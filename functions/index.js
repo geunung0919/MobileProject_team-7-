@@ -253,14 +253,17 @@ exports.api = onRequest(
         }
       }
 
-      if (req.path === "/finance/budget" || req.path === "/routines") {
+      if (req.path === "/finance/budget" || req.path === "/routines" ||
+          req.path === "/onboarding") {
         const user = await verifyUser(req, res);
         if (!user) return;
         const {getFirestore} = require("firebase-admin/firestore");
         try {
           const handler = req.path === "/finance/budget" ?
             require("./modules/finance/budgets").handleBudget :
-            require("./modules/routines").handleRoutines;
+            req.path === "/onboarding" ?
+              require("./modules/core/onboarding").handleOnboarding :
+              require("./modules/routines").handleRoutines;
           return await handler(getFirestore(), user.uid, req, res);
         } catch (error) {
           console.error("Shared finance or routine request failed", {

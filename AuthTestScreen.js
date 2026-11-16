@@ -80,7 +80,7 @@ export default function AuthTestScreen({ navigation, route }) {
 
       {route?.name === "SharedLogin" ? (
         <TouchableOpacity style={styles.button} onPress={() => navigation.goBack()}>
-          <Text style={styles.buttonText}>소비 화면으로 돌아가기</Text>
+          <Text style={styles.buttonText}>이전 화면으로 돌아가기</Text>
         </TouchableOpacity>
       ) : null}
 
@@ -90,7 +90,11 @@ export default function AuthTestScreen({ navigation, route }) {
         <>
           <Text>로그인 상태: 성공</Text>
           <Text>이메일: {user.email || "익명 사용자"}</Text>
-          <Text>UID: {user.uid}</Text>
+          {route?.name === "SharedLogin" ? (
+            <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('SharedOnboarding')}>
+              <Text style={styles.buttonText}>내 생활 설정</Text>
+            </TouchableOpacity>
+          ) : <Text>UID: {user.uid}</Text>}
 
           <TouchableOpacity style={styles.button} onPress={handleLogout}>
             <Text style={styles.buttonText}>로그아웃</Text>
