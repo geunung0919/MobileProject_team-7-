@@ -30,6 +30,9 @@ import EmergencyAiScreen from './UIUX/src/screens/EmergencyAiScreen';
 // Firebase 로그인 테스트 화면
 import AuthTestScreen from './AuthTestScreen';
 
+// 로그인·회원가입·온보딩 기능 (1번 모듈). 화면은 UI 담당이 만들어 screens 로 넘기면 됩니다(auth/README.md).
+import AuthGate from './auth/AuthGate';
+
 const Stack = createNativeStackNavigator();
 
 // 개발 시작 화면
@@ -37,6 +40,14 @@ const Stack = createNativeStackNavigator();
 const DEV_SCREEN = 'emergency';
 
 export default function App() {
+  return (
+    <AuthGate>
+      <DevApp />
+    </AuthGate>
+  );
+}
+
+function DevApp() {
   const [fontsLoaded] = useFonts({
     NotoSansKR_400Regular,
     NotoSansKR_500Medium,
