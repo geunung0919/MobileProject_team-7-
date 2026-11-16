@@ -54,3 +54,32 @@ test("validation rejects unsafe or unreviewed inventory without writes", async (
   assert.throws(() => normalize({...body(), amount: 1000}));
   assert.throws(() => normalize({...body(), receiptId: "../bad"}));
 });
+
+test("manual spending is saved under the shared ledger with its real source", async () => {
+  const db = fakeDb();
+  const input = {...body(), source: "manual", items: []};
+  const [saved, replay] = await Promise.all([confirmReceipt(db, "a", input), confirmReceipt(db, "a", input)]);
+  assert.equal(replay.expenseId, saved.expenseId);
+  assert.equal(replay.replayed, true);
+  assert.equal(db.rows.get(`users/a/transactions/${saved.expenseId}`).source, "manual");
+  assert.equal(db.rows.get(`users/a/transactions/${saved.expenseId}`).amount, 5000);
+  assert.equal(saved.inventoryIds.length, 0);
+});
+
+test("direct fridge stores normalized stock once and cannot revive a removed row on retry", async () => {
+  const {createManualItem} = require("../modules/refrigerator/manualItems");
+  const db = fakeDb();
+  const item = {requestId: "add-1", name: "쌀", quantity: 2, unit: "kg", purchasedAt: null,
+    storageMethod: "room", dateType: "unknown", expiresAt: null};
+  const [saved, replay] = await Promise.all([createManualItem(db, "a", item), createManualItem(db, "a", item)]);
+  assert.equal(replay.replayed, true);
+  const path = `users/a/fridgeItems/${saved.id}`;
+  const row = db.rows.get(path);
+  assert.deepEqual([row.quantity, row.unit, row.expiresAt, row.remainingCost], [2000, "g", null, null]);
+  assert.equal(db.rows.has(`users/b/fridgeItems/${saved.id}`), false);
+  await assert.rejects(createManualItem(db, "a", {...item, name: "다른 품목"}), {status: 409});
+  await assert.rejects(createManualItem(db, "a", {...item, requestId: "bad-date", dateType: "package", expiresAt: "2026-02-30"}), {status: 422});
+  db.rows.delete(path);
+  assert.equal((await createManualItem(db, "a", item)).replayed, true);
+  assert.equal(db.rows.has(path), false);
+});

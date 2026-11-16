@@ -9,7 +9,7 @@ import Chip from '../components/Chip';
 import PrimaryButton from '../components/PrimaryButton';
 import { colors, spacing } from '../theme';
 import { auth } from '../../../firebase/firebaseConfig';
-import { confirmReceipt } from '../../../api/receiptApi';
+import { confirmReceipt, createTransaction } from '../../../api/receiptApi';
 import { receiptOcrBase, recognizeReceipt } from '../../../api/receiptRecognition';
 import { draftFromRecognition, emptyLine, reviewedPayload } from '../utils/sharedReceipt.mjs';
 import { useAppData } from '../store/AppDataContext';
@@ -23,8 +23,9 @@ function Choices({ choices, value, onChange }) {
   </View>;
 }
 
-export default function SharedReceiptScreen({ navigation }) {
+export default function SharedReceiptScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
+  const manual = route.params?.source === 'manual';
   const { sharedUid, refreshShared } = useAppData();
   const [draft, setDraft] = useState({ title: '', purchasedAt: '', total: '', items: [], receiptId: '' });
   const [pending, setPending] = useState(null);
@@ -34,12 +35,13 @@ export default function SharedReceiptScreen({ navigation }) {
   const [ocrToken, setOcrToken] = useState('');
   const [ocrBusy, setOcrBusy] = useState(false);
   const lock = useRef(false);
-  const key = sharedUid ? `shared-receipt-pending:${sharedUid}` : null;
+  const key = sharedUid ? `${manual ? 'shared-manual-pending' : 'shared-receipt-pending'}:${sharedUid}` : null;
   useEffect(() => {
     let active = true;
     setReady(false);
     setPending(null);
     setOcrToken('');
+    setMessage('');
     setDraft({ title: '', purchasedAt: '', total: '', items: [], receiptId: '' });
     if (key) AsyncStorage.getItem(key).then((raw) => {
       if (!active) return;
@@ -81,13 +83,13 @@ export default function SharedReceiptScreen({ navigation }) {
     setMessage('');
     try {
       const receiptId = draft.receiptId || `receipt-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-      const payload = pending || reviewedPayload({ ...draft, receiptId });
+      const payload = pending || reviewedPayload({ ...draft, receiptId, source: manual ? 'manual' : undefined });
       await AsyncStorage.setItem(key, JSON.stringify(payload));
       setPending(payload);
       try {
-        await confirmReceipt(payload, sharedUid);
+        await (manual ? createTransaction : confirmReceipt)(payload, sharedUid);
       } catch (error) {
-        if (error.status === 422 || error.status === 409) {
+        if (error.status === 422 || error.status === 409 || error.status === 405) {
           await AsyncStorage.removeItem(key);
           setPending(null);
         }
@@ -97,18 +99,18 @@ export default function SharedReceiptScreen({ navigation }) {
       await AsyncStorage.removeItem(key);
       if (auth.currentUser?.uid === sharedUid) navigation.goBack();
     } catch (error) {
-      setMessage(error.message || '저장 상태를 확인하지 못했어요. 같은 요청으로 다시 시도해 주세요.');
+      setMessage(error.status === 405 ? '팀 서버에 소비 저장 기능을 먼저 배포해 주세요.' : (error.message || '저장 상태를 확인하지 못했어요. 같은 요청으로 다시 시도해 주세요.'));
     } finally {
       lock.current = false;
       setBusy(false);
     }
   }
   return <ScrollView contentContainerStyle={{ paddingTop: insets.top, paddingBottom: insets.bottom + 28, paddingHorizontal: spacing.screenX, gap: 8 }} keyboardShouldPersistTaps="handled">
-    <BackHeader title="영수증 저장" onBack={() => navigation.goBack()} />
-    {!sharedUid ? <Text>로그인 후 영수증을 저장할 수 있어요.</Text> : null}
+    <BackHeader title={manual ? '소비 직접 입력' : '영수증 저장'} onBack={() => navigation.goBack()} />
+    {!sharedUid ? <Text>로그인 후 소비를 저장할 수 있어요.</Text> : null}
     {message ? <Text accessibilityRole="alert" style={{ color: colors.warnText }}>{message}</Text> : null}
     {ready && !pending && !busy ? <>
-      {__DEV__ && receiptOcrBase ? <>
+      {!manual && __DEV__ && receiptOcrBase ? <>
         <FormField label="OCR 개발용 토큰" value={ocrToken} onChangeText={setOcrToken} secureTextEntry />
         <Text>사진은 설정한 OCR 서버로 보내요. 영수증 한 장씩 선택해 주세요.</Text>
         {ocrBusy ? <Text>사진 분석 중…</Text> : <>
@@ -117,7 +119,7 @@ export default function SharedReceiptScreen({ navigation }) {
         </>}
       </> : null}
       {draft.warnings?.map((warning, i) => <Text key={i}>{warning}</Text>)}
-      <Text>영수증 내용을 확인해 입력하고, 냉장고에 넣을 식재료만 선택해 주세요.</Text>
+      <Text>{manual ? '결제 내역을 입력하고, 냉장고에 넣을 식재료가 있으면 추가해 주세요.' : '영수증 내용을 확인해 입력하고, 냉장고에 넣을 식재료만 선택해 주세요.'}</Text>
       <FormField label="사용처" value={draft.title} onChangeText={(v) => patch('title', v)} maxLength={100} />
       <FormField label="구매일" placeholder="YYYY-MM-DD" value={draft.purchasedAt} onChangeText={(v) => patch('purchasedAt', v)} />
       <FormField label="총 결제 금액 (원)" value={draft.total} onChangeText={(v) => patch('total', v)} keyboardType="number-pad" />

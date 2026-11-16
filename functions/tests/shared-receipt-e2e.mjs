@@ -55,7 +55,33 @@ try {
   assert.equal(items[1].items[0].name, '우유');
   assert.equal(items[1].items[0].sourceExpenseId, expenses[1].items[0].id);
   assert.equal(otherItems[1].items.length, 0);
-  console.log('Auth → Functions → Firestore: authenticated save, replay, validation and UID isolation passed.');
+  const manual = reviewedPayload({
+    receiptId: randomUUID(), title: '직접 입력', purchasedAt: '2026-01-01', total: '4200', items: [], source: 'manual',
+  });
+  const spendPath = '/finance/transactions';
+  assert.equal((await req(spendPath, null, manual))[0], 401);
+  const [manualStatus, savedManual] = await req(spendPath, token, manual);
+  assert.equal(manualStatus, 201, JSON.stringify(savedManual));
+  assert.deepEqual(await req(spendPath, token, manual), [200, { ...savedManual, replayed: true }]);
+  const manualRow = (await req(spendPath, token))[1].items.find(({ id }) => id === savedManual.expenseId);
+  assert.deepEqual([manualRow.source, manualRow.amount], ['manual', 4200]);
+  assert.deepEqual((await req(spendPath, other))[1].items, []);
+
+  const fridgePath = '/refrigerator/items';
+  const direct = { requestId: randomUUID(), name: '쌀', quantity: 2, unit: 'kg', purchasedAt: null,
+    storageMethod: 'room', dateType: 'unknown', expiresAt: null };
+  assert.equal((await req(fridgePath, null, direct))[0], 401);
+  assert.equal((await req(fridgePath, token, { ...direct, quantity: -1 }))[0], 422);
+  const directWrites = await Promise.all([req(fridgePath, token, direct), req(fridgePath, token, direct)]);
+  assert.deepEqual(directWrites.map(([status]) => status).sort(), [200, 201], JSON.stringify(directWrites));
+  assert.equal(directWrites[0][1].id, directWrites[1][1].id);
+  assert.equal((await req(fridgePath, token, { ...direct, name: '다른 품목' }))[0], 409);
+  const inventory = (await req(fridgePath, token))[1].items;
+  assert.equal(inventory.length, 2);
+  const rice = inventory.find(({ id }) => id === directWrites[0][1].id);
+  assert.deepEqual([rice.source, rice.quantity, rice.unit, rice.expiresAt], ['manual', 2000, 'g', null]);
+  assert.deepEqual((await req(fridgePath, other))[1].items, []);
+  console.log('Auth → Functions → Firestore: receipt, manual expense, direct stock, replay and UID isolation passed.');
 } finally {
   server.closeAllConnections();
   server.close();

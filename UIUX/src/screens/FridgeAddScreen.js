@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -12,6 +12,8 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Chip from '../components/Chip';
+import { createFridgeItem } from '../../../api/receiptApi';
 import FormField from '../components/FormField';
 import QuantityField from '../components/QuantityField';
 import UnitPickerSheet from '../components/UnitPickerSheet';
@@ -32,10 +34,18 @@ function parseQuantity(text = '') {
 export default function FridgeAddScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
   const { unitOptions } = fridgeData;
-  const { fridgeItems, addFridgeItem, updateFridgeItem, removeFridgeItem } = useAppData();
+  const { fridgeItems, addFridgeItem, updateFridgeItem, removeFridgeItem, sharedReceipts, sharedUid, refreshShared } = useAppData();
 
   const editId = route.params?.id;
   const isEdit = !!editId;
+  const cloud = sharedReceipts && !isEdit;
+  const [storageMethod, setStorageMethod] = useState('refrigerated');
+  const [dateType, setDateType] = useState('unknown');
+  const [message, setMessage] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [pending, setPending] = useState(null);
+  const cloudPending = pending?.uid === sharedUid ? pending : null;
+  const saveLock = useRef(false);
   const existing = isEdit ? fridgeItems.find((i) => i.id === editId) : undefined;
   const parsed = existing ? parseQuantity(existing.quantity) : null;
 
@@ -89,24 +99,56 @@ export default function FridgeAddScreen({ navigation, route }) {
     setUnitSheetVisible(false);
   };
 
-  const handleSave = () => {
-    if (!name.trim() || !(Number(quantity) > 0) || !unit || !expiryDate) {
-      Alert.alert('입력을 확인해 주세요', '식재료 이름, 수량, 단위, 유통기한을 입력해 주세요.');
+  const handleSave = async () => {
+    if (saveLock.current) return;
+    setMessage('');
+    if (cloud && !sharedUid) {
+      navigation.navigate('SharedLogin');
       return;
     }
-    if (purchaseDate && toDateString(expiryDate) < toDateString(purchaseDate)) {
-      Alert.alert('날짜를 확인해 주세요', '유통기한은 구매일보다 빠를 수 없어요.');
+    const needsDate = !cloud || dateType !== 'unknown';
+    if (!cloudPending && (!name.trim() || !(Number(quantity) > 0) || !unit || (needsDate && !expiryDate))) {
+      setMessage('식재료 이름, 수량, 단위와 선택한 기한을 확인해 주세요.');
       return;
     }
-    // 저장할 값: { name, quantity(숫자), unit, purchaseDate(선택 안 했으면 null), expiry }
-    // 지금은 AppDataContext(메모리)에 저장됩니다. Firebase 연결은 그 파일에서 바꾸세요.
+    if (!cloudPending && purchaseDate && expiryDate && needsDate && toDateString(expiryDate) < toDateString(purchaseDate)) {
+      setMessage('기한은 구매일보다 빠를 수 없어요.');
+      return;
+    }
     const values = {
       name: name.trim(),
       quantity: Number(quantity),
       unit,
       purchaseDate: purchaseDate ? toDateString(purchaseDate) : null,
-      expiry: toDateString(expiryDate),
+      expiry: needsDate && expiryDate ? toDateString(expiryDate) : null,
     };
+    if (cloud) {
+      const payload = cloudPending?.payload ?? {
+        requestId: `fridge-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        name: values.name,
+        quantity: values.quantity,
+        unit: values.unit,
+        purchasedAt: values.purchaseDate,
+        expiresAt: values.expiry,
+        dateType,
+        storageMethod,
+      };
+      saveLock.current = true;
+      setSaving(true);
+      setPending({ uid: sharedUid, payload });
+      try {
+        await createFridgeItem(payload, sharedUid);
+        await refreshShared(sharedUid);
+        if (navigation.isFocused()) navigation.goBack();
+      } catch (error) {
+        if (error.status === 422 || error.status === 409 || error.status === 405) setPending(null);
+        setMessage(error.status === 405 ? '팀 서버에 냉장고 저장 기능을 먼저 배포해 주세요.' : (error.message || '저장을 확인하지 못했어요.'));
+      } finally {
+        saveLock.current = false;
+        setSaving(false);
+      }
+      return;
+    }
     if (isEdit) updateFridgeItem(editId, values);
     else addFridgeItem(values);
     navigation.goBack();
@@ -168,6 +210,8 @@ export default function FridgeAddScreen({ navigation, route }) {
           {isEdit ? '식재료 정보를 수정해 주세요.' : '냉장고에 보관할 식재료 정보를 입력해 주세요.'}
         </Text>
 
+        {message ? <Text accessibilityRole="alert" style={{ color: colors.warnText }}>{message}</Text> : null}
+        {cloudPending ? <Text>{cloudPending.payload.name} · 서버 저장 확인 대기 중</Text> : <>
         <FormField
           label="식재료 이름"
           value={name}
@@ -192,18 +236,33 @@ export default function FridgeAddScreen({ navigation, route }) {
           onPress={() => openDatePicker('purchase')}
           hint="구매한 날짜를 입력해 주세요. 예: 2026.11.02"
         />
-        <FormField
-          label="유통기한"
+        {cloud ? <>
+          <Text>보관 방법</Text>
+          <View style={styles.choices}>
+            {[['refrigerated', '냉장'], ['frozen', '냉동'], ['room', '실온']].map(([key, label]) => (
+              <Chip key={key} label={label} selected={storageMethod === key} onPress={() => setStorageMethod(key)} />
+            ))}
+          </View>
+          <Text>기한 유형</Text>
+          <View style={styles.choices}>
+            {[['unknown', '기한 모름'], ['package', '포장지 소비기한'], ['reference', '보관 참고일']].map(([key, label]) => (
+              <Chip key={key} label={label} selected={dateType === key} onPress={() => { setDateType(key); setExpiryDate(null); }} />
+            ))}
+          </View>
+        </> : null}
+        {!cloud || dateType !== 'unknown' ? <FormField
+          label={cloud && dateType === 'reference' ? '보관 참고일' : '유통기한'}
           value={expiryDate ? formatDotDate(toDateString(expiryDate)) : ''}
           placeholder="YYYY.MM.DD"
           rightIcon="calendar-month-outline"
           onPress={() => openDatePicker('expiry')}
-          hint="포장에 적힌 유통기한을 입력해 주세요."
-        />
+          hint={cloud && dateType === 'reference' ? undefined : "포장에 적힌 유통기한을 입력해 주세요."}
+        /> : null}
+        </>}
       </ScrollView>
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + 14 }]}>
-        <PrimaryButton label={isEdit ? '수정 완료' : '추가하기'} onPress={handleSave} />
+        {saving ? <Text>서버에 저장 중…</Text> : <PrimaryButton label={cloudPending ? '같은 요청으로 다시 확인' : isEdit ? '수정 완료' : cloud ? '서버에 저장' : '추가하기'} onPress={handleSave} />}
       </View>
 
       <UnitPickerSheet
@@ -230,6 +289,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
+  choices: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginVertical: 8 },
   titleRow: {
     flexDirection: 'row',
     alignItems: 'center',

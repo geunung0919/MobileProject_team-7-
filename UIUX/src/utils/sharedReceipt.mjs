@@ -28,7 +28,8 @@ export function reviewedPayload(draft) {
     return entry;
   });
   if (items.reduce((n, item) => n + (item.linePaidAmount ?? 0), 0) > total) throw new Error('품목 결제 금액의 합계가 총 결제액보다 커요.');
-  return { receiptId: draft.receiptId, requestId: draft.receiptId, title: draft.title.trim(), purchasedAt: draft.purchasedAt, amount: total, items };
+  return { receiptId: draft.receiptId, requestId: draft.receiptId, title: draft.title.trim(), purchasedAt: draft.purchasedAt, amount: total, items,
+    ...(draft.source === 'manual' ? { source: 'manual' } : {}) };
 }
 
 export function draftFromRecognition(result) {

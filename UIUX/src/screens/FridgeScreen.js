@@ -70,7 +70,7 @@ export default function FridgeScreen({ navigation }) {
           {sharedError ? <Text accessibilityRole="alert">{sharedError}</Text> : null}
           {visibleShared?.inventory.map((row) => <Text key={row.id}>{row.name} · {row.quantity}{row.unit} · {row.dateType === 'unknown' ? '기한 미입력' : row.expiresAt}</Text>)}
         </View> : null}
-        <Text style={styles.sectionTitle}>보관 중인 식재료</Text>
+        <Text style={styles.sectionTitle}>{sharedReceipts ? '기기 내 예시 식재료' : '보관 중인 식재료'}</Text>
 
         <View style={styles.chipRow}>
           <Chip
@@ -104,7 +104,7 @@ export default function FridgeScreen({ navigation }) {
         </View>
       </ScrollView>
 
-      <Fab accessibilityLabel="식재료 추가" onPress={() => navigation.navigate('FridgeAdd')} />
+      <Fab accessibilityLabel="식재료 추가" onPress={() => navigation.navigate(sharedReceipts && !sharedUid ? 'SharedLogin' : 'FridgeAdd')} />
     </View>
   );
 }

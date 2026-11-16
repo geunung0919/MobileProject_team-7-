@@ -40,7 +40,8 @@ export default function SpendingScreen({ navigation }) {
     const id = pendingOption.current;
     pendingOption.current = null;
     if (id === 'manual') {
-      navigation.navigate('ManualEntry');
+      if (sharedReceipts && sharedUid) navigation.navigate('SharedReceipt', { source: 'manual' });
+      else navigation.navigate(sharedReceipts ? 'SharedLogin' : 'ManualEntry');
     }
     if (id === 'receipt') {
       // TODO: 카메라 화면이 완성되면 'ReceiptCamera' 로 이동하고, 인식 결과를 navigate('ReceiptResult', { receipt }) 로 넘기세요.
@@ -95,6 +96,7 @@ export default function SpendingScreen({ navigation }) {
         <BudgetCard budget={budget} spent={spent} />
         {sharedReceipts ? <View style={{ gap: 8, marginVertical: 16 }}>
           <Text style={styles.sectionTitle}>서버 소비 기록</Text>
+          {sharedUid ? <SoftButton label="소비 직접 입력" onPress={() => navigation.navigate('SharedReceipt', { source: 'manual' })} /> : null}
           <SoftButton label={sharedUid ? '영수증 저장' : '로그인'} onPress={() => navigation.navigate(sharedUid ? 'SharedReceipt' : 'SharedLogin')} />
           {sharedUid ? <SoftButton label="서버 목록 새로고침" onPress={() => refreshShared(sharedUid).catch(() => {})} /> : null}
           {sharedError ? <Text accessibilityRole="alert">{sharedError}</Text> : null}
@@ -104,7 +106,7 @@ export default function SpendingScreen({ navigation }) {
         </View> : null}
 
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>최근 지출 내역</Text>
+          <Text style={styles.sectionTitle}>{sharedReceipts ? '기기 내 예시 지출' : '최근 지출 내역'}</Text>
           <Pressable
             style={styles.viewAll}
             hitSlop={8}

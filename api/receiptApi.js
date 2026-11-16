@@ -35,3 +35,5 @@ async function request(path, body, expectedUid) {
 export const confirmReceipt = (reviewedReceipt, uid) => request('/finance/receipts/confirm', reviewedReceipt, uid);
 export const listTransactions = (uid) => request('/finance/transactions', undefined, uid);
 export const listFridgeItems = (uid) => request('/refrigerator/items', undefined, uid);
+export const createFridgeItem = (item, uid) => request('/refrigerator/items', item, uid);
+export const createTransaction = (reviewed, uid) => request('/finance/transactions', reviewed, uid);

@@ -255,10 +255,19 @@ exports.api = onRequest(
         const {getFirestore} = require("firebase-admin/firestore");
         const db = getFirestore();
         try {
-          if (req.path === "/finance/receipts/confirm" &&
-              req.method === "POST") {
+          if ((req.path === "/finance/receipts/confirm" ||
+              req.path === "/finance/transactions") && req.method === "POST") {
             const {confirmReceipt} = require("./modules/finance/receipts");
-            const result = await confirmReceipt(db, user.uid, req.body);
+            const source = req.path === "/finance/transactions" ?
+              "manual" : "ocr";
+            const result = await confirmReceipt(db, user.uid,
+                {...req.body, source});
+            return res.status(result.replayed ? 200 : 201).json(result);
+          }
+          if (req.path === "/refrigerator/items" && req.method === "POST") {
+            const {createManualItem} = require(
+                "./modules/refrigerator/manualItems");
+            const result = await createManualItem(db, user.uid, req.body);
             return res.status(result.replayed ? 200 : 201).json(result);
           }
           if (req.method === "GET" &&
