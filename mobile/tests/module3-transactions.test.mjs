@@ -1,3 +1,4 @@
+const businessRows=rows=>rows.map(({version,updatedAt,...row})=>row).sort((a,b)=>a.id.localeCompare(b.id));
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {applyMeal,applyDiscard,undoLatest,planMeal,removeFromBatch} from '../src/features/fridge/domain/transactions.mjs';
@@ -27,7 +28,7 @@ test('같은 transaction id 재시도는 재차감하지 않음',()=>{
 });
 test('되돌리기는 소진된 배치까지 수량·금액·기록 복구',()=>{
  const s=initial();const a=applyMeal(s,recipe,use(4),'m','now',date);const b=undoLatest(a,'m');
- assert.deepEqual(b.inventory,s.inventory);assert.equal(b.meals.length,0);assert.equal(b.undo,null);assert.throws(()=>undoLatest(b,'m'));
+ assert.deepEqual(businessRows(b.inventory),businessRows(s.inventory));assert.ok(b.inventory.every(i=>i.version>0&&i.updatedAt));assert.equal(b.meals.length,0);assert.equal(b.undo,null);assert.throws(()=>undoLatest(b,'m'));
  assert.equal(applyMeal(b,recipe,use(1),'m','now',date),b);
 });
 test('다음 재고 변경 후 오래된 되돌리기 거부',()=>{
@@ -41,7 +42,7 @@ test('1/3씩 반복 폐기해도 금액 합계 1000원 보존',()=>{
 test('전체 폐기/재시도/되돌리기',()=>{
  const s=initial(),a=applyDiscard(s,'a',3,'기한 경과','d');
  assert.equal(a.discards[0].cost,1000);assert.equal(applyDiscard(a,'a',3,'','d'),a);
- assert.deepEqual(undoLatest(a,'d').inventory,s.inventory);assert.equal(undoLatest(a,'d').discards.length,0);
+ assert.deepEqual(businessRows(undoLatest(a,'d').inventory),businessRows(s.inventory));assert.equal(undoLatest(a,'d').discards.length,0);
 });
 test('폐기는 만료 재고도 허용하고 초과 수량은 거부',()=>{
  const s={...initial(),inventory:[batch('expired',2,500,'2026-01-01')]};
@@ -68,7 +69,7 @@ test('동시에 같은 요청 두 개 저장해도 단일 차감',async()=>{
  assert.equal(writes,1);assert.equal(store.get().meals.length,1);
 });
 test('재시작 후 저장된 undo로 복구',()=>{
- const s=applyDiscard(initial(),'a',1,'','d');const reloaded=JSON.parse(JSON.stringify(s));assert.deepEqual(undoLatest(reloaded,'d').inventory,initial().inventory);
+ const s=applyDiscard(initial(),'a',1,'','d');const reloaded=JSON.parse(JSON.stringify(s));assert.deepEqual(businessRows(undoLatest(reloaded,'d').inventory),businessRows(initial().inventory));
 });
 test('임시 추천 모드, 빈 재고 및 교체 가능한 provider',async()=>{
  assert.deepEqual(await recommendRecipes({inventory:[],recipes:[recipe]}),{mode:'mock',items:[]});

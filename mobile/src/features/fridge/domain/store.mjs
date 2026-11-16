@@ -1,9 +1,10 @@
+import {defaultConditions,defaultAlertSettings} from './nonAi.mjs';
 import { validateSyncMetadata } from './sync.mjs';
 import { applyMeal, applyDiscard, undoLatest } from './transactions.mjs';
 import { mergeShopping, registerPurchased, shoppingItem } from './shopping.mjs';
 import { shortages, validDate } from './inventory.mjs';
 
-export const emptyState = () => ({ version: 1, inventory: [], meals: [], shopping: [], importedExpenseIds: [], discards: [], undo: null, processedIds: [] });
+export const emptyState = () => ({ version: 1, inventoryEvents:[], usages:[], conditions:{...defaultConditions}, alertSettings:{...defaultAlertSettings}, inventory: [], meals: [], shopping: [], importedExpenseIds: [], discards: [], undo: null, processedIds: [] });
 export function storageKey(origin, userId) {
   if (!origin || typeof userId !== 'string' || !userId) throw new Error('사용자 확인이 필요해요.');
   return `jachwi.fridge.v1:${encodeURIComponent(origin)}:${encodeURIComponent(userId)}`;
@@ -31,11 +32,12 @@ export function parseState(raw) {
     if (typeof meal.id !== 'string' || typeof meal.name !== 'string' || !Number.isFinite(Date.parse(meal.createdAt))) throw new Error('잘못된 식사 데이터');
   }
   if (!value.importedExpenseIds.every(id => typeof id === 'string')) throw new Error('잘못된 등록 기록');
-  const migrated = { ...value, discards: value.discards ?? [], undo: value.undo ?? null, processedIds: value.processedIds ?? [] };
+  const migrated = { ...value, inventoryEvents:value.inventoryEvents||[], usages:value.usages||[], conditions:{...defaultConditions,...value.conditions}, alertSettings:{...defaultAlertSettings,...value.alertSettings}, discards: value.discards ?? [], undo: value.undo ?? null, processedIds: value.processedIds ?? [] };
   if (!Array.isArray(migrated.discards) || !Array.isArray(migrated.processedIds) || !migrated.processedIds.every(id => typeof id === 'string')) throw new Error('잘못된 작업 기록');
   if (migrated.undo !== null) {
-    if (!['meal', 'discard'].includes(migrated.undo.kind) || typeof migrated.undo.id !== 'string' || !Array.isArray(migrated.undo.inventory)) throw new Error('잘못된 복구 기록');
+    if (!['meal', 'discard', 'use'].includes(migrated.undo.kind) || typeof migrated.undo.id !== 'string' || !Array.isArray(migrated.undo.inventory)) throw new Error('잘못된 복구 기록');
     migrated.undo.inventory.forEach(validateItem);
+    if(!migrated.undo.expectedInventory)migrated.undo=null;
   }
   validateSyncMetadata(migrated.inventorySync);
   return migrated;
