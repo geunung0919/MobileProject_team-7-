@@ -88,7 +88,7 @@ const styles = StyleSheet.create({
   },
   button: {
     marginTop: 18,
-    height: 44,
+    minHeight: 44,
     borderRadius: 22,
     backgroundColor: colors.tabActiveBg,
     flexDirection: 'row',

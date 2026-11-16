@@ -34,10 +34,20 @@ export const summaryStyles = StyleSheet.create({
     alignItems: 'baseline',
     marginTop: 4,
   },
+  // 큰 숫자 줄. 반폭 카드 안에서 넘치지 않도록 쓰는 쪽에서 한 줄 + 자동 축소(adjustsFontSizeToFit)를 함께 씁니다.
+  bigLine: {
+    marginTop: 4,
+  },
   bigText: {
     fontFamily: fonts.bold,
-    fontSize: 27,
-    lineHeight: 40,
+    fontSize: 25,
+    lineHeight: 36,
+    color: colors.textPrimary,
+  },
+  // "기한 임박" 처럼 숫자 앞에 붙는 설명 글자 (숫자보다 작게)
+  bigHeadline: {
+    fontFamily: fonts.bold,
+    fontSize: 17,
     color: colors.textPrimary,
   },
   unit: {

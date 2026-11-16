@@ -58,6 +58,7 @@ const styles = StyleSheet.create({
   titleRow: {
     flexDirection: 'row',
     alignItems: 'baseline',
+    flexWrap: 'wrap', // 글자가 커져 한 줄에 안 들어가면 상태 글자가 아래로 내려감
   },
   title: {
     fontFamily: fonts.bold,
