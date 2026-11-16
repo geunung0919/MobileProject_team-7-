@@ -5,3 +5,8 @@ npm-debug.log*
 
 .expo/
 dist/
+
+# Firebase 에뮬레이터·CLI 로그
+firebase-debug*.log
+firestore-debug*.log
+ui-debug*.log
