@@ -136,7 +136,7 @@ const styles = StyleSheet.create({
   },
   // 흰 바탕 + 연한 테두리의 둥근 입력 상자 (카드 안의 모든 칸에 공통)
   box: {
-    height: 47,
+    minHeight: 47,
     borderRadius: 24,
     borderWidth: 1,
     borderColor: colors.inputBorder,
@@ -222,14 +222,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   expiryLabel: {
-    width: 80,
+    minWidth: 80,
+    paddingRight: 4,
     fontFamily: fonts.medium,
     fontSize: 15,
     color: colors.green,
   },
   expiryBox: {
     flex: 1,
-    height: 44,
+    minHeight: 44,
     paddingHorizontal: 16,
     justifyContent: 'space-between',
     borderWidth: 1.5,

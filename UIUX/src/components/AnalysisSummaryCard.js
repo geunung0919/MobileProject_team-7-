@@ -20,19 +20,19 @@ export default function AnalysisSummaryCard({
         <Text style={styles.period}>{periodLabel}</Text>
         <Text style={styles.spentLabel}>{spentLabel}</Text>
       </View>
-      <View style={styles.bigRow}>
-        <Text style={styles.bigText}>{formatNumber(spent)}</Text>
+      <Text style={styles.bigText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
+        {formatNumber(spent)}
         <Text style={styles.bigUnit}>원</Text>
-      </View>
+      </Text>
       <View style={styles.divider} />
       <View style={styles.bottomRow}>
-        <View>
+        <View style={styles.left}>
           <Text style={styles.subLabel}>{budgetLabel}</Text>
-          <Text style={styles.budgetValue}>{formatNumber(budget)}원</Text>
+          <Text style={styles.budgetValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>{formatNumber(budget)}원</Text>
         </View>
-        <View style={styles.right}>
+        <View style={[styles.left, styles.right]}>
           <Text style={styles.subLabel}>{remainingLabel}</Text>
-          <Text style={styles.remainingValue}>{formatNumber(remaining)}원</Text>
+          <Text style={styles.remainingValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>{formatNumber(remaining)}원</Text>
         </View>
       </View>
     </View>
@@ -63,12 +63,8 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.textSecondary,
   },
-  bigRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    marginTop: 4,
-  },
   bigText: {
+    marginTop: 4,
     fontFamily: fonts.bold,
     fontSize: 38,
     lineHeight: 52,
@@ -88,6 +84,9 @@ const styles = StyleSheet.create({
     marginTop: 12,
     flexDirection: 'row',
     justifyContent: 'space-between',
+  },
+  left: {
+    flex: 1,
   },
   right: {
     alignItems: 'flex-end',

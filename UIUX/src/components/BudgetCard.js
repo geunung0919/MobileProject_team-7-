@@ -19,10 +19,10 @@ export default function BudgetCard({ budget, spent }) {
   return (
     <View style={styles.card}>
       <Text style={styles.label}>이번 달 남은 예산</Text>
-      <View style={styles.bigRow}>
-        <Text style={styles.bigText}>{formatNumber(remaining)}</Text>
+      <Text style={styles.bigText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
+        {formatNumber(remaining)}
         <Text style={styles.bigUnit}>원</Text>
-      </View>
+      </Text>
 
       <View style={styles.progressLabels}>
         <Text style={styles.progressText}>예산의 {usedPercent}%를 사용했어요</Text>
@@ -35,13 +35,13 @@ export default function BudgetCard({ budget, spent }) {
       <View style={styles.divider} />
 
       <View style={styles.bottomRow}>
-        <View>
+        <View style={styles.left}>
           <Text style={styles.subLabel}>이번 달 지출금</Text>
-          <Text style={styles.spentValue}>{formatNumber(spent)}원</Text>
+          <Text style={styles.spentValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>{formatNumber(spent)}원</Text>
         </View>
-        <View style={styles.right}>
+        <View style={[styles.left, styles.right]}>
           <Text style={styles.subLabel}>이번 달 예산</Text>
-          <Text style={styles.budgetValue}>{formatNumber(budget)}원</Text>
+          <Text style={styles.budgetValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>{formatNumber(budget)}원</Text>
         </View>
       </View>
     </View>
@@ -60,12 +60,8 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: colors.green,
   },
-  bigRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    marginTop: 2,
-  },
   bigText: {
+    marginTop: 2,
     fontFamily: fonts.bold,
     fontSize: 38,
     lineHeight: 52,
@@ -113,6 +109,10 @@ const styles = StyleSheet.create({
     marginTop: 14,
     flexDirection: 'row',
     justifyContent: 'space-between',
+  },
+  // 두 칸이 나란히 있을 때 한쪽이 길어져도 서로 밀어내지 않도록 같은 비율로 나눔
+  left: {
+    flex: 1,
   },
   right: {
     alignItems: 'flex-end',
