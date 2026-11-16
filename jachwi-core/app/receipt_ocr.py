@@ -355,7 +355,7 @@ def process_image(payload):
     }
 
 
-def register_receipt_ocr(app, current_user, db):
+def register_receipt_ocr(app, current_user, db, *, allow_ai_fallback=True):
     @app.post('/api/v1/me/spending/receipts/analyze', tags=['2번 영수증 OCR'])
     async def analyze(
         request: Request,
@@ -381,7 +381,7 @@ def register_receipt_ocr(app, current_user, db):
                 result,
                 session.get(LedgerRow, user),
             )
-            if payload.get('use_ai_fallback', True):
+            if allow_ai_fallback and payload.get('use_ai_fallback', True):
                 result = await run_in_threadpool(apply_ai_receipt_items, result)
             return result
         finally:

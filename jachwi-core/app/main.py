@@ -6,6 +6,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
 from fastapi import FastAPI, Depends, HTTPException
+from .firebase_identity import create_firebase_verifier
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -25,27 +26,55 @@ SNAPSHOTS = {'spending': SpendingSnapshot, 'inventory': InventorySnapshot, 'life
 
 def create_app(database_url=None, tokens=None, demo_enabled=None):
     url = database_url or os.getenv('DATABASE_URL', 'sqlite:///./core.db')
-    identities = tokens if tokens is not None else json.loads(os.getenv('DEV_TOKENS_JSON', '{}'))
-    enabled = demo_enabled if demo_enabled is not None else os.getenv('ENABLE_DEMO_ENDPOINTS', 'false').lower() == 'true'
-    if not identities or any(len(k) < 16 or not isinstance(v, str) or not 1 <= len(v) <= 64 for k, v in identities.items()):
-        raise RuntimeError('DEV_TOKENS_JSON에 16자 이상의 개발 토큰과 사용자 ID를 설정하세요. README 참고.')
+    auth_mode = 'development' if tokens is not None else os.getenv('CORE_AUTH_MODE', 'development').strip()
+    if auth_mode not in ('development', 'firebase'):
+        raise RuntimeError('CORE_AUTH_MODE는 development 또는 firebase여야 합니다.')
+    firebase_mode = auth_mode == 'firebase'
+    if firebase_mode:
+        verify_firebase, close_firebase = create_firebase_verifier()
+        identities = {}
+    else:
+        verify_firebase = close_firebase = None
+        identities = tokens if tokens is not None else json.loads(os.getenv('DEV_TOKENS_JSON', '{}'))
+        if not identities or any(len(k) < 16 or not isinstance(v, str) or not 1 <= len(v) <= 64 for k, v in identities.items()):
+            raise RuntimeError('DEV_TOKENS_JSON에 16자 이상의 개발 토큰과 사용자 ID를 설정하세요. README 참고.')
+    enabled = not firebase_mode and (demo_enabled if demo_enabled is not None else os.getenv('ENABLE_DEMO_ENDPOINTS', 'false').lower() == 'true')
     engine, sessions = connect(url)
     @asynccontextmanager
     async def lifespan(app):
         Base.metadata.create_all(engine)  # 초기 개발용. 스키마 변경은 별도 마이그레이션 필요.
-        yield
-        engine.dispose()
+        try:
+            yield
+        finally:
+            engine.dispose()
+            if close_firebase:
+                close_firebase()
     app = FastAPI(title='자취 가이드 중앙 코어', version='0.1.0', lifespan=lifespan)
     app.state.sessions = sessions
+    if firebase_mode:
+        permitted = {
+            '/health': {'GET'},
+            '/api/v1/me/spending/receipts/analyze': {'POST', 'OPTIONS'},
+            '/api/v1/me/spending/imports/preview': {'POST', 'OPTIONS'},
+        }
+
+        @app.middleware('http')
+        async def receipt_routes_only(request, call_next):
+            if request.method not in permitted.get(request.url.path, set()):
+                return JSONResponse(status_code=404, content={'error': {'message': '요청 경로를 확인해 주세요.'}})
+            return await call_next(request)
+
     app.add_middleware(CORSMiddleware, allow_origins=os.getenv('CORS_ORIGINS', 'http://localhost:5173,http://127.0.0.1:5173,http://localhost:8081,http://127.0.0.1:8081').split(','),
                        allow_methods=['GET', 'PUT', 'POST', 'DELETE'], allow_headers=['Authorization', 'Content-Type'])
     bearer = HTTPBearer(auto_error=False)
     def current_user(credentials: HTTPAuthorizationCredentials | None = Depends(bearer)):
         if credentials:
+            if verify_firebase:
+                return verify_firebase(credentials.credentials)
             for token, user in identities.items():
                 if secrets.compare_digest(token, credentials.credentials):
                     return user
-        raise HTTPException(401, '유효한 개발 토큰이 필요합니다.', headers={'WWW-Authenticate': 'Bearer'})
+        raise HTTPException(401, '로그인이 필요합니다.' if firebase_mode else '유효한 개발 토큰이 필요합니다.', headers={'WWW-Authenticate': 'Bearer'})
     def db():
         with sessions() as session:
             yield session
@@ -177,8 +206,8 @@ def create_app(database_url=None, tokens=None, demo_enabled=None):
         @app.put('/api/v1/dev/me/modules/life', tags=['개발 연결 5번'])
         def life(body: LifeSnapshot, user=Depends(current_user), session=Depends(db)):
             return save_snapshot('life', body, user, session)
-    register_fintech(app, current_user, db)
-    register_receipt_ocr(app, current_user, db)
+    register_fintech(app, current_user, db, allow_ai_fallback=not firebase_mode)
+    register_receipt_ocr(app, current_user, db, allow_ai_fallback=not firebase_mode)
     from pathlib import Path
     from fastapi.responses import FileResponse
     @app.get('/spending', include_in_schema=False)

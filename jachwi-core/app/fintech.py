@@ -550,7 +550,7 @@ def apply_learned_receipt_items(result, row):
     return result
 
 
-def register_fintech(app, current_user, db):
+def register_fintech(app, current_user, db, *, allow_ai_fallback=True):
     router = APIRouter(prefix='/api/v1/me/spending', tags=['2번 소비 관리'])
 
     def ledger(session, user):
@@ -670,7 +670,7 @@ def register_fintech(app, current_user, db):
         result = parse_import_candidate(body.raw_text, body.source)
         if body.source == 'ocr':
             result = apply_learned_receipt_items(result, ledger(session, user))
-            if body.use_ai_fallback:
+            if allow_ai_fallback and body.use_ai_fallback:
                 result = apply_ai_receipt_items(result)
         return result
 

@@ -28,7 +28,7 @@ npm run receipt:web
 ```bash
 cd jachwi-core
 python -m pip install -r requirements-lock.txt
-uvicorn app.main:app --host 0.0.0.0 --port 8000
+uvicorn app.main:create_app --factory --host 0.0.0.0 --port 8000
 ```
 
 루트의 로컬 Expo 환경에 `EXPO_PUBLIC_RECEIPT_OCR_BASE_URL`을 등록한다. PC 웹은 `http://127.0.0.1:8000`, 실제 휴대폰은 같은 네트워크의 개발 PC 주소를 사용한다. 웹 주소가 기본 허용 출처와 다르면 FastAPI의 `CORS_ORIGINS`에 실제 웹 주소를 지정한다. Tesseract 한국어/영어 언어팩 또는 PaddleOCR 설치는 [OCR 서버 안내](../jachwi-core/docs/RECEIPT_OCR.md) 참고. 앱은 개발 모드에서 분석 서버의 개발 인증 토큰을 별도로 입력받는다. 다중 사용자 공개 배포 전에는 분석 서버에 운영 인증·HTTPS를 적용해야 한다.
@@ -56,3 +56,20 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000
 ## 생활 설정(온보딩)
 
 로그인 뒤 **내 생활 설정**, 또는 **더보기 → 내 생활 설정**에서 자취 기간·요리 빈도·도구·기본 월 예산·목표·재고 상태를 저장한다. 인증된 `GET/PUT /onboarding`이 현재 계정 `users/{uid}.profile`을 조회·병합한다. 월별 예산이 이미 있으면 해당 월 예산이 우선하고, 없을 때는 소비·홈·AI 일간 리포트에서 기본 값을 사용한다. 독립 FastAPI 앱의 기존 SQLite 자료는 자동으로 이전하지 않는다.
+
+## 출시용 분석 서버
+
+운영에서는 아래처럼 FastAPI 분석 전용으로 실행한다. Google Cloud에서 서비스 계정의 기본 인증을 사용하고, 개인 서비스 계정 키 파일을 Git에 넣지 않는다.
+
+```bash
+cd jachwi-core
+python -m pip install -r requirements-firebase.txt
+CORE_AUTH_MODE=firebase FIREBASE_PROJECT_ID=solo-living-ai uvicorn app.main:create_app --factory --host 0.0.0.0 --port 8000
+```
+
+- 앞단에 고정 HTTPS 주소와 요청/본문 크기 제한을 둔다. 브라우저에서 쓰면 `CORS_ORIGINS`에 배포 앱의 정확한 출처를 등록한다.
+- 앱 빌드 설정에 `EXPO_PUBLIC_RECEIPT_AUTH_MODE=firebase`, `EXPO_PUBLIC_RECEIPT_OCR_BASE_URL=https://<팀 분석 서버>`를 넣는다. 해당 주소에는 팀이 관리하는 분석 서버만 사용한다.
+- 앱은 이미 로그인한 계정의 Firebase ID 토큰을 분석 요청에 사용한다. 배포용 분석 서버는 개발 토큰과 Auth 에뮬레이터를 허용하지 않고, 사진/원문 분석 및 상태 확인 경로만 공개한다.
+- 분석 자체는 소비를 저장하지 않는다. 사용자가 결과를 확인하고 저장하면 공통 Firebase API가 Firestore에 쓴다.
+
+운영 컨테이너는 `docker build -t team7-receipt-analysis ./jachwi-core`로 빌드한다. 한국어·영어 OCR 언어팩이 포함되어 있고, 구동 시 Firebase 프로젝트 ID와 실제 CORS 출처는 호스팅 설정에서 주입한다. 실제 배포는 팀 클라우드 권한으로 진행하고, 배포 후 테스트 계정으로 먼저 검증한다.

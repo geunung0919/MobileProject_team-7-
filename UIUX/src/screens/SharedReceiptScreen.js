@@ -10,7 +10,7 @@ import PrimaryButton from '../components/PrimaryButton';
 import { colors, spacing } from '../theme';
 import { auth } from '../../../firebase/firebaseConfig';
 import { confirmReceipt, createTransaction } from '../../../api/receiptApi';
-import { receiptOcrBase, recognizeReceipt, previewPayment } from '../../../api/receiptRecognition';
+import { receiptOcrBase, receiptUsesDevelopmentToken, recognizeReceipt, previewPayment } from '../../../api/receiptRecognition';
 import { draftFromRecognition, draftFromPayment, emptyLine, reviewedPayload } from '../utils/sharedReceipt.mjs';
 import { getPendingNotifications, isPaymentNotificationModuleAvailable, isNotificationAccessEnabled,
   markProcessedNotifications, openNotificationAccessSettings } from '../../../modules/payment-notifications';
@@ -67,8 +67,8 @@ export default function SharedReceiptScreen({ navigation, route }) {
   const update = (id, fields) => setDraft((old) => ({ ...old, items: old.items.map((item) => item.key === id ? { ...item, ...fields } : item) }));
   const add = () => setDraft((old) => ({ ...old, items: [...old.items, emptyLine(`line-${Date.now()}-${Math.random().toString(36).slice(2)}`)] }));
   async function pick(camera) {
-    if (lock.current || !ocrToken.trim()) {
-      if (!ocrToken.trim()) setMessage('OCR 개발 토큰을 먼저 입력해 주세요.');
+    if (lock.current || (receiptUsesDevelopmentToken && !ocrToken.trim())) {
+      if (!lock.current) setMessage('OCR 개발 토큰을 먼저 입력해 주세요.');
       return;
     }
     lock.current = true;
@@ -79,7 +79,7 @@ export default function SharedReceiptScreen({ navigation, route }) {
       if (camera && !(await ImagePicker.requestCameraPermissionsAsync()).granted) throw new Error('카메라 권한을 확인해 주세요.');
       const picked = camera ? await ImagePicker.launchCameraAsync(options) : await ImagePicker.launchImageLibraryAsync(options);
       if (picked.canceled) return;
-      const recognized = await recognizeReceipt(picked.assets[0], ocrToken);
+      const recognized = await recognizeReceipt(picked.assets[0], ocrToken, sharedUid);
       if (auth.currentUser?.uid === sharedUid) setDraft(draftFromRecognition(recognized));
     } catch (error) {
       setMessage(error.message || '사진을 분석하지 못했어요.');
@@ -102,7 +102,7 @@ export default function SharedReceiptScreen({ navigation, route }) {
     setOcrBusy(true);
     setMessage('');
     try {
-      const result = await previewPayment(rawText, paymentSource, ocrToken);
+      const result = await previewPayment(rawText, paymentSource, ocrToken, sharedUid);
       const next = draftFromPayment(result, paymentSource);
       if (auth.currentUser?.uid === sharedUid) {
         setDraft({ ...next, notificationId: selectedNotification });
@@ -139,10 +139,15 @@ export default function SharedReceiptScreen({ navigation, route }) {
       if (notificationId) {
         try { markProcessedNotifications([notificationId]); } catch { /* saved; reimport remains idempotent */ }
       }
-      await AsyncStorage.removeItem(key);
+      void refreshShared(sharedUid);
+      try {
+        await AsyncStorage.removeItem(key);
+      } catch {
+        setMessage('서버 저장은 완료됐어요. 기기의 대기 기록은 같은 요청으로 다시 확인해 정리해 주세요.');
+        return;
+      }
       setPending(null);
       if (auth.currentUser?.uid === sharedUid && navigation.isFocused()) navigation.goBack();
-      void refreshShared(sharedUid);
     } catch (error) {
       setMessage(error.status === 405 ? '팀 서버에 소비 저장 기능을 먼저 배포해 주세요.' : (error.message || '저장 상태를 확인하지 못했어요. 같은 요청으로 다시 시도해 주세요.'));
     } finally {
@@ -155,8 +160,8 @@ export default function SharedReceiptScreen({ navigation, route }) {
     {!sharedUid ? <Text>로그인 후 소비를 저장할 수 있어요.</Text> : null}
     {message ? <Text accessibilityRole="alert" style={{ color: colors.warnText }}>{message}</Text> : null}
     {ready && !pending && !busy ? <>
-      {!manual && !payment && __DEV__ && receiptOcrBase ? <>
-        <FormField label="OCR 개발용 토큰" value={ocrToken} onChangeText={setOcrToken} secureTextEntry />
+      {!manual && !payment && receiptOcrBase ? <>
+        {receiptUsesDevelopmentToken ? <FormField label="OCR 개발용 토큰" value={ocrToken} onChangeText={setOcrToken} secureTextEntry /> : null}
         <Text>사진은 설정한 OCR 서버로 보내요. 영수증 한 장씩 선택해 주세요.</Text>
         {ocrBusy ? <Text>사진 분석 중…</Text> : <>
           {Platform.OS !== 'web' ? <Chip label="사진 촬영 후 분석" onPress={() => pick(true)} /> : null}
@@ -164,7 +169,7 @@ export default function SharedReceiptScreen({ navigation, route }) {
         </>}
       </> : null}
       {payment && !draft.source ? <>
-        {!receiptOcrBase || !__DEV__ ? <Text>결제 분석 서버를 설정해 주세요. 직접 입력으로도 저장할 수 있어요.</Text> : <>
+        {!receiptOcrBase ? <Text>결제 분석 서버를 설정해 주세요. 직접 입력으로도 저장할 수 있어요.</Text> : <>
           {hasInbox ? <>
             <Text>Android 결제 후보는 기기에 보관해요. 직접 고른 원문만 분석 서버에 보냅니다.</Text>
             <Chip label="알림 접근 설정" onPress={() => {
@@ -183,7 +188,7 @@ export default function SharedReceiptScreen({ navigation, route }) {
               }} />)}
           </> : null}
           <Choices choices={[[ 'sms', '문자' ], [ 'kakao', '카카오 알림톡' ], [ 'notification', '앱 알림' ], [ 'commerce', '주문 내역' ]]} value={paymentSource} onChange={(source) => { setPaymentSource(source); setSelectedNotification(null); }} />
-          <FormField label="분석 서버 개발용 토큰" value={ocrToken} onChangeText={setOcrToken} secureTextEntry />
+          {receiptUsesDevelopmentToken ? <FormField label="분석 서버 개발용 토큰" value={ocrToken} onChangeText={setOcrToken} secureTextEntry /> : null}
           <Text>가져오기를 누르면 붙여넣은 원문이 분석 서버로 전송돼요. 결제와 무관한 개인정보는 지워 주세요.</Text>
           <TextInput multiline maxLength={5000} value={rawText} onChangeText={(text) => { setRawText(text); setSelectedNotification(null); }} accessibilityLabel="결제 원문" placeholder="결제 알림을 붙여넣으세요" style={{ minHeight: 95, padding: 12, backgroundColor: colors.cardBg }} />
           {ocrBusy ? <Text>결제 내역 분석 중…</Text> : <PrimaryButton label="결제 내역 분석" onPress={analyzePayment} />}
