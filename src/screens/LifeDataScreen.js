@@ -4,6 +4,7 @@ import Text from '../components/AppText';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import BackHeader from '../components/BackHeader';
 import StepperField from '../components/StepperField';
+import ChoiceGrid from '../components/ChoiceGrid';
 import OptionCard from '../components/OptionCard';
 import ToolTile from '../components/ToolTile';
 import PrimaryButton from '../components/PrimaryButton';
@@ -12,21 +13,13 @@ import { lifeDataForm } from '../data/more/lifeData';
 import { showNotice } from '../utils/confirm';
 import { colors, fonts, spacing } from '../theme';
 
-// 12 이상이면 "1년 3개월" 처럼 보여줍니다.
-const formatMonths = (m) => {
-  if (m < 12) return `${m}개월`;
-  const y = Math.floor(m / 12);
-  const rest = m % 12;
-  return rest ? `${y}년 ${rest}개월` : `${y}년`;
-};
-
 // 더보기 > 생활 데이터 수정
 export default function LifeDataScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const { lifeData, updateLifeData } = useAppData();
   const d = lifeDataForm;
 
-  const [months, setMonths] = useState(lifeData.months);
+  const [period, setPeriod] = useState(lifeData.period);
   const [goal, setGoal] = useState(lifeData.goal);
   const [tools, setTools] = useState(lifeData.tools); // 도구 id 목록, 없으면 ['none'], 아무것도 안 골랐으면 []
   const [cookDays, setCookDays] = useState(lifeData.cookDays);
@@ -45,7 +38,7 @@ export default function LifeDataScreen({ navigation }) {
       showNotice('입력을 확인해 주세요', d.toolsEmptyNotice);
       return;
     }
-    updateLifeData({ months, goal, tools, cookDays });
+    updateLifeData({ period, goal, tools, cookDays });
     navigation.goBack();
   };
 
@@ -66,14 +59,7 @@ export default function LifeDataScreen({ navigation }) {
         <BackHeader title={d.title} subtitle={d.subtitle} onBack={() => navigation.goBack()} />
 
         <Text style={[styles.label, styles.firstLabel]}>{d.monthsLabel}</Text>
-        <StepperField
-          label="자취 기간"
-          value={months}
-          onChange={setMonths}
-          min={0}
-          max={d.maxMonths}
-          format={formatMonths}
-        />
+        <ChoiceGrid options={d.periods} value={period} onChange={setPeriod} />
 
         <Text style={styles.label}>{d.goalLabel}</Text>
         <Text style={styles.hint}>{d.goalHint}</Text>
