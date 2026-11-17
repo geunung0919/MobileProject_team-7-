@@ -4,13 +4,12 @@ import {
 } from 'firebase/auth';
 import { doc, getDoc, setDoc, deleteDoc, runTransaction, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '../firebase/firebaseConfig';
-import { loginIdToEmail, emailToLoginId } from './authRules';
 import { nicknameKey } from './nickname';
 
-// 아이디·비밀번호 계정 (Firebase Authentication + Firestore). 1번 모듈(회원) 담당.
-// Firebase 는 이메일 형식만 받으므로 아이디를 '<아이디>@users.jachwimate.app' 로 바꿔 씁니다(실제 메일은 보내지 않음).
+// 이메일·비밀번호 계정 (Firebase Authentication + Firestore). 1번 모듈(회원) 담당.
+// 이메일 인증 메일 발송은 아직 하지 않습니다(필요하면 sendEmailVerification 추가).
 // Firestore 구조:
-//   users/{uid}            { account: {login_id, birth_date, created_at},     ← 회원가입
+//   users/{uid}            { account: {email, birth_date, created_at},        ← 회원가입
 //                            member: {nickname, nickname_key, updated_at},     ← 온보딩 1단계(닉네임)
 //                            profile: {living_months, priority, ...},           ← 온보딩 2~4단계
 //                            onboarding: {completed_at, rule_version} }
@@ -33,7 +32,7 @@ function withTimeout(promise, ms) {
   return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
 }
 
-export const loginIdOf = (user) => emailToLoginId(user?.email) || '';
+export const emailOf = (user) => user?.email || '';
 
 function nicknameTaken() {
   const error = new Error('이미 사용 중인 닉네임이에요. 다른 닉네임을 입력해 주세요.');
@@ -41,13 +40,13 @@ function nicknameTaken() {
   return error;
 }
 
-// 가입: 로그인 계정 생성 → 계정 정보(아이디·생년월일) 저장. 닉네임은 온보딩 1단계에서 받습니다.
-// 저장에 실패하면 방금 만든 로그인 계정을 지워서, 같은 아이디로 처음부터 다시 가입할 수 있게 합니다.
-export async function signUpWithId({ loginId, password, birthDate }) {
-  const credential = await createUserWithEmailAndPassword(auth, loginIdToEmail(loginId), password);
+// 가입: 로그인 계정 생성 → 계정 정보(이메일·생년월일) 저장. 닉네임은 온보딩 1단계에서 받습니다.
+// 저장에 실패하면 방금 만든 로그인 계정을 지워서, 같은 이메일로 처음부터 다시 가입할 수 있게 합니다.
+export async function signUpWithEmail({ email, password, birthDate }) {
+  const credential = await createUserWithEmailAndPassword(auth, email, password);
   try {
     await withTimeout(setDoc(userRef(credential.user.uid), {
-      account: { login_id: loginId, birth_date: birthDate, created_at: serverTimestamp() },
+      account: { email, birth_date: birthDate || null, created_at: serverTimestamp() },
     }, { merge: true }), SAVE_TIMEOUT_MS);
   } catch (e) {
     await deleteUser(credential.user).catch(() => {});
@@ -92,8 +91,8 @@ async function claimNickname(uid, nickname, extra) {
   }), SAVE_TIMEOUT_MS);
 }
 
-export async function signInWithId({ loginId, password }) {
-  const credential = await signInWithEmailAndPassword(auth, loginIdToEmail(loginId), password);
+export async function signInWithEmail({ email, password }) {
+  const credential = await signInWithEmailAndPassword(auth, email, password);
   return credential.user;
 }
 

@@ -2,10 +2,10 @@ import React, { createContext, useContext, useEffect, useMemo, useState } from '
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../firebase/firebaseConfig';
 import {
-  loginIdOf, loadAccount, signOutAccount, signUpWithId, signInWithId, saveOnboarding, withdrawAccount,
+  emailOf, loadAccount, signOutAccount, signUpWithEmail, signInWithEmail, saveOnboarding, withdrawAccount,
   updateProfileData, changeNickname,
 } from './firebaseAccount';
-import { normalizeLoginId, validatePassword, validateBirthDate, authErrorMessage } from './authRules';
+import { normalizeEmail, validatePassword, validateBirthDate, authErrorMessage } from './authRules';
 import { normalizeNickname } from './nickname';
 import { diagnose, EMPTY_PROFILE } from './onboardingRules';
 
@@ -13,8 +13,8 @@ import { diagnose, EMPTY_PROFILE } from './onboardingRules';
 //
 //   const auth = useAuth();
 //   auth.stage                     'loading' | 'login' | 'onboarding' | 'app' | 'error'  ← 어떤 화면을 보여 줄지
-//   auth.signIn({loginId, password})                      → 실패 시 throw (error.field, error.message 포함)
-//   auth.signUp({loginId, password, confirm, birthDate})  → 실패 시 throw (error.field, error.message 포함)
+//   auth.signIn({email, password})                        → 실패 시 throw (error.field, error.message 포함)
+//   auth.signUp({email, password, confirm, birthDate?})   → 실패 시 throw (birthDate 는 받는 경우에만)
 //   auth.completeOnboarding({nickname, profile})          → 저장 후 {nickname, profile, diagnosis} 반환
 //   auth.finishOnboarding()        결과 화면에서 [시작하기]를 누를 때 → stage 가 'app' 으로
 //   auth.updateProfile(changes)    생활 데이터 수정: 바꾼 항목만 넘기면 기존 값과 합쳐 저장 → 새 profile 반환
@@ -71,31 +71,30 @@ export function AuthProvider({ children }) {
     return {
       stage,
       user: state.user,
-      loginId: loginIdOf(state.user),
+      email: emailOf(state.user),
       member: account.member,
       profile: account.profile,
 
-      async signIn({ loginId, password }) {
-        if (!String(loginId || '').trim()) throw fail('loginId', '아이디를 입력해 주세요.');
+      async signIn({ email, password }) {
+        const mail = normalizeEmail(email);
+        if (mail.message) throw fail('email', mail.message);
         if (!password) throw fail('password', '비밀번호를 입력해 주세요.');
-        const id = normalizeLoginId(loginId).id;
-        // 형식이 틀린 아이디도 "없는 아이디"라고 따로 알리지 않습니다(계정 존재 여부 노출 방지).
-        if (!id) throw asFieldError({ code: 'auth/invalid-credential' });
-        try { await signInWithId({ loginId: id, password }); } catch (e) { throw asFieldError(e); }
+        try { await signInWithEmail({ email: mail.email, password }); } catch (e) { throw asFieldError(e); }
       },
 
-      async signUp({ loginId, password, confirm, birthDate }) {
-        const id = normalizeLoginId(loginId);
-        if (id.message) throw fail('loginId', id.message);
-        const pw = validatePassword(password, id.id);
+      async signUp({ email, password, confirm, birthDate }) {
+        const mail = normalizeEmail(email);
+        if (mail.message) throw fail('email', mail.message);
+        const pw = validatePassword(password, mail.email);
         if (pw) throw fail('password', pw);
         if (confirm !== undefined && confirm !== password) {
           throw fail('confirm', confirm ? '비밀번호가 서로 달라요.' : '비밀번호를 한 번 더 입력해 주세요.');
         }
-        const birth = validateBirthDate(birthDate);
+        // 생년월일은 화면에서 받는 경우에만 확인합니다(현재 UI 시안에는 없음).
+        const birth = birthDate ? validateBirthDate(birthDate) : '';
         if (birth) throw fail('birthDate', birth);
         setSigningUp(true);
-        try { await signUpWithId({ loginId: id.id, password, birthDate }); } catch (e) { throw asFieldError(e); }
+        try { await signUpWithEmail({ email: mail.email, password, birthDate }); } catch (e) { throw asFieldError(e); }
         finally { setSigningUp(false); }
       },
 

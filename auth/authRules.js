@@ -1,30 +1,24 @@
-// 아이디·비밀번호 회원가입 규칙 (화면과 테스트가 같이 씁니다). 서버 없이 계산만 하는 순수 함수입니다.
-// - 아이디는 로그인용이고, 닉네임(프로필에서 따로 정함)과 별개입니다.
-// - Firebase 이메일 로그인을 쓰므로 아이디를 내부 이메일 주소로 바꿔 저장합니다. 실제 메일은 보내지 않습니다.
+// 이메일·비밀번호 회원가입 규칙 (UI 화면 기준: 이메일 + 비밀번호 + 비밀번호 확인). 서버 없이 계산만 하는 순수 함수입니다.
+// 이메일은 로그인용이고, 다른 사람에게 보이는 닉네임은 온보딩에서 따로 정합니다.
 
-export const LOGIN_ID_DOMAIN = 'users.jachwimate.app';
-export const MIN_AGE = 14; // 만 14세 미만은 법정대리인 동의가 필요해 이 앱에서는 가입을 받지 않습니다.
+export const MIN_AGE = 14; // 생년월일을 받는 경우에만 확인 (만 14세 미만은 법정대리인 동의 필요)
 export const PASSWORD_MIN = 8;
 export const PASSWORD_MAX = 64;
+export const EMAIL_MAX = 254;
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
-// 아이디: 영문 소문자로 시작, 영문 소문자·숫자·밑줄 4~20자. 대문자는 소문자로 바꿔 받습니다.
-export function normalizeLoginId(raw) {
-  const id = String(raw ?? '').trim().toLowerCase();
-  if (!id) return { id: '', message: '아이디를 입력해 주세요.' };
-  if (id.length < 4 || id.length > 20) return { id: '', message: '아이디는 4~20자로 입력해 주세요.' };
-  if (!/^[a-z]/.test(id)) return { id: '', message: '아이디는 영문으로 시작해야 해요.' };
-  if (!/^[a-z0-9_]+$/.test(id)) return { id: '', message: '아이디는 영문·숫자·밑줄(_)만 쓸 수 있어요.' };
-  return { id, message: '' };
+// 이메일: 앞뒤 공백 제거, 소문자로 통일해 받습니다.
+export function normalizeEmail(raw) {
+  const email = String(raw ?? '').trim().toLowerCase();
+  if (!email) return { email: '', message: '이메일을 입력해 주세요.' };
+  if (email.length > EMAIL_MAX || !EMAIL_PATTERN.test(email)) return { email: '', message: '이메일 형식을 확인해 주세요.' };
+  return { email, message: '' };
 }
-
-export const loginIdToEmail = (id) => `${id}@${LOGIN_ID_DOMAIN}`;
-export const emailToLoginId = (email) =>
-  typeof email === 'string' && email.endsWith(`@${LOGIN_ID_DOMAIN}`) ? email.slice(0, -LOGIN_ID_DOMAIN.length - 1) : null;
 
 const COMMON = ['password', 'qwerty', 'abc123', 'iloveyou', 'admin', 'letmein', 'welcome', '123456', '111111', '000000', 'asdf'];
 
 // 비밀번호 강도. score 0~4, level: empty | weak | fair | good | strong
-export function passwordStrength(password, loginId = '') {
+export function passwordStrength(password, email = '') {
   const pw = String(password ?? '');
   if (!pw) return { score: 0, level: 'empty', label: '', tips: [] };
   const kinds = [/[a-z]/, /[A-Z]/, /[0-9]/, /[^A-Za-z0-9]/].filter((re) => re.test(pw)).length;
@@ -36,14 +30,14 @@ export function passwordStrength(password, loginId = '') {
   if (pw.length >= 16 && kinds >= 2) score += 1;
 
   const lower = pw.toLowerCase();
-  const id = String(loginId ?? '').toLowerCase();
+  const id = String(email ?? '').toLowerCase().split('@')[0]; // 이메일 앞부분
   const tips = [];
   let capped = false;
   if (pw.length < PASSWORD_MIN) tips.push(`${PASSWORD_MIN}자 이상으로 늘려 주세요.`);
   if (kinds < 2) tips.push('영문·숫자·특수문자 중 두 가지 이상을 섞어 주세요.');
   if (/(.)\1\1/.test(pw)) { tips.push('같은 글자를 3번 이상 반복하지 마세요.'); score -= 1; }
   if (COMMON.some((w) => lower.includes(w))) { tips.push('흔한 비밀번호 단어는 피해 주세요.'); capped = true; }
-  if (id.length >= 4 && lower.includes(id)) { tips.push('아이디가 들어가지 않게 해 주세요.'); capped = true; }
+  if (id.length >= 4 && lower.includes(id)) { tips.push('이메일 아이디가 들어가지 않게 해 주세요.'); capped = true; }
 
   score = Math.max(0, Math.min(4, score));
   if (capped) score = Math.min(score, 1);
@@ -54,13 +48,13 @@ export function passwordStrength(password, loginId = '') {
 }
 
 // 가입 가능한 비밀번호인지. 강도가 '보통' 이상이어야 합니다.
-export function validatePassword(password, loginId = '') {
+export function validatePassword(password, email = '') {
   const pw = String(password ?? '');
   if (!pw) return '비밀번호를 입력해 주세요.';
   if (pw.length < PASSWORD_MIN) return `비밀번호는 ${PASSWORD_MIN}자 이상이어야 해요.`;
   if (pw.length > PASSWORD_MAX) return `비밀번호는 ${PASSWORD_MAX}자 이하로 입력해 주세요.`;
   if (/\s/.test(pw)) return '비밀번호에 공백은 쓸 수 없어요.';
-  const { score, tips } = passwordStrength(pw, loginId);
+  const { score, tips } = passwordStrength(pw, email);
   if (score < 2) return `비밀번호가 너무 약해요. ${tips[0] || '더 길고 다양한 글자로 만들어 주세요.'}`;
   return '';
 }
@@ -89,17 +83,18 @@ export function validateBirthDate(value, today = new Date()) {
 }
 
 // Firebase 인증 오류 코드 → 화면에 보여 줄 문구와 표시할 칸
-// field: 'loginId' | 'password' | 'form'. 로그인 실패는 아이디·비밀번호 중 무엇이 틀렸는지 알려 주지 않습니다.
+// field: 'email' | 'password' | 'form' | 'nickname'. 로그인 실패는 이메일·비밀번호 중 무엇이 틀렸는지 알려 주지 않습니다.
 export function authErrorMessage(code) {
   switch (code) {
     case 'auth/invalid-credential':
     case 'auth/invalid-login-credentials':
     case 'auth/wrong-password':
     case 'auth/user-not-found':
+      return { field: 'form', message: '이메일 또는 비밀번호가 맞지 않아요. 다시 확인해 주세요.' };
     case 'auth/invalid-email':
-      return { field: 'form', message: '아이디 또는 비밀번호가 맞지 않아요. 다시 확인해 주세요.' };
+      return { field: 'email', message: '이메일 형식을 확인해 주세요.' };
     case 'auth/email-already-in-use':
-      return { field: 'loginId', message: '이미 사용 중인 아이디예요. 다른 아이디를 입력해 주세요.' };
+      return { field: 'email', message: '이미 가입된 이메일이에요. 로그인해 주세요.' };
     case 'auth/weak-password':
     case 'auth/password-does-not-meet-requirements':
       return { field: 'password', message: '비밀번호가 보안 기준에 맞지 않아요. 더 길고 다양한 글자로 만들어 주세요.' };
