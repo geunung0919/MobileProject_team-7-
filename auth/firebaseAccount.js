@@ -64,6 +64,13 @@ export async function saveOnboarding(uid, { nickname, profile, ruleVersion }) {
   });
 }
 
+// 닉네임 사용 가능 여부 (입력 중 미리 확인용, AC-07). 로그인한 상태에서만 조회할 수 있습니다(보안 규칙).
+// 본인이 이미 쓰는 닉네임은 사용 가능으로 봅니다.
+export async function isNicknameAvailable(uid, nickname) {
+  const snap = await withTimeout(getDoc(nicknameRef(nicknameKey(nickname))), SAVE_TIMEOUT_MS);
+  return !snap.exists() || snap.data().uid === uid;
+}
+
 // 닉네임만 바꾸기 (생활 데이터 수정·마이페이지)
 export async function changeNickname(uid, nickname) {
   await claimNickname(uid, nickname, {});

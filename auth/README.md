@@ -26,7 +26,9 @@
 | `finishOnboarding()` | 결과 화면의 [시작하기] → stage='app' |
 | `updateProfile(changes)` | 생활 데이터 수정. 바꾼 항목만 넘기면 기존 값과 합쳐 저장하고 새 profile 반환 (예: `{ monthly_budget_krw: 700000 }`) |
 | `updateNickname(nickname)` | 닉네임만 변경 (중복이면 field='nickname') |
-| `logout()` / `withdraw(password)` / `reloadAccount()` | 로그아웃 / 회원 탈퇴 / 오류 시 다시 불러오기 |
+| `checkNickname(nickname)` | 입력 중 중복 확인 → `{ status: 'available' \| 'taken' \| 'invalid' \| 'error', message }`. 화면에서는 아래 `useNicknameCheck` 훅이 편함 |
+| `setRegion(code)` | 지역 검색에서 고른 법정동 코드 저장 (이름은 '시도 시군구 동'으로 함께 저장). `null` 이면 지역 지우기 |
+| `logout()` / `withdraw(password)` / `reloadAccount()` | 로그아웃 / 회원 탈퇴 / 오류 시 다시 불러오기. 로그아웃·탈퇴 직전에 `'logout'` 이벤트가 나갑니다 |
 | `user.uid`, `email`, `member.nickname`, `profile` | 로그인 사용자, 이메일, 닉네임, 생활 정보 |
 
 실패하면 `throw` 하며, 오류에 **`field`(표시할 칸)** 와 **`message`(보여 줄 문구)** 가 들어 있습니다.
@@ -57,6 +59,38 @@ const handleSubmit = async () => {
 `SignUpScreen` 은 `await signUp({ email, password, confirm })` 후 온보딩 화면으로 이동하면 됩니다.
 앱 최상위(`App.js`)를 `<AuthProvider>`(또는 `<AuthGate>`)로 감싸야 `useAuth()` 를 쓸 수 있습니다.
 `<AuthGate>` 를 쓰면 로그인 여부에 따라 화면 전환을 자동으로 해 주고, 쓰지 않으면 위처럼 직접 이동해도 됩니다.
+
+### 닉네임 입력 중 중복 확인 (AC-07)
+
+```js
+import useNicknameCheck from '../auth/useNicknameCheck';
+const check = useNicknameCheck(nickname);   // 입력이 멈추고 0.4초 뒤 한 번 조회
+// check.status: 'idle' | 'invalid' | 'checking' | 'available' | 'taken' | 'error', check.message: 보여 줄 문구
+```
+로그인한 뒤(온보딩·마이페이지)에만 조회됩니다. 최종 판단은 저장할 때 서버가 한 번 더 합니다.
+
+### 거주 지역 검색 (AC-08·09)
+
+```js
+import { searchRegions } from '../auth/regions';
+const results = searchRegions('마포구 서교동');  // [{ code, label: '서울특별시 마포구 서교동', sido, sigungu, dong }]
+await setRegion(results[0].code);
+```
+GPS·서버 없이 앱 안 데이터(`auth/data/legalDong.json`, 법정동 2026-09-29 기준)로 찾습니다. 같은 동 이름은 `label`(전체 이름)로 구분해 보여 주세요.
+데이터는 공식 사이트에서 직접 받지 못해 공개 저장소 사본으로 만든 파일입니다. 발표 전 code.go.kr 원본으로 다시 만드는 것을 권장합니다(`jachwi-core/scripts/build_legal_dong.py`).
+
+### 다른 파트가 연결할 것: 로그아웃 정리·지역 변경 (AC-09·10)
+
+```js
+import { onAccountEvent } from '../auth/accountEvents';
+useEffect(() => onAccountEvent('logout', async ({ uid, reason }) => {
+  // 내 파트가 기기에 남긴 사용자 캐시·개인 알림 예약을 지우기 (reason: 'logout' | 'withdraw')
+}), []);
+useEffect(() => onAccountEvent('regionChanged', ({ from, to }) => {
+  // 지역에 따라 달라지는 정보(날씨·지도·분리배출 등)를 새 지역으로 갱신, 이전 지역 안내 중단
+}), []);
+```
+한 파트의 정리가 실패해도 나머지 정리와 로그아웃은 계속됩니다. **기기 캐시·알림을 가진 파트(루틴 알림, 재고 알림, 소비 캐시 등)는 'logout' 에 정리 함수를 등록해야 AC-10 이 완성됩니다.**
 
 ## 입력 규칙·표시용 함수
 
@@ -124,4 +158,4 @@ const handleSubmit = async () => {
 2. `firestore.rules` 배포 (`nicknames` 규칙 추가됨): `firebase deploy --only firestore:rules`
 3. Cloud Functions 배포 (닉네임 규칙·탈퇴 정리): `firebase deploy --only functions`
 
-테스트: `node --test auth/authRules.test.mjs auth/onboardingRules.test.mjs`
+테스트: `node --test auth/authRules.test.mjs auth/onboardingRules.test.mjs auth/regions.test.mjs`

@@ -3,8 +3,10 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../firebase/firebaseConfig';
 import {
   emailOf, loadAccount, signOutAccount, signUpWithEmail, signInWithEmail, saveOnboarding, withdrawAccount,
-  updateProfileData, changeNickname,
+  updateProfileData, changeNickname, isNicknameAvailable,
 } from './firebaseAccount';
+import { emitAccountEvent } from './accountEvents';
+import { regionInfo } from './regions';
 import { normalizeEmail, validatePassword, validateBirthDate, authErrorMessage } from './authRules';
 import { normalizeNickname } from './nickname';
 import { diagnose, EMPTY_PROFILE } from './onboardingRules';
@@ -19,6 +21,9 @@ import { diagnose, EMPTY_PROFILE } from './onboardingRules';
 //   auth.finishOnboarding()        결과 화면에서 [시작하기]를 누를 때 → stage 가 'app' 으로
 //   auth.updateProfile(changes)    생활 데이터 수정: 바꾼 항목만 넘기면 기존 값과 합쳐 저장 → 새 profile 반환
 //   auth.updateNickname(nickname)  닉네임만 변경 (중복이면 field='nickname' 오류)
+//   auth.checkNickname(nickname)   입력 중 중복 확인 → {status:'available'|'taken'|'invalid'|'error', message} (훅: useNicknameCheck)
+//   auth.setRegion(code)           지역 검색 결과(regions.searchRegions)에서 고른 법정동 코드 저장 → 'regionChanged' 이벤트
+//   로그아웃·탈퇴 직전에는 'logout' 이벤트가 나갑니다 (accountEvents.js — 다른 파트의 캐시·알림 정리용)
 //   auth.user.uid / auth.member.nickname / auth.profile    로그인 사용자·닉네임·생활 정보
 //   auth.logout() / auth.withdraw(password) / auth.reloadAccount()
 const AuthContext = createContext(null);
@@ -68,7 +73,7 @@ export function AuthProvider({ children }) {
       : !account.onboarded || holdOnboarding ? 'onboarding'
       : 'app';
 
-    return {
+    const api = {
       stage,
       user: state.user,
       email: emailOf(state.user),
@@ -118,10 +123,40 @@ export function AuthProvider({ children }) {
         if (!state.user) throw asFieldError({ code: 'auth/requires-recent-login' });
         const unknown = Object.keys(changes || {}).filter((k) => !(k in EMPTY_PROFILE));
         if (unknown.length) throw fail('form', `알 수 없는 항목이에요: ${unknown.join(', ')}`, 'validation/unknown-field');
-        const next = { ...EMPTY_PROFILE, ...(account.profile || {}), ...changes };
+        const before = { ...EMPTY_PROFILE, ...(account.profile || {}) };
+        const next = { ...before, ...changes };
         try { await updateProfileData(state.user.uid, next); } catch (e) { throw asFieldError(e); }
         setState((prev) => (typeof prev.account === 'object' ? { ...prev, account: { ...prev.account, profile: next } } : prev));
+        if (before.region_code !== next.region_code || before.region_name !== next.region_name) {
+          await emitAccountEvent('regionChanged', {
+            uid: state.user.uid,
+            from: { code: before.region_code, name: before.region_name },
+            to: { code: next.region_code, name: next.region_name },
+          });
+        }
         return next;
+      },
+
+      // 지역 검색 결과에서 고른 법정동 코드로 지역 저장 (AC-08·09). 이름은 '시도 시군구 동' 전체로 저장합니다.
+      async setRegion(code) {
+        if (code == null) return api.updateProfile({ region_code: null, region_name: null });
+        const info = regionInfo(String(code));
+        if (!info) throw fail('region', '지역을 목록에서 다시 선택해 주세요.', 'validation/region');
+        return api.updateProfile({ region_code: info.code, region_name: info.label });
+      },
+
+      async checkNickname(nickname) {
+        const name = normalizeNickname(nickname);
+        if (name.message) return { status: 'invalid', message: name.message };
+        if (!state.user) return { status: 'error', message: '로그인 후 확인할 수 있어요.' };
+        try {
+          const free = await isNicknameAvailable(state.user.uid, name.nickname);
+          return free
+            ? { status: 'available', message: '사용할 수 있는 닉네임이에요.' }
+            : { status: 'taken', message: authErrorMessage('nickname/taken').message };
+        } catch {
+          return { status: 'error', message: '중복 확인을 하지 못했어요. 저장할 때 다시 확인해요.' };
+        }
       },
 
       async updateNickname(nickname) {
@@ -133,12 +168,22 @@ export function AuthProvider({ children }) {
           ? { ...prev, account: { ...prev.account, member: { ...(prev.account.member || {}), nickname: name.nickname } } } : prev));
         return name.nickname;
       },
-      logout: signOutAccount,
+      // 로그아웃 (AC-10): 다른 파트에 'logout' 이벤트로 캐시·개인 알림 정리를 맡긴 뒤 로그아웃하고, 화면 상태를 비웁니다.
+      async logout() {
+        const uid = state.user?.uid;
+        if (uid) await emitAccountEvent('logout', { uid, reason: 'logout' });
+        setHoldOnboarding(false);
+        await signOutAccount();
+      },
       async withdraw(password) {
+        const uid = state.user?.uid;
         try { await withdrawAccount(password); } catch (e) { throw asFieldError(e); }
+        if (uid) await emitAccountEvent('logout', { uid, reason: 'withdraw' });
+        setHoldOnboarding(false);
       },
       reloadAccount: () => (auth.currentUser ? load(auth.currentUser) : Promise.resolve()),
     };
+    return api;
   }, [state, signingUp, holdOnboarding]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
