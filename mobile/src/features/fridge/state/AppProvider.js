@@ -12,9 +12,25 @@ function accountFridgeStore(storageKey) {
   if (!stores.has(storageKey)) stores.set(storageKey, createStore(AsyncStorage, storageKey));
   return stores.get(storageKey);
 }
-export function registerReceiptIngredients(storageKey, expense, items) {
-  return accountFridgeStore(storageKey).update(state =>
+// 영수증 식재료를 기기 냉장고에 넣고, 서버(Firestore) 재고에도 바로 반영합니다.
+// 기기 저장이 성공하면 서버 반영이 실패해도 되돌리지 않고 { serverSaved:false, serverError } 로 알려 줍니다.
+export async function registerReceiptIngredients(storageKey, expense, items, serverApi) {
+  const store = accountFridgeStore(storageKey);
+  await store.update(state =>
     state.importedExpenseIds.includes(expense.id) ? state : importExpense(state, expense, items));
+  if (!serverApi) return { serverSaved: false, serverError: '서버 연결 전이라 기기에만 저장했어요.' };
+  try {
+    const sync = createInventorySync(store, serverApi);
+    await sync.autoLink();
+    await sync.sync();
+    const meta = store.getState().inventorySync;
+    if (meta?.enabled) return { serverSaved: true, serverError: '' };
+    return { serverSaved: false, serverError: meta
+      ? '서버 재고 연결이 일시중지되어 기기에만 저장했어요.'
+      : '기기와 서버에 서로 다른 재고가 있어서 기기에만 저장했어요. 냉장고 > 서버 재고 연결에서 기준을 골라 주세요.' };
+  } catch (error) {
+    return { serverSaved: false, serverError: error.message || '서버에 연결하지 못했어요. 기기 변경은 보존했어요.' };
+  }
 }
 export function AppProvider({ children, storageKey }) {
   const [store] = useState(() => accountFridgeStore(storageKey));
@@ -44,6 +60,13 @@ export function AppProvider({ children, storageKey }) {
   const inspectInventorySync=useCallback(()=>performSync(()=>controller.inspect()),[controller,performSync]);
   const resolveInventorySync=useCallback((direction,preview)=>performSync(()=>controller.resolve(direction,preview)),[controller,performSync]);
   const syncInventoryNow=useCallback(()=>performSync(()=>controller.sync()),[controller,performSync]);
+  // 처음 연결하는 계정은 덮어쓸 위험이 없을 때 자동으로 서버(Firestore) 재고와 연결합니다.
+  const loaded=!!state;
+  useEffect(()=>{
+    if(!loaded||!serverApi)return;
+    const timer=setTimeout(()=>{performSync(()=>controller.autoLink()).catch(()=>{});},0);
+    return ()=>clearTimeout(timer);
+  },[loaded,serverApi,controller,performSync]);
   const pauseInventorySync=useCallback(()=>performSync(()=>controller.pause()),[controller,performSync]);
   useEffect(()=>{
     if(!state?.inventorySync?.enabled)return;

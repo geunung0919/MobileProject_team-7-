@@ -43,6 +43,7 @@ export default function SpendingImport() {
 function SpendingImportContent({ api, storageScope }) {
   const [pendingInventory, setPendingInventory] = useState(null);
   const [savedInventoryCount, setSavedInventoryCount] = useState(null);
+  const [inventoryServerNotice, setInventoryServerNotice] = useState('');
   const params = useLocalSearchParams();
   const routeNotificationId = Array.isArray(params.notificationId)
     ? params.notificationId[0]
@@ -174,9 +175,10 @@ function SpendingImportContent({ api, storageScope }) {
   });
 
   const addReceiptInventory = async ({ expense, items }) => {
-    await registerReceiptIngredients(storageScope, expense, items);
+    const result = await registerReceiptIngredients(storageScope, expense, items, api);
     setPendingInventory(null);
     setSavedInventoryCount(items.length);
+    setInventoryServerNotice(result.serverSaved ? '서버(Firebase)에도 저장했어요.' : result.serverError);
   };
 
   const changeReceiptItem = (index, patch) => setReceiptItems(items =>
@@ -189,6 +191,7 @@ function SpendingImportContent({ api, storageScope }) {
         name: (item.normalized_name || item.raw_name).trim(),
         quantity: Number(item.quantity) > 0 ? Number(item.quantity) : 1,
         unit: item.unit || '개',
+        storageMethod: 'refrigerated', // 영수증에는 보관 방법이 없어 냉장으로 넣고, 재고 수정에서 바꿀 수 있어요.
         dateType: 'unknown',
         expiresAt: '',
       }))
@@ -249,7 +252,8 @@ function SpendingImportContent({ api, storageScope }) {
       <Text style={styles.text}>결제는 저장됐어요. 식재료만 냉장고에 등록하고 있어요.</Text>
       {!!error && <Text accessibilityRole="alert" style={styles.error}>{error}</Text>}
       <Button title="냉장고 등록만 다시 시도" disabled={busy} onPress={() => run(() => addReceiptInventory(pendingInventory))} />
-    </> : <Text style={styles.text}>식재료 {savedInventoryCount}개 품목을 냉장고에 등록했어요.</Text>}
+    </> : <><Text style={styles.text}>식재료 {savedInventoryCount}개 품목을 냉장고에 등록했어요.</Text>
+      {!!inventoryServerNotice && <Text style={styles.small}>{inventoryServerNotice}</Text>}</>}
     <Button title="소비 내역 보기" disabled={busy} onPress={() => router.replace('/spending')} />
     <Button title="냉장고 보기" disabled={busy} onPress={() => router.replace('/fridge/inventory')} />
   </Page>;

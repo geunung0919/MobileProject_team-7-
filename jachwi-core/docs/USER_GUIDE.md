@@ -176,7 +176,7 @@ CORS 설정은 인증이나 외부 배포를 대신하지 않습니다.
 SQLite 자료는 MySQL로 자동 이전되지 않습니다.
 테이블 최초 생성은 지원하지만 기존 테이블 변경용 마이그레이션은 아직 없습니다.
 
-기존 팀 기획 문서에는 Firebase DB 구상도 있으므로 최종 DB는 팀에서 합의해야 합니다.
+팀 DB는 Firebase 로 정했습니다. Firestore 저장 설정은 [FIRESTORE.md](FIRESTORE.md)를 보세요.
 이 PR은 FastAPI + SQLAlchemy와 SQLite/MySQL 연결을 기준으로 만든 개발 초안입니다.
 
 ## 9. 오류 해결
