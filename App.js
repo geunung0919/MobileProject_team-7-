@@ -30,6 +30,8 @@ import EmergencyAiScreen from './UIUX/src/screens/EmergencyAiScreen';
 // Firebase 로그인 테스트 화면
 import AuthTestScreen from './AuthTestScreen';
 
+import TeamApp from './UIUX/App';
+
 const Stack = createNativeStackNavigator();
 
 // 개발 시작 화면
@@ -37,6 +39,10 @@ const Stack = createNativeStackNavigator();
 const DEV_SCREEN = 'emergency';
 
 export default function App() {
+  return process.env.EXPO_PUBLIC_SHARED_RECEIPTS === 'true' ? <TeamApp sharedReceipts /> : <DevApp />;
+}
+
+function DevApp() {
   const [fontsLoaded] = useFonts({
     NotoSansKR_400Regular,
     NotoSansKR_500Medium,

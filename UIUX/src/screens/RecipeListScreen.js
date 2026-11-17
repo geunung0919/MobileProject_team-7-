@@ -7,7 +7,7 @@ import IconBox from '../components/IconBox';
 import { recipeData } from '../data/fridge/recipes';
 import { fridgeData } from '../data/fridge/fridge';
 import { useAppData } from '../store/AppDataContext';
-import { analyzeRecipe, badgeDueLabel, getFridgeEntries, shortDueLabel } from '../utils/recipes';
+import { analyzeRecipe, badgeDueLabel, getFridgeEntries, sharedFridgeEntries, shortDueLabel } from '../utils/recipes';
 import { toDateString } from '../utils/format';
 import { colors, fonts, spacing } from '../theme';
 
@@ -15,12 +15,12 @@ import { colors, fonts, spacing } from '../theme';
 export default function RecipeListScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const t = recipeData.texts;
-  const { fridgeItems } = useAppData();
+  const { fridgeItems, sharedReceipts, visibleShared } = useAppData();
   const baseDate = toDateString(new Date()); // 기준일 = 오늘
 
   const entries = useMemo(
-    () => getFridgeEntries(fridgeItems, baseDate, fridgeData.urgentWithinDays),
-    [fridgeItems, baseDate]
+    () => getFridgeEntries(sharedReceipts ? sharedFridgeEntries(visibleShared?.inventory) : fridgeItems, baseDate, fridgeData.urgentWithinDays),
+    [fridgeItems, visibleShared?.inventory, sharedReceipts, baseDate]
   );
   // 유통기한이 가장 급한 재료 3개 (배너 칩)
   const urgentChips = entries.filter((e) => e.urgent).slice(0, 3);
@@ -47,6 +47,7 @@ export default function RecipeListScreen({ navigation }) {
           <BackHeader title={t.listTitle} icon="arrow-back" onBack={() => navigation.goBack()} />
         </View>
         <Text style={styles.subtitle}>{t.listSubtitle}</Text>
+        {sharedReceipts && visibleShared?.inventoryError ? <Text accessibilityRole="alert">{visibleShared.inventoryError}</Text> : null}
 
         {/* 임박한 재료를 먼저 활용했다는 안내 */}
         <View style={styles.banner}>

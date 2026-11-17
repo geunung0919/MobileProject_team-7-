@@ -8,7 +8,7 @@ import { Budget, Expense, InventoryItem, Routine, RoutineLog, UsageLog } from ".
 
 // 앱이 아직 저장하지 않는 기록. 앱이 저장하게 되면 true로 바꾸면 분석에 자동으로 들어간다.
 export const DATA_SOURCE = {
-  routineDailyLogs: false, // 루틴의 날짜별 완료 기록 (지금 앱은 '오늘 했는지(doneToday)'만 있음)
+  routineDailyLogs: true, // Firebase 루틴 API가 target_date별 완료 기록을 저장한다.
   usageLogs: false, // 재고 사용 기록(요리/폐기) (지금 앱은 요리하면 재료를 통째로 지움)
 };
 
@@ -37,7 +37,9 @@ export function toExpense(raw: Raw): Expense | null {
   if (FOOD_CATEGORIES.includes(category)) food_amount = amount;
   else if (Array.isArray(raw.items)) {
     for (const it of raw.items as Raw[]) {
-      if (it?.inFridge === true) food_amount += (num(it.unitPrice) ?? 0) * (num(it.quantity) ?? 1);
+      if (it?.reviewStatus === "confirmed") {
+        if (["ingredient", "prepared_food"].includes(String(it.itemType))) food_amount += num(it.linePaidAmount) ?? 0;
+      } else if (it?.inFridge === true) food_amount += (num(it.unitPrice) ?? 0) * (num(it.quantity) ?? 1);
     }
     food_amount = Math.min(food_amount, amount);
   }
@@ -52,12 +54,13 @@ export function toInventoryItem(id: string, raw: Raw): InventoryItem | null {
     item_name: name,
     quantity: num(first(raw.amount, typeof raw.quantity === "number" ? raw.quantity : undefined)), // 앱의 quantity는 표시용 글자
     unit: str(raw.unit),
-    purchase_date: str(first(raw.purchaseDate, raw.purchase_date)),
-    expiry_date: str(first(raw.expiry, raw.expiry_date)),
+    purchase_date: str(first(raw.purchasedAt, raw.purchaseDate, raw.purchase_date)),
+    expiry_date: str(first(raw.expiresAt, raw.expiry, raw.expiry_date)),
   };
 }
 
 export function toRoutine(id: string, raw: Raw): Routine | null {
+  if (raw.archived === true) return null;
   const title = str(raw.title);
   if (!title) return null;
   return {

@@ -7,6 +7,7 @@ import {
 
 import {
   app,
+  auth,
   USE_EMULATOR,
 } from '../firebase/firebaseConfig';
 
@@ -97,3 +98,19 @@ export const askEmergencyManual = async (
     );
   }
 };
+
+
+async function requestReport(name, input, uid) {
+  await auth.authStateReady();
+  if (!uid || auth.currentUser?.uid !== uid) throw new Error('리포트를 보려면 로그인해 주세요.');
+  const { data } = await httpsCallable(functions, name, { timeout: 65000 })(input);
+  if (auth.currentUser?.uid !== uid) throw new Error('로그인 계정이 바뀌었어요.');
+  if (!data || typeof data !== 'object') throw new Error('리포트 응답을 읽지 못했어요.');
+  return data;
+}
+export async function readDailyReports(uid) {
+  const data = await requestReport('listReports', { limit: 7 }, uid);
+  if (!Array.isArray(data.reports)) throw new Error('리포트 목록을 읽지 못했어요.');
+  return data;
+}
+export const generateDailyReport = (uid) => requestReport('generateDailyReport', {}, uid);

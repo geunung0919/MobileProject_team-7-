@@ -7,7 +7,7 @@ import PrimaryButton from '../components/PrimaryButton';
 import { recipeData } from '../data/fridge/recipes';
 import { fridgeData } from '../data/fridge/fridge';
 import { useAppData } from '../store/AppDataContext';
-import { analyzeRecipe, getFridgeEntries } from '../utils/recipes';
+import { analyzeRecipe, getFridgeEntries, sharedFridgeEntries } from '../utils/recipes';
 import { toDateString } from '../utils/format';
 import { colors, fonts, spacing } from '../theme';
 
@@ -15,13 +15,13 @@ import { colors, fonts, spacing } from '../theme';
 export default function RecipeDetailScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
   const t = recipeData.texts;
-  const { fridgeItems, removeFridgeItem } = useAppData();
+  const { fridgeItems, removeFridgeItem, sharedReceipts, visibleShared } = useAppData();
   const baseDate = toDateString(new Date());
 
   const recipe = recipeData.recipes.find((r) => r.id === route.params?.id);
   const entries = useMemo(
-    () => getFridgeEntries(fridgeItems, baseDate, fridgeData.urgentWithinDays),
-    [fridgeItems, baseDate]
+    () => getFridgeEntries(sharedReceipts ? sharedFridgeEntries(visibleShared?.inventory) : fridgeItems, baseDate, fridgeData.urgentWithinDays),
+    [fridgeItems, visibleShared?.inventory, sharedReceipts, baseDate]
   );
   const analysis = useMemo(() => (recipe ? analyzeRecipe(recipe, entries) : null), [recipe, entries]);
 
@@ -115,7 +115,7 @@ export default function RecipeDetailScreen({ navigation, route }) {
       </ScrollView>
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + 14 }]}>
-        <PrimaryButton label={t.cookDone} onPress={handleCookDone} />
+        {sharedReceipts ? <PrimaryButton label="냉장고에서 사용량 확인하기" onPress={() => navigation.navigate('Tabs', { screen: 'Fridge' })} /> : <PrimaryButton label={t.cookDone} onPress={handleCookDone} />}
       </View>
     </View>
   );

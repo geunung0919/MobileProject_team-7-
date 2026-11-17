@@ -20,7 +20,7 @@ export const LIVING_PERIOD_LABEL: Record<LivingPeriod, string> = {
 const PRIORITY: Record<string, NonNullable<Profile["priority"]>> = {
   save_money: "save_money", "생활비 절약": "save_money",
   reduce_waste: "reduce_waste", "낭비 줄이기": "reduce_waste", "식재료 낭비 줄이기": "reduce_waste",
-  build_habit: "build_habit", "습관 만들기": "build_habit", "생활 습관 만들기": "build_habit",
+  build_routine: "build_habit", build_habit: "build_habit", "습관 만들기": "build_habit", "생활 습관 만들기": "build_habit",
 };
 
 // 진단 화면의 조리도구 4가지
@@ -46,12 +46,15 @@ const numberOrNull = (v: unknown, min: number, max: number): number | null => {
 export function normalizeProfile(raw: unknown): Profile {
   const p = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
   const tools = Array.isArray(p.cooking_tools) ? p.cooking_tools : [];
+  const livingMonths = numberOrNull(p.living_months, 0, 1200);
+  const period = livingMonths === null ? pickStr(LIVING_PERIOD, p.living_period) :
+    livingMonths < 6 ? "under_6m" : livingMonths < 12 ? "under_1y" : "over_1y";
   return {
-    living_period: pickStr(LIVING_PERIOD, p.living_period),
+    living_period: period,
     priority: pickStr(PRIORITY, p.priority),
     cooking_tools: [...new Set(tools.map((t) => pickStr(TOOLS, t)).filter((t): t is string => !!t))],
     cooking_days_per_week: numberOrNull(p.cooking_days_per_week, 0, 7),
-    monthly_budget_krw: numberOrNull(p.monthly_budget_krw, 1, 100_000_000),
+    monthly_budget_krw: numberOrNull(p.monthly_budget_krw, 1, 1_000_000_000),
     initial_inventory_state: pickStr(INVENTORY_STATE, p.initial_inventory_state),
   };
 }

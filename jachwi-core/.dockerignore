@@ -1,0 +1,9 @@
+**
+!Dockerfile
+!requirements-lock.txt
+!requirements-firebase.txt
+!app
+!app/**
+!data
+!data/**
+**/__pycache__
