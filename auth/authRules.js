@@ -15,6 +15,24 @@ export function normalizeEmail(raw) {
   return { email, message: '' };
 }
 
+// 최근 로그인 계정 표시용 이메일 가리기 (AC-04): 'hyundong@example.com' → 'hy******@ex*****.com'
+// 아이디·도메인 이름은 앞 두 글자(짧으면 한 글자)만 보이고, 최상위 도메인(.com 등)은 그대로 둡니다.
+export function maskEmail(email) {
+  const value = String(email ?? '').trim().toLowerCase();
+  const at = value.lastIndexOf('@');
+  if (at < 1) return '';
+  const local = value.slice(0, at);
+  const domain = value.slice(at + 1);
+  const dot = domain.lastIndexOf('.');
+  const name = dot > 0 ? domain.slice(0, dot) : domain;
+  const tld = dot > 0 ? domain.slice(dot) : '';
+  const hide = (part) => {
+    const keep = part.length <= 2 ? 1 : 2;
+    return part.slice(0, keep) + '*'.repeat(Math.max(part.length - keep, 1));
+  };
+  return `${hide(local)}@${hide(name)}${tld}`;
+}
+
 const COMMON = ['password', 'qwerty', 'abc123', 'iloveyou', 'admin', 'letmein', 'welcome', '123456', '111111', '000000', 'asdf'];
 
 // 비밀번호 강도. score 0~4, level: empty | weak | fair | good | strong

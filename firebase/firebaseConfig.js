@@ -13,7 +13,8 @@ import {
   connectFirestoreEmulator,
 } from "firebase/firestore";
 
-import AsyncStorage from "@react-native-async-storage/async-storage";
+// 로그인 정보는 기기 보안 저장소에 저장 (AC-02, auth/secureSessionStorage.js)
+import secureSessionStorage from "../auth/secureSessionStorage";
 
 // Firebase Console → 프로젝트 설정 → 내 앱 → 구성
 // 아래 값은 본인의 Firebase 웹 앱 설정값으로 교체
@@ -30,12 +31,12 @@ const firebaseConfig = {
 // Firebase 앱 중복 초기화 방지
 const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 
-// 웹은 Firebase의 브라우저 저장소를 사용한다. AsyncStorage 어댑터는 네이티브 전용이다.
+// 웹은 Firebase의 브라우저 저장소를 사용한다. 보안 저장소 어댑터는 네이티브 전용이다.
 function getProjectAuth() {
   if (Platform.OS === "web") return getAuth(app);
   try {
     return initializeAuth(app, {
-      persistence: getReactNativePersistence(AsyncStorage),
+      persistence: getReactNativePersistence(secureSessionStorage),
     });
   } catch (error) {
     if (error.code === "auth/already-initialized") return getAuth(app);

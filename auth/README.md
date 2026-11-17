@@ -30,6 +30,8 @@
 | `setRegion(code)` | 지역 검색에서 고른 법정동 코드 저장 (이름은 '시도 시군구 동'으로 함께 저장). `null` 이면 지역 지우기 |
 | `logout()` / `withdraw(password)` / `reloadAccount()` | 로그아웃 / 회원 탈퇴 / 오류 시 다시 불러오기. 로그아웃·탈퇴 직전에 `'logout'` 이벤트가 나갑니다 |
 | `user.uid`, `email`, `member.nickname`, `profile` | 로그인 사용자, 이메일, 닉네임, 생활 정보 |
+| `recentAccount` | 최근 로그인 계정 `{ remember, maskedEmail, savedAt }` (AC-04). 예: `hy******@ex*****.com` |
+| `setRememberAccount(on)` / `clearRecentAccount()` | 최근 계정 기억 켜기·끄기(끄면 기록도 삭제) / 기록만 지우기 |
 
 실패하면 `throw` 하며, 오류에 **`field`(표시할 칸)** 와 **`message`(보여 줄 문구)** 가 들어 있습니다.
 `field`: `email`, `password`, `confirm`, `birthDate`, `nickname`, `form`(칸이 아닌 전체 오류).
@@ -78,6 +80,20 @@ await setRegion(results[0].code);
 ```
 GPS·서버 없이 앱 안 데이터(`auth/data/legalDong.json`, 법정동 2026-09-29 기준)로 찾습니다. 같은 동 이름은 `label`(전체 이름)로 구분해 보여 주세요.
 데이터는 공식 사이트에서 직접 받지 못해 공개 저장소 사본으로 만든 파일입니다. 발표 전 code.go.kr 원본으로 다시 만드는 것을 권장합니다(`jachwi-core/scripts/build_legal_dong.py`).
+
+### 최근 로그인 계정 (AC-04)
+
+- 기본은 **기억 안 함**. 로그인 화면에 "이 기기에서 최근 계정 기억" 같은 선택지를 두고 `setRememberAccount(true)` 를 부르세요.
+- 켜져 있으면 로그인 성공 때 **가린 이메일만** 기기에 저장합니다(전체 이메일·비밀번호는 저장 안 함). 로그아웃해도 남습니다.
+- 표시된 계정은 안내용입니다. 눌러도 로그인되지 않고, 이메일·비밀번호를 입력해야 로그인됩니다.
+- "기록 지우기"는 `clearRecentAccount()`, "기억 끄기"는 `setRememberAccount(false)`(기록도 삭제).
+
+### 로그인 정보 저장 위치 (AC-02)
+
+- iOS·Android: 로그인 정보를 기기 **보안 저장소**(iOS Keychain / Android Keystore, `expo-secure-store`)에 저장합니다.
+  큰 값은 나눠 저장하고, 예전 버전이 일반 저장소에 남긴 로그인 정보는 처음 읽을 때 옮기고 지웁니다(`auth/secureSessionStorage.js`).
+- 웹: 브라우저에는 보안 저장소가 없어 Firebase 기본 브라우저 저장을 씁니다(시연용).
+- 만료·폐기된 로그인으로는 Firestore 보안 규칙 때문에 데이터를 읽을 수 없습니다. 로그인 정보 값은 로그에 출력하지 않습니다.
 
 ### 다른 파트가 연결할 것: 로그아웃 정리·지역 변경 (AC-09·10)
 
@@ -158,4 +174,4 @@ useEffect(() => onAccountEvent('regionChanged', ({ from, to }) => {
 2. `firestore.rules` 배포 (`nicknames` 규칙 추가됨): `firebase deploy --only firestore:rules`
 3. Cloud Functions 배포 (닉네임 규칙·탈퇴 정리): `firebase deploy --only functions`
 
-테스트: `node --test auth/authRules.test.mjs auth/onboardingRules.test.mjs auth/regions.test.mjs`
+테스트: `node --test auth/authRules.test.mjs auth/onboardingRules.test.mjs auth/regions.test.mjs auth/session.test.mjs`

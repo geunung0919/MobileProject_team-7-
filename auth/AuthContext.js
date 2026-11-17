@@ -6,6 +6,7 @@ import {
   updateProfileData, changeNickname, isNicknameAvailable,
 } from './firebaseAccount';
 import { emitAccountEvent } from './accountEvents';
+import recentAccountStore from './recentAccount';
 import { regionInfo } from './regions';
 import { normalizeEmail, validatePassword, validateBirthDate, authErrorMessage } from './authRules';
 import { normalizeNickname } from './nickname';
@@ -24,6 +25,8 @@ import { diagnose, EMPTY_PROFILE } from './onboardingRules';
 //   auth.checkNickname(nickname)   입력 중 중복 확인 → {status:'available'|'taken'|'invalid'|'error', message} (훅: useNicknameCheck)
 //   auth.setRegion(code)           지역 검색 결과(regions.searchRegions)에서 고른 법정동 코드 저장 → 'regionChanged' 이벤트
 //   로그아웃·탈퇴 직전에는 'logout' 이벤트가 나갑니다 (accountEvents.js — 다른 파트의 캐시·알림 정리용)
+//   auth.recentAccount             {remember, maskedEmail, savedAt} 최근 로그인 계정 (AC-04, 기본은 기억 안 함)
+//   auth.setRememberAccount(on) / auth.clearRecentAccount()   기억 켜기·끄기(끄면 기록도 삭제) / 기록만 지우기
 //   auth.user.uid / auth.member.nickname / auth.profile    로그인 사용자·닉네임·생활 정보
 //   auth.logout() / auth.withdraw(password) / auth.reloadAccount()
 const AuthContext = createContext(null);
@@ -48,6 +51,11 @@ export function AuthProvider({ children }) {
   const [state, setState] = useState({ ready: false, user: null, account: 'loading' });
   const [signingUp, setSigningUp] = useState(false);       // 가입 저장이 끝날 때까지 'login' 단계 유지
   const [holdOnboarding, setHoldOnboarding] = useState(false); // 결과 화면을 볼 때까지 'onboarding' 단계 유지
+  const [recentAccount, setRecentAccount] = useState({ remember: false, maskedEmail: null, savedAt: null });
+  useEffect(() => { recentAccountStore.read().then(setRecentAccount); }, []);
+  const rememberLogin = async (email) => {
+    try { setRecentAccount(await recentAccountStore.recordLogin(email)); } catch { /* 기억 실패는 로그인에 영향 없음 */ }
+  };
 
   const load = async (user) => {
     setState((prev) => ({ ...prev, account: 'loading' }));
@@ -85,6 +93,7 @@ export function AuthProvider({ children }) {
         if (mail.message) throw fail('email', mail.message);
         if (!password) throw fail('password', '비밀번호를 입력해 주세요.');
         try { await signInWithEmail({ email: mail.email, password }); } catch (e) { throw asFieldError(e); }
+        await rememberLogin(mail.email);
       },
 
       async signUp({ email, password, confirm, birthDate }) {
@@ -101,6 +110,7 @@ export function AuthProvider({ children }) {
         setSigningUp(true);
         try { await signUpWithEmail({ email: mail.email, password, birthDate }); } catch (e) { throw asFieldError(e); }
         finally { setSigningUp(false); }
+        await rememberLogin(mail.email);
       },
 
       async completeOnboarding({ nickname, profile }) {
@@ -182,9 +192,13 @@ export function AuthProvider({ children }) {
         setHoldOnboarding(false);
       },
       reloadAccount: () => (auth.currentUser ? load(auth.currentUser) : Promise.resolve()),
+
+      recentAccount,
+      async setRememberAccount(on) { setRecentAccount(await recentAccountStore.setRemember(Boolean(on))); },
+      async clearRecentAccount() { setRecentAccount(await recentAccountStore.clear()); },
     };
     return api;
-  }, [state, signingUp, holdOnboarding]);
+  }, [state, signingUp, holdOnboarding, recentAccount]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
