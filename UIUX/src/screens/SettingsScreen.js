@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, ScrollView, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRoutineAlerts } from '../features/routine/RoutineAlerts';
 import BackHeader from '../components/BackHeader';
 import SectionTitle from '../components/SectionTitle';
 import SettingSwitchRow from '../components/SettingSwitchRow';
@@ -12,8 +13,9 @@ import { colors, fonts, spacing } from '../theme';
 // TODO: 알림 스위치는 값만 저장합니다. 실제 푸시 알림은 expo-notifications 를 붙일 때 연결하세요.
 export default function SettingsScreen({ navigation }) {
   const insets = useSafeAreaInsets();
-  const { settings, updateSetting } = useAppData();
+  const { settings, updateSetting, sharedReceipts, sharedUid } = useAppData();
   const d = settingsData;
+  const alerts = useRoutineAlerts();
 
   return (
     <View style={styles.container}>
@@ -28,7 +30,13 @@ export default function SettingsScreen({ navigation }) {
         <BackHeader title={d.title} subtitle={d.subtitle} onBack={() => navigation.goBack()} />
 
         <SectionTitle style={styles.sectionTitle}>{d.notifySection}</SectionTitle>
-        {d.toggles.map((t, index) => (
+        {sharedReceipts ? (
+          alerts?.supported && sharedUid ? <>
+            <SettingSwitchRow title="이 기기의 루틴 알림" description="생활 루틴에서 선택한 시간에 알려줘요."
+              value={alerts.enabled === true} onValueChange={() => alerts.toggle()} />
+            {alerts.status ? <Text>{alerts.status}</Text> : null}
+          </> : <Text>{sharedUid ? '루틴 알림은 모바일 앱에서 설정할 수 있어요.' : '로그인 후 모바일 앱에서 루틴 알림을 설정할 수 있어요.'}</Text>
+        ) : d.toggles.map((t, index) => (
           <SettingSwitchRow
             key={t.key}
             title={t.title}

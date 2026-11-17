@@ -22,13 +22,17 @@ export function reviewedPayload(draft) {
         throw new Error(`${name}: 실제 재고 수량·단위와 보관 방법을 선택해 주세요.`);
       }
       if (item.dateType !== 'unknown' && !validDate(item.expiresAt)) throw new Error(`${name}: 기한 날짜를 확인해 주세요.`);
+      if (item.dateType !== 'unknown' && item.expiresAt < draft.purchasedAt) {
+        throw new Error(`${name}: 기한은 구매일보다 빠를 수 없어요.`);
+      }
       Object.assign(entry, { quantity: Number(item.quantity), unit: item.unit, storageMethod: item.storageMethod,
         dateType: item.dateType, expiresAt: item.dateType === 'unknown' ? null : item.expiresAt });
     }
     return entry;
   });
   if (items.reduce((n, item) => n + (item.linePaidAmount ?? 0), 0) > total) throw new Error('품목 결제 금액의 합계가 총 결제액보다 커요.');
-  return { receiptId: draft.receiptId, requestId: draft.receiptId, title: draft.title.trim(), purchasedAt: draft.purchasedAt, amount: total, items };
+  return { receiptId: draft.receiptId, requestId: draft.receiptId, title: draft.title.trim(), purchasedAt: draft.purchasedAt, amount: total, items,
+    ...(['manual', 'sms', 'kakao', 'notification', 'commerce'].includes(draft.source) ? { source: draft.source } : {}) };
 }
 
 export function draftFromRecognition(result) {
@@ -53,4 +57,14 @@ export function draftFromRecognition(result) {
     receiptId: typeof result.fingerprint === 'string' && /^[a-f0-9]{16,64}$/.test(result.fingerprint) ? `ocr-${result.fingerprint}` : '',
     warnings,
   };
+}
+
+export function draftFromPayment(result, source) {
+  if (result?.candidate?.transaction_kind === 'non_expense' ||
+      result?.warnings?.some((warning) => typeof warning === 'string' && warning.includes('새 지출로 가져올 수 없어요'))) {
+    throw new Error('취소·거절·실패·환불 내역은 새 지출로 저장하지 않아요.');
+  }
+  const draft = draftFromRecognition(result);
+  return { ...draft, items: [], source,
+    receiptId: draft.receiptId.replace(/^ocr-/, 'payment-') };
 }

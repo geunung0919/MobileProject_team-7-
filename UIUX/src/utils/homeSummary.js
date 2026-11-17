@@ -34,6 +34,7 @@ export function getFridgeSummary(fridgeItems, baseDate, urgentWithinDays) {
 // "오늘의 한마디" 첫 줄: 가장 먼저 상하는 식재료 안내
 export function getHeroLine(first) {
   if (!first) return '냉장고에 식재료를 추가해 보세요.';
+  if (!Number.isFinite(first.daysLeft)) return `${first.name}의 보관 기한을 확인해 보세요.`;
   if (first.daysLeft < 0) return `기한이 지난 ${first.name}부터 확인해 보세요.`;
   if (first.daysLeft === 0) return `오늘까지인 ${first.name}부터 챙겨보세요.`;
   return `${first.daysLeft}일 남은 ${first.name}부터 챙겨보세요.`;

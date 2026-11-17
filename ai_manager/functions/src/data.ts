@@ -65,7 +65,7 @@ export async function loadInput(uid: string, today: string): Promise<ReportInput
   return {
     today,
     profile,
-    budget: toBudget(budgetSnap.data(), month),
+    budget: toBudget(budgetSnap.data(), month) ?? toBudget({ total_budget: profile.monthly_budget_krw }, month),
     expenses: toExpenses(expSnap),
     inventory: toInventory(invSnap),
     usage_logs: toUsage(usageSnap),

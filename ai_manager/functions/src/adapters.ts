@@ -8,7 +8,7 @@ import { Budget, Expense, InventoryItem, Routine, RoutineLog, UsageLog } from ".
 
 // 앱이 아직 저장하지 않는 기록. 앱이 저장하게 되면 true로 바꾸면 분석에 자동으로 들어간다.
 export const DATA_SOURCE = {
-  routineDailyLogs: false, // 루틴의 날짜별 완료 기록 (지금 앱은 '오늘 했는지(doneToday)'만 있음)
+  routineDailyLogs: true, // Firebase 루틴 API가 target_date별 완료 기록을 저장한다.
   usageLogs: false, // 재고 사용 기록(요리/폐기) (지금 앱은 요리하면 재료를 통째로 지움)
 };
 
@@ -60,6 +60,7 @@ export function toInventoryItem(id: string, raw: Raw): InventoryItem | null {
 }
 
 export function toRoutine(id: string, raw: Raw): Routine | null {
+  if (raw.archived === true) return null;
   const title = str(raw.title);
   if (!title) return null;
   return {

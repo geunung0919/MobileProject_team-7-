@@ -9,6 +9,7 @@ import {
   NotoSansKR_500Medium,
   NotoSansKR_700Bold,
 } from '@expo-google-fonts/noto-sans-kr';
+import { RoutineAlerts } from './src/features/routine/RoutineAlerts';
 import RootNavigator from './src/navigation/RootNavigator';
 import { AppDataProvider } from './src/store/AppDataContext';
 import { colors } from './src/theme';
@@ -27,10 +28,12 @@ export default function App({ sharedReceipts = false }) {
   return (
     <SafeAreaProvider>
       <AppDataProvider sharedReceipts={sharedReceipts}>
+        <RoutineAlerts>
         <NavigationContainer>
           <StatusBar style="dark" />
           <RootNavigator />
         </NavigationContainer>
+        </RoutineAlerts>
       </AppDataProvider>
     </SafeAreaProvider>
   );

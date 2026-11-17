@@ -210,6 +210,11 @@ exports.api = onRequest(
         }
 
         const nickname = req.body && req.body.nickname;
+        const region = req.body?.region;
+        if (region !== undefined &&
+            (typeof region !== "string" || region.trim().length > 100)) {
+          return res.status(400).json({error: "거주 지역을 확인해 주세요."});
+        }
 
         // 닉네임 입력값 검증
         if (
@@ -228,6 +233,7 @@ exports.api = onRequest(
               user.uid,
               user.email,
               nickname.trim(),
+              region?.trim(),
           );
 
           return res.status(200).json({
@@ -247,6 +253,42 @@ exports.api = onRequest(
         }
       }
 
+      if (req.path === "/finance/budget" || req.path === "/routines" ||
+          req.path === "/onboarding") {
+        const user = await verifyUser(req, res);
+        if (!user) return;
+        const {getFirestore} = require("firebase-admin/firestore");
+        try {
+          const handler = req.path === "/finance/budget" ?
+            require("./modules/finance/budgets").handleBudget :
+            req.path === "/onboarding" ?
+              require("./modules/core/onboarding").handleOnboarding :
+              require("./modules/routines").handleRoutines;
+          return await handler(getFirestore(), user.uid, req, res);
+        } catch (error) {
+          console.error("Shared finance or routine request failed", {
+            path: req.path, code: error.code,
+          });
+          return res.status(503).json({error: "서버 연결을 확인해 주세요."});
+        }
+      }
+
+      if (req.path === "/refrigerator/items/change" && req.method === "POST") {
+        const user = await verifyUser(req, res);
+        if (!user) return;
+        const {getFirestore} = require("firebase-admin/firestore");
+        const {changeFridgeItem} = require(
+            "./modules/refrigerator/manualItems");
+        try {
+          return res.json(await changeFridgeItem(getFirestore(), user.uid,
+              req.body));
+        } catch (error) {
+          return res.status(error.status || 503).json({
+            error: error.status ? error.message : "저장소를 확인해 주세요.",
+          });
+        }
+      }
+
       if (req.path === "/finance/receipts/confirm" ||
           req.path === "/finance/transactions" ||
           req.path === "/refrigerator/items") {
@@ -255,10 +297,19 @@ exports.api = onRequest(
         const {getFirestore} = require("firebase-admin/firestore");
         const db = getFirestore();
         try {
-          if (req.path === "/finance/receipts/confirm" &&
-              req.method === "POST") {
+          if ((req.path === "/finance/receipts/confirm" ||
+              req.path === "/finance/transactions") && req.method === "POST") {
             const {confirmReceipt} = require("./modules/finance/receipts");
-            const result = await confirmReceipt(db, user.uid, req.body);
+            const source = req.path === "/finance/transactions" ?
+              (req.body?.source ?? "manual") : "ocr";
+            const result = await confirmReceipt(db, user.uid,
+                {...req.body, source});
+            return res.status(result.replayed ? 200 : 201).json(result);
+          }
+          if (req.path === "/refrigerator/items" && req.method === "POST") {
+            const {createManualItem} = require(
+                "./modules/refrigerator/manualItems");
+            const result = await createManualItem(db, user.uid, req.body);
             return res.status(result.replayed ? 200 : 201).json(result);
           }
           if (req.method === "GET" &&
@@ -266,10 +317,12 @@ exports.api = onRequest(
             const collection = req.path === "/finance/transactions" ?
               "transactions" : "fridgeItems";
             const snapshot = await db
-                .collection(`users/${user.uid}/${collection}`).limit(500).get();
-            return res.json({items: snapshot.docs.map((doc) =>
+                .collection(`users/${user.uid}/${collection}`);
+            const records = await (collection === "transactions" ?
+              snapshot.orderBy("date", "desc") : snapshot).limit(501).get();
+            return res.json({items: records.docs.slice(0, 500).map((doc) =>
               ({...doc.data(), id: doc.id})),
-            limit: 500, possiblyTruncated: snapshot.size === 500});
+            limit: 500, possiblyTruncated: records.size > 500});
           }
           return res.status(405).json({error: "지원하지 않는 메서드입니다."});
         } catch (error) {

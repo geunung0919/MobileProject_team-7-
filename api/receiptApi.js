@@ -2,7 +2,7 @@ import {auth} from '../firebase/firebaseConfig';
 import {environment} from '../config/environment';
 
 // Callers retain receiptId, receiptItemId and requestId across retries.
-async function request(path, body, expectedUid) {
+async function request(path, body, expectedUid, method = body ? 'POST' : 'GET') {
   await auth.authStateReady();
   const user = auth.currentUser;
   if (!user) throw new Error('로그인 후 저장해 주세요.');
@@ -18,13 +18,16 @@ async function request(path, body, expectedUid) {
     const token = await user.getIdToken();
     if (auth.currentUser?.uid !== user.uid) throw new Error('계정이 변경됐어요.');
     const response = await fetch(`${base.replace(/\/$/, '')}${path}`, {
-      method: body ? 'POST' : 'GET', signal: controller.signal,
+      method, signal: controller.signal,
       headers: {'Content-Type': 'application/json', Authorization: `Bearer ${token}`},
       ...(body ? {body: JSON.stringify(body)} : {}),
     });
-    const data = await response.json();
+    const data = await response.json().catch(() => null);
+    if (response.ok && (data === null || typeof data !== 'object' || Array.isArray(data))) {
+      throw new Error('서버 응답을 읽지 못했어요. 잠시 후 다시 시도해 주세요.');
+    }
     if (!response.ok) {
-      const error = new Error(data.error || '서버 요청 실패');
+      const error = new Error(typeof data?.error === 'string' ? data.error : `서버 요청에 실패했어요. (${response.status})`);
       error.status = response.status;
       throw error;
     }
@@ -35,3 +38,17 @@ async function request(path, body, expectedUid) {
 export const confirmReceipt = (reviewedReceipt, uid) => request('/finance/receipts/confirm', reviewedReceipt, uid);
 export const listTransactions = (uid) => request('/finance/transactions', undefined, uid);
 export const listFridgeItems = (uid) => request('/refrigerator/items', undefined, uid);
+export const createFridgeItem = (item, uid) => request('/refrigerator/items', item, uid);
+export const createTransaction = (reviewed, uid) => request('/finance/transactions', reviewed, uid);
+
+export const loadBudget = (month, uid) => request(`/finance/budget?month=${encodeURIComponent(month)}`, undefined, uid);
+export const saveBudget = (month, budget, uid, useAsDefault = false) => request('/finance/budget', { month, budget, useAsDefault }, uid);
+export const listRoutines = (uid) => request('/routines', undefined, uid);
+export const writeRoutine = (body, uid) => request('/routines', body, uid);
+
+export const changeFridgeItem = (body, uid) => request('/refrigerator/items/change', body, uid);
+export const loadProfile = (uid) => request('/profile', undefined, uid);
+export const saveProfile = (body, uid) => request('/profile', body, uid, 'PUT');
+
+export const loadOnboarding = (uid) => request('/onboarding', undefined, uid);
+export const saveOnboarding = (body, uid) => request('/onboarding', body, uid, 'PUT');
