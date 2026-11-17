@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { View, ScrollView, Pressable, StyleSheet } from 'react-native';
+import { View, ScrollView, Pressable, Modal, ActivityIndicator, Alert, StyleSheet } from 'react-native';
 import Text from '../components/AppText';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -9,9 +9,13 @@ import SoftButton from '../components/SoftButton';
 import TransactionRow from '../components/TransactionRow';
 import Fab from '../components/Fab';
 import AddSpendingSheet from '../components/AddSpendingSheet';
+import BudgetSheet from '../components/BudgetSheet';
 import { TAB_BAR_HEIGHT } from '../components/TabBar';
 import { spendingData } from '../data/spending/spending';
 import { useAppData } from '../store/AppDataContext';
+import { api } from '../lib/api';
+import { pickReceiptPhoto, analyzeReceiptPhoto } from '../lib/receiptOcr';
+import { receiptFromAnalysis } from '../lib/serverData';
 import { formatMonthDay, compareDateDesc, pad } from '../utils/format';
 import { colors, fonts, spacing } from '../theme';
 
@@ -20,8 +24,10 @@ const RECENT_LIMIT = 10;
 
 export default function SpendingScreen({ navigation }) {
   const insets = useSafeAreaInsets();
-  const { budget, addOptions } = spendingData;
-  const { transactions } = useAppData();
+  const { addOptions } = spendingData;
+  const { transactions, budget, budgetIsSet, setBudget, isServer, syncState, syncError, refresh } = useAppData();
+  const [budgetVisible, setBudgetVisible] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
   // 처음에는 오늘이 속한 달을 보여줍니다.
   const [period, setPeriod] = useState(() => {
     const now = new Date();
@@ -43,15 +49,27 @@ export default function SpendingScreen({ navigation }) {
     if (id === 'manual') {
       navigation.navigate('ManualEntry');
     }
-    if (id === 'gallery') {
-      // TODO: 앨범에서 사진을 고르는 기능(expo-image-picker 등)을 붙이고, 인식 결과를 navigate('ReceiptResult', { receipt }) 로 넘기세요.
-      // 지금은 샘플 결과 화면을 바로 보여줍니다.
-      navigation.navigate('ReceiptResult');
+    if (id === 'gallery' || id === 'receipt') {
+      scanReceipt(id === 'receipt' ? 'camera' : 'gallery');
     }
-    if (id === 'receipt') {
-      // TODO: 카메라 화면이 완성되면 'ReceiptCamera' 로 이동하고, 인식 결과를 navigate('ReceiptResult', { receipt }) 로 넘기세요.
-      // (형식: src/data/spending/receipt.js) 지금은 카메라가 없어서 샘플 결과 화면을 바로 보여줍니다.
+  };
+
+  // 영수증 촬영/앨범 선택 -> 서버 OCR -> 인식 결과 화면. 서버 연결이 없으면 샘플 결과를 보여줍니다.
+  const scanReceipt = async (mode) => {
+    if (!api) {
       navigation.navigate('ReceiptResult');
+      return;
+    }
+    try {
+      const asset = await pickReceiptPhoto(mode);
+      if (!asset) return; // 취소
+      setAnalyzing(true);
+      const result = await analyzeReceiptPhoto(api, asset);
+      navigation.navigate('ReceiptResult', { receipt: receiptFromAnalysis(result) });
+    } catch (error) {
+      Alert.alert('영수증을 읽지 못했어요', error?.message ?? '다시 촬영해 주세요.');
+    } finally {
+      setAnalyzing(false);
     }
   };
 
@@ -98,7 +116,17 @@ export default function SpendingScreen({ navigation }) {
       >
         <ScreenHeader title="소비" right={monthSelector} />
 
-        <BudgetCard budget={budget} spent={spent} />
+        {isServer && syncState === 'error' ? (
+          <Pressable onPress={refresh} style={styles.syncError} accessibilityRole="button">
+            <Text style={styles.syncErrorText}>{syncError}</Text>
+            <Text style={styles.syncRetry}>다시 불러오기</Text>
+          </Pressable>
+        ) : null}
+
+        <Pressable onPress={() => setBudgetVisible(true)} accessibilityRole="button" accessibilityLabel="이번 달 예산 수정">
+          <BudgetCard budget={budget} spent={spent} />
+        </Pressable>
+        {!budgetIsSet ? <Text style={styles.budgetHint}>예산 카드를 눌러 이번 달 예산을 정해 주세요.</Text> : null}
 
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>최근 지출 내역</Text>
@@ -146,6 +174,23 @@ export default function SpendingScreen({ navigation }) {
         options={addOptions}
         onSelect={handleSelectAddOption}
       />
+
+      <BudgetSheet
+        visible={budgetVisible}
+        budget={budgetIsSet ? budget : null}
+        onClose={() => setBudgetVisible(false)}
+        onSubmit={setBudget}
+      />
+
+      <Modal visible={analyzing} transparent animationType="fade" statusBarTranslucent>
+        <View style={styles.overlay}>
+          <View style={styles.overlayBox}>
+            <ActivityIndicator size="large" color={colors.green} />
+            <Text style={styles.overlayText}>영수증을 읽고 있어요</Text>
+            <Text style={styles.overlaySub}>10~30초 정도 걸려요</Text>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -188,6 +233,54 @@ const styles = StyleSheet.create({
   },
   list: {
     marginTop: 10,
+  },
+  budgetHint: {
+    marginTop: 8,
+    fontFamily: fonts.regular,
+    fontSize: 13,
+    color: colors.textSecondary,
+  },
+  syncError: {
+    marginBottom: 12,
+    padding: 14,
+    borderRadius: 12,
+    backgroundColor: colors.cardBg,
+  },
+  syncErrorText: {
+    fontFamily: fonts.regular,
+    fontSize: 14,
+    color: colors.textPrimary,
+  },
+  syncRetry: {
+    marginTop: 6,
+    fontFamily: fonts.bold,
+    fontSize: 14,
+    color: colors.green,
+  },
+  overlay: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.35)',
+  },
+  overlayBox: {
+    alignItems: 'center',
+    paddingHorizontal: 32,
+    paddingVertical: 28,
+    borderRadius: 20,
+    backgroundColor: colors.white,
+  },
+  overlayText: {
+    marginTop: 14,
+    fontFamily: fonts.bold,
+    fontSize: 17,
+    color: colors.textPrimary,
+  },
+  overlaySub: {
+    marginTop: 4,
+    fontFamily: fonts.regular,
+    fontSize: 14,
+    color: colors.textSecondary,
   },
   empty: {
     paddingVertical: 32,

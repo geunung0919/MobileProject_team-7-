@@ -5,7 +5,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import BackHeader from '../components/BackHeader';
 import { reportTexts, pastReports } from '../data/lifeInfo/reports';
-import { spendingData } from '../data/spending/spending';
 import { useAppData } from '../store/AppDataContext';
 import { buildPastReport, getBudgetTag } from '../utils/reportSummary';
 import { formatNumber, pad } from '../utils/format';
@@ -17,7 +16,7 @@ const CHART_HEIGHT = 80;
 export default function ReportListScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const t = reportTexts.list;
-  const { transactions } = useAppData();
+  const { transactions, budget } = useAppData();
 
   // 지난 리포트 (최근 달이 위)
   const reports = useMemo(() => {
@@ -35,12 +34,12 @@ export default function ReportListScreen({ navigation }) {
     const current = {
       id: 'current',
       month: now.getMonth() + 1,
-      percent: Math.round((spent / spendingData.budget) * 100),
+      percent: Math.round((spent / budget) * 100),
       isCurrent: true,
     };
     const past = [...reports].reverse().map((r) => ({ id: r.id, month: r.month, percent: r.usedPercent }));
     return [...past, current];
-  }, [reports, transactions]);
+  }, [reports, transactions, budget]);
 
   return (
     <View style={styles.container}>

@@ -80,6 +80,12 @@ class InventoryItem(Contract):
     storage: Literal['fridge', 'freezer', 'room']
     target_date: date | None = None
     date_source: Literal['label', 'estimate', 'unknown'] = 'unknown'
+    # 화면 표시용(선택). 서버 계산은 quantity/unit 을 쓰고, 앱은 사용자가 고른 단위를 그대로 보여 줍니다.
+    display_quantity: float | None = Field(default=None, gt=0, le=1_000_000, allow_inf_nan=False)
+    display_unit: str | None = Field(default=None, min_length=1, max_length=20)
+    detail: str | None = Field(default=None, max_length=40)
+    purchase_date: date | None = None
+    icon: str | None = Field(default=None, max_length=60)
     @model_validator(mode='after')
     def check_date(self):
         if (self.target_date is None) != (self.date_source == 'unknown'):

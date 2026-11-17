@@ -29,11 +29,29 @@ class LedgerRow(Base):
     __mapper_args__ = {'version_id_col': version}
 
 
+class PurchasedItem(Contract):
+    # 앱(UIUX) 지출 상세에 보이는 구매 품목
+    id: str = Field(min_length=1, max_length=64)
+    name: str = Field(min_length=1, max_length=120)
+    unitPrice: Annotated[int, Field(ge=0, le=1_000_000_000)]
+    quantity: Annotated[float, Field(gt=0, le=1000)]
+    inFridge: bool = False
+
+
+class ExpenseMeta(Contract):
+    # 화면 표시용 정보(선택). 예산 계산은 category/amount_krw 만 씁니다.
+    category_label: str | None = Field(default=None, min_length=1, max_length=30)
+    icon: str | None = Field(default=None, max_length=60)
+    source: Literal['receipt', 'manual'] | None = None
+    items: list[PurchasedItem] | None = Field(default=None, max_length=50)
+
+
 class ExpenseInput(Contract):
     title: str = Field(min_length=1, max_length=100)
     amount_krw: Annotated[int, Field(strict=True, gt=0, le=1_000_000_000)]
     spent_on: date
     category: Literal['food', 'groceries', 'living', 'transport', 'other']
+    meta: ExpenseMeta | None = None
 
 
 class BudgetInput(Contract):
@@ -638,6 +656,13 @@ def register_fintech(app, current_user, db):
             'source_updated_at': snapshot.source_updated_at if snapshot else None,
         }
 
+    @router.get('/expenses')
+    def all_expenses(user=Depends(current_user), session=Depends(db)):
+        """모든 달의 지출. 최근에 저장한 것이 앞에 옵니다 (앱의 전체보기·월별 분석용)."""
+        row = ledger(session, user)
+        expenses = list(reversed(row.payload['expenses'])) if row else []
+        return {'expenses': expenses, 'source_updated_at': row.payload['updated_at'] if row else None}
+
     @router.put('/budgets/{period}')
     def budget(
         period: Period,
@@ -715,6 +740,7 @@ def register_fintech(app, current_user, db):
             'import_source': body.source,
             'import_fingerprint': fingerprint,
             **({'receipt_items': receipt_items} if receipt_items else {}),
+            **({'meta': body.meta.model_dump(mode='json', exclude_none=True)} if body.meta else {}),
         }
         save(
             session,
@@ -736,7 +762,7 @@ def register_fintech(app, current_user, db):
         row = ensure(session, user)
         entry = {
             'id': str(uuid4()),
-            **body.model_dump(mode='json'),
+            **body.model_dump(mode='json', exclude_none=True),
         }
         save(
             session,
@@ -769,7 +795,7 @@ def register_fintech(app, current_user, db):
         )
         entry = {
             'id': expense_id,
-            **body.model_dump(mode='json'),
+            **body.model_dump(mode='json', exclude_none=True),
         }
         if 'import_source' in previous:
             entry['import_source'] = previous['import_source']
@@ -777,6 +803,8 @@ def register_fintech(app, current_user, db):
             entry['import_fingerprint'] = previous['import_fingerprint']
         if 'receipt_items' in previous:
             entry['receipt_items'] = previous['receipt_items']
+        if body.meta is None and 'meta' in previous:
+            entry['meta'] = previous['meta']  # 화면 정보 없이 수정하는 클라이언트(mobile/)는 기존 값을 유지
 
         save(
             session,

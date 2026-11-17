@@ -186,3 +186,37 @@ def test_migrate_sqlite_rows_to_firestore(tmp_path):
     with TestClient(create_app(url, tokens=TOKENS)) as client:
         assert client.get('/api/v1/me/spending?period=2026-11', headers=AUTH).json()['data']['spent_krw'] == 4480
         assert confirm_receipt(client).status_code == 409  # 옮긴 뒤에도 중복 방지 기록 유지
+
+
+def test_expense_meta_and_all_expenses_endpoint_for_uiux_app():
+    url, _ = memory_url()
+    meta = {'category_label': '카페·간식', 'icon': 'coffee-outline', 'source': 'manual',
+            'items': [{'id': 'i1', 'name': '아메리카노', 'unitPrice': 4500, 'quantity': 1, 'inFridge': False}]}
+    with TestClient(create_app(url, tokens=TOKENS)) as client:
+        first = client.post('/api/v1/me/spending/expenses', headers=AUTH, json={
+            'title': '스타벅스', 'amount_krw': 4500, 'spent_on': '2026-10-31', 'category': 'food', 'meta': meta}).json()
+        assert first['meta'] == meta
+        plain = client.post('/api/v1/me/spending/expenses', headers=AUTH, json={
+            'title': '버스', 'amount_krw': 1500, 'spent_on': '2026-11-01', 'category': 'transport'}).json()
+        assert 'meta' not in plain
+        # 화면 정보 없이 수정해도 기존 meta 유지
+        edited = client.put(f"/api/v1/me/spending/expenses/{first['id']}", headers=AUTH, json={
+            'title': '스타벅스 성수', 'amount_krw': 4500, 'spent_on': '2026-10-31', 'category': 'food'}).json()
+        assert edited['meta'] == meta
+        listed = client.get('/api/v1/me/spending/expenses', headers=AUTH).json()['expenses']
+        assert [e['title'] for e in listed] == ['버스', '스타벅스 성수']  # 최근 저장한 것이 앞
+        bad = client.post('/api/v1/me/spending/expenses', headers=AUTH, json={
+            'title': 'x', 'amount_krw': 1, 'spent_on': '2026-11-01', 'category': 'other', 'meta': {'unknown': 1}})
+        assert bad.status_code == 422
+
+
+def test_inventory_keeps_display_fields():
+    url, _ = memory_url()
+    item = {'item_id': 'f1', 'name': '두부', 'quantity': 1, 'unit': 'pack', 'storage': 'fridge',
+            'target_date': '2026-11-20', 'date_source': 'estimate', 'display_quantity': 1, 'display_unit': '모',
+            'detail': '300g', 'purchase_date': '2026-11-17', 'icon': 'cube-outline'}
+    with TestClient(create_app(url, tokens=TOKENS)) as client:
+        saved = client.put('/api/v1/me/inventory', headers=AUTH, json={'expected_revision': 0, 'data': {'items': [item]}})
+        assert saved.status_code == 200, saved.text
+        got = client.get('/api/v1/me/inventory', headers=AUTH).json()['snapshot']['data']['items'][0]
+        assert got['display_unit'] == '모' and got['detail'] == '300g' and got['purchase_date'] == '2026-11-17'

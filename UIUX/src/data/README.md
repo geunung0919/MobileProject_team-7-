@@ -31,6 +31,23 @@
 
 # 서버(Firebase 등) 연동 가이드
 
+## 지금 연결된 상태 (서버 모드)
+`UIUX/.env.local` 에 서버 주소와 토큰을 넣으면 (`.env.example` 참고) 아래 데이터가 **jachwi-core 서버 → Firebase(Firestore)** 에 저장됩니다.
+읽기/쓰기는 `store/AppDataContext.js`, 서버 형식 변환은 `lib/serverData.js`, 영수증 촬영·분석은 `lib/receiptOcr.js` 에 있어요.
+
+| 데이터 | 저장 위치 | 서버 API |
+| --- | --- | --- |
+| 소비 (`transactions`) | 서버 → Firestore `users/{id}/core/spending_ledger` | `GET/POST/PUT/DELETE me/spending/expenses` |
+| 영수증 촬영 저장 | 위와 같음 (중복 영수증 차단·식재료 학습) | `POST me/spending/receipts/analyze` → `POST me/spending/imports/confirm` |
+| 이번 달 예산 (`budget`, `setBudget`) | 서버 → Firestore | `GET me/spending`, `PUT me/spending/budgets/{YYYY-MM}` |
+| 냉장고 (`fridgeItems`) | 서버 → Firestore `users/{id}/core/inventory` | `GET/PUT me/inventory` |
+| 할 일, 루틴, 프로필, 앱 설정 | 이 휴대폰 (AsyncStorage) | 아직 서버 API 없음 |
+
+- 화면 카테고리(예: `카페·간식`), 아이콘, 구매 품목은 지출의 `meta` 에 그대로 저장되고, 예산 계산용으로는 식품/식비/교통/생활용품/기타 5가지로 나눠 저장합니다.
+- 냉장고 단위 중 서버가 계산하지 않는 단위(봉·모·병·캔)는 서버에는 `pack`, 화면에는 원래 단위로 보여 줍니다. kg·L 은 g·ml 로 바꿔 계산합니다.
+- 소비 탭의 예산 카드를 누르면 이번 달 예산을 정할 수 있어요.
+- `.env.local` 이 없으면 아래 설명처럼 더미 데이터로 동작합니다.
+
 ## 한눈에 보기
 데이터는 두 곳에 있어요.
 
