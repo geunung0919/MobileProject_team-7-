@@ -8,7 +8,6 @@ import SegmentedControl from '../components/SegmentedControl';
 import DonutChart from '../components/DonutChart';
 import MonthlyBarChart from '../components/MonthlyBarChart';
 import { analysisConfig, analysisTexts } from '../data/spending/spendingAnalysis';
-import { spendingData } from '../data/spending/spending';
 import { useAppData } from '../store/AppDataContext';
 import { getCategoryTotals, getMonthlyTotals, getTickStep } from '../utils/spendingAnalysis';
 import { formatNumber } from '../utils/format';
@@ -26,9 +25,8 @@ const formatDiff = (diff) => {
 export default function SpendingAnalysisScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
   const [tab, setTab] = useState('category');
-  const { transactions } = useAppData();
+  const { transactions, budget } = useAppData();
   const t = analysisTexts;
-  const { budget } = spendingData;
 
   const now = new Date();
   const year = route.params?.year ?? now.getFullYear();

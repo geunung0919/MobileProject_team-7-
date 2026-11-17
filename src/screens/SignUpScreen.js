@@ -34,10 +34,10 @@ export default function SignUpScreen({ navigation }) {
       showNotice('입력을 확인해 주세요', problem);
       return;
     }
-    // TODO: 여기서 서버 회원가입을 호출하세요. 성공하면 프로필 설정(닉네임, 자취 상태 …) 화면으로 보낼 예정입니다.
-    //       프로필 설정 화면이 만들어지기 전까지는 바로 앱(Tabs)으로 들어갑니다.
+    // TODO: 여기서 서버 회원가입을 호출하세요. 성공하면 아래 줄이 실행되면 됩니다.
     updateProfile({ email: email.trim() });
-    navigation.dispatch(CommonActions.reset({ index: 0, routes: [{ name: 'Tabs' }] })); // 이전 화면들을 비워서 뒤로 가기로 첫 화면에 돌아오지 않게 함
+    // 가입이 끝나면 프로필 설정으로. 이전 화면들을 비워서 뒤로 가기로 첫 화면에 돌아오지 않게 함
+    navigation.dispatch(CommonActions.reset({ index: 0, routes: [{ name: 'ProfileSetup' }] }));
   };
 
   return (

@@ -20,8 +20,8 @@ const RECENT_LIMIT = 10;
 
 export default function SpendingScreen({ navigation }) {
   const insets = useSafeAreaInsets();
-  const { budget, addOptions } = spendingData;
-  const { transactions } = useAppData();
+  const { addOptions } = spendingData;
+  const { transactions, budget } = useAppData();
   // 처음에는 오늘이 속한 달을 보여줍니다.
   const [period, setPeriod] = useState(() => {
     const now = new Date();

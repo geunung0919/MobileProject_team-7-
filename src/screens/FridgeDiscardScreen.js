@@ -59,7 +59,7 @@ export default function FridgeDiscardScreen({ navigation, route }) {
           </Pressable>
           <Text style={styles.title}>폐기</Text>
         </View>
-        <Text style={styles.subtitle}>유통기한이 지난 식재료예요. 폐기할 품목을 확인해 주세요.</Text>
+        <Text style={styles.subtitle}>폐기할 식재료를 확인해 주세요.</Text>
 
         <FormField label="식재료 이름" value={item?.name ?? ''} editable={false} />
         <QuantityField

@@ -80,6 +80,8 @@ export function AppDataProvider({ children }) {
   }, [resetRoutinesIfNewDay]);
 
   const [profile, setProfile] = useState(profileData.initial);
+  // 월 예산(원). 소비·홈·리포트·AI 매니저가 같은 값을 쓰고, 프로필 설정과 생활 데이터 수정에서 바꿉니다.
+  const [budget, setBudget] = useState(spendingData.budget);
   const [lifeData, setLifeData] = useState(lifeDataForm.initial); // 생활 기본 정보 (자취 기간 구간, 목표, 조리 도구, 요리 일수)
   const [settings, setSettings] = useState(settingsData.initial);
 
@@ -217,6 +219,8 @@ export function AppDataProvider({ children }) {
       updateProfile,
       lifeData,
       updateLifeData,
+      budget,
+      setBudget,
       settings,
       updateSetting,
     }),
@@ -241,6 +245,8 @@ export function AppDataProvider({ children }) {
       updateProfile,
       lifeData,
       updateLifeData,
+      budget,
+      setBudget,
       settings,
       updateSetting,
     ]

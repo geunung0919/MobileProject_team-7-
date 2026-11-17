@@ -22,6 +22,7 @@ import LifeDataScreen from '../screens/LifeDataScreen';
 import WelcomeScreen from '../screens/WelcomeScreen';
 import LoginScreen from '../screens/LoginScreen';
 import SignUpScreen from '../screens/SignUpScreen';
+import ProfileSetupScreen from '../screens/ProfileSetupScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import HelpScreen from '../screens/HelpScreen';
 
@@ -35,6 +36,8 @@ export default function RootNavigator() {
       <Stack.Screen name="Welcome" component={WelcomeScreen} />
       <Stack.Screen name="Login" component={LoginScreen} />
       <Stack.Screen name="SignUp" component={SignUpScreen} />
+      {/* 회원가입 직후 프로필 설정 (5단계 + 진단 결과). 끝나면 Tabs 로 이동 */}
+      <Stack.Screen name="ProfileSetup" component={ProfileSetupScreen} />
       <Stack.Screen name="Tabs" component={TabNavigator} />
       <Stack.Screen name="ManualEntry" component={ManualEntryScreen} />
       <Stack.Screen name="FridgeAdd" component={FridgeAddScreen} />

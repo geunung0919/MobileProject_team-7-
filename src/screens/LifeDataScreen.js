@@ -1,54 +1,55 @@
 import React, { useState } from 'react';
 import { View, ScrollView, StyleSheet } from 'react-native';
-import Text from '../components/AppText';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import BackHeader from '../components/BackHeader';
-import StepperField from '../components/StepperField';
-import ChoiceGrid from '../components/ChoiceGrid';
-import OptionCard from '../components/OptionCard';
-import ToolTile from '../components/ToolTile';
 import PrimaryButton from '../components/PrimaryButton';
+import {
+  PeriodField,
+  GoalField,
+  ToolsField,
+  CookDaysField,
+  BudgetField,
+  RegionField,
+} from '../components/LifeFields';
 import { useAppData } from '../store/AppDataContext';
 import { lifeDataForm } from '../data/more/lifeData';
 import { showNotice } from '../utils/confirm';
-import { colors, fonts, spacing } from '../theme';
+import { colors, spacing } from '../theme';
 
-// 더보기 > 생활 데이터 수정
+// 더보기 > 생활 데이터 수정. 프로필 설정에서 입력한 값을 같은 모양으로 보여주고 고칠 수 있습니다.
+// (닉네임은 "개인정보 관리"에서 고칩니다.)
 export default function LifeDataScreen({ navigation }) {
   const insets = useSafeAreaInsets();
-  const { lifeData, updateLifeData } = useAppData();
+  const { lifeData, updateLifeData, budget, setBudget, profile, updateProfile } = useAppData();
   const d = lifeDataForm;
 
   const [period, setPeriod] = useState(lifeData.period);
   const [goal, setGoal] = useState(lifeData.goal);
-  const [tools, setTools] = useState(lifeData.tools); // 도구 id 목록, 없으면 ['none'], 아무것도 안 골랐으면 []
+  const [tools, setTools] = useState(lifeData.tools);
   const [cookDays, setCookDays] = useState(lifeData.cookDays);
-
-  // "없음"을 고르면 다른 도구가 모두 해제되고, 도구를 고르면 "없음"이 해제됩니다.
-  const toggleTool = (id) => {
-    setTools((prev) => {
-      const base = prev.filter((t) => t !== 'none');
-      return base.includes(id) ? base.filter((t) => t !== id) : [...base, id];
-    });
-  };
-  const toggleNone = () => setTools((prev) => (prev.includes('none') ? [] : ['none']));
+  const [budgetInput, setBudgetInput] = useState(budget);
+  const [region, setRegion] = useState(profile.region);
 
   const handleSave = () => {
     if (tools.length === 0) {
       showNotice('입력을 확인해 주세요', d.toolsEmptyNotice);
       return;
     }
+    if (!budgetInput) {
+      showNotice('입력을 확인해 주세요', d.budgetEmptyNotice);
+      return;
+    }
     updateLifeData({ period, goal, tools, cookDays });
+    setBudget(budgetInput);
+    updateProfile({ region: region.trim() });
     navigation.goBack();
   };
-
-  // 조리 도구를 두 개씩 한 줄로 묶습니다.
-  const toolRows = [];
-  for (let i = 0; i < d.tools.length; i += 2) toolRows.push(d.tools.slice(i, i + 2));
 
   return (
     <View style={styles.container}>
       <ScrollView
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{
           paddingTop: insets.top + 14,
@@ -57,61 +58,12 @@ export default function LifeDataScreen({ navigation }) {
         }}
       >
         <BackHeader title={d.title} subtitle={d.subtitle} onBack={() => navigation.goBack()} />
-
-        <Text style={[styles.label, styles.firstLabel]}>{d.monthsLabel}</Text>
-        <ChoiceGrid options={d.periods} value={period} onChange={setPeriod} />
-
-        <Text style={styles.label}>{d.goalLabel}</Text>
-        <Text style={styles.hint}>{d.goalHint}</Text>
-        <View style={styles.stack}>
-          {d.goals.map((g) => (
-            <OptionCard
-              key={g.id}
-              icon={g.icon}
-              title={g.title}
-              description={g.description}
-              selected={goal === g.id}
-              onPress={() => setGoal(g.id)}
-            />
-          ))}
-        </View>
-
-        <Text style={styles.label}>{d.toolsLabel}</Text>
-        <Text style={styles.hint}>{d.toolsHint}</Text>
-        <View style={styles.stack}>
-          {toolRows.map((row, i) => (
-            <View key={i} style={styles.toolRow}>
-              {row.map((t) => (
-                <ToolTile
-                  key={t.id}
-                  icon={t.icon}
-                  label={t.label}
-                  selected={tools.includes(t.id)}
-                  onPress={() => toggleTool(t.id)}
-                />
-              ))}
-            </View>
-          ))}
-          <OptionCard
-            compact
-            icon={d.noneTool.icon}
-            title={d.noneTool.title}
-            description={d.noneTool.description}
-            selected={tools.includes('none')}
-            onPress={toggleNone}
-          />
-        </View>
-
-        <Text style={styles.label}>{d.cookDaysLabel}</Text>
-        <StepperField
-          label="요리 일수"
-          value={cookDays}
-          onChange={setCookDays}
-          min={0}
-          max={7}
-          format={(v) => `주 ${v}일`}
-        />
-        <Text style={styles.centerHint}>{d.cookDaysHint}</Text>
+        <PeriodField value={period} onChange={setPeriod} marginTop={4} />
+        <GoalField value={goal} onChange={setGoal} />
+        <ToolsField value={tools} onChange={setTools} />
+        <CookDaysField value={cookDays} onChange={setCookDays} />
+        <BudgetField value={budgetInput} onChange={setBudgetInput} />
+        <RegionField value={region} onChange={setRegion} />
       </ScrollView>
 
       <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 16) }]}>
@@ -125,37 +77,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
-  },
-  label: {
-    marginTop: 32,
-    marginBottom: 12,
-    fontFamily: fonts.bold,
-    fontSize: 16,
-    color: colors.textPrimary,
-  },
-  firstLabel: {
-    marginTop: 4,
-  },
-  hint: {
-    marginTop: -6,
-    marginBottom: 12,
-    fontFamily: fonts.regular,
-    fontSize: 14,
-    color: colors.textSecondary,
-  },
-  centerHint: {
-    marginTop: 10,
-    textAlign: 'center',
-    fontFamily: fonts.regular,
-    fontSize: 14,
-    color: colors.textSecondary,
-  },
-  stack: {
-    gap: 10,
-  },
-  toolRow: {
-    flexDirection: 'row',
-    gap: 10,
   },
   footer: {
     paddingTop: 12,

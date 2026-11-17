@@ -15,7 +15,6 @@ import BackHeader from '../components/BackHeader';
 import IconBox from '../components/IconBox';
 import AiSayCard from '../components/AiSayCard';
 import { aiManagerData, getReply } from '../data/lifeInfo/aiManager';
-import { spendingData } from '../data/spending/spending';
 import { fridgeData } from '../data/fridge/fridge';
 import { reportTexts } from '../data/lifeInfo/reports';
 import { useAppData } from '../store/AppDataContext';
@@ -28,19 +27,19 @@ export default function AiManagerScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const { title, notice, greeting, inputPlaceholder, suggestionsLabel, suggestions, reportButtons } =
     aiManagerData;
-  const { transactions, fridgeItems } = useAppData();
+  const { transactions, fridgeItems, budget } = useAppData();
   // 상단 "AI 한마디": 소비·냉장고 데이터를 요약한 한두 문장 (utils/reportSummary.js)
   const report = useMemo(() => {
     const now = new Date();
     return getMonthlyReport({
       transactions,
       fridgeItems,
-      budget: spendingData.budget,
+      budget,
       now,
       baseDate: toDateString(now),
       urgentWithinDays: fridgeData.urgentWithinDays,
     });
-  }, [transactions, fridgeItems]);
+  }, [transactions, fridgeItems, budget]);
   const [messages, setMessages] = useState([{ id: 'greeting', from: 'ai', text: greeting }]);
   const [input, setInput] = useState('');
   const [typing, setTyping] = useState(false);
