@@ -128,6 +128,20 @@ export function createInventorySync(store, api) {
         return linked(state,await write(data,meta.revision));
       });
     },
+    // 아직 한 번도 연결하지 않은 계정을 안전한 경우에만 자동 연결합니다 (서버 저장소 = Firestore).
+    // - 서버에 재고가 없으면 기기 재고를 올림  - 기기가 비어 있으면 서버 재고를 가져옴  - 두 쪽이 같으면 연결만 함
+    // 양쪽에 서로 다른 재고가 있으면 덮어쓰지 않고 그대로 두어 서버 재고 연결 화면에서 고르게 합니다.
+    // 사용자가 일시중지한 계정(inventorySync.enabled=false)은 건드리지 않습니다.
+    autoLink() {
+      return store.update(async state => {
+        if(!api||state.inventorySync)return state;
+        const remote=await read();
+        if(!remote)return linked(state,await write(inventoryToServer(state.inventory),0));
+        if(!state.inventory.length)return linked(state,remote,true);
+        if(sameInventory(remote.snapshot.data,inventoryToServer(state.inventory)))return linked(state,remote);
+        return state;
+      });
+    },
     pause:()=>store.update(state=>({...state,inventorySync:state.inventorySync?{...state.inventorySync,enabled:false}:null})),
   };
 }

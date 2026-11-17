@@ -33,7 +33,14 @@
     },
     "plugins": [
       "expo-font",
-      "expo-status-bar"
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "앨범의 영수증 사진으로 소비를 기록하는 데 사진을 사용해요.",
+          "cameraPermission": "영수증을 촬영해 소비를 기록하는 데 카메라를 사용해요.",
+          "microphonePermission": false
+        }
+      ]
     ]
   }
 }

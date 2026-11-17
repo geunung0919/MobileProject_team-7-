@@ -32,9 +32,11 @@ def create_app(database_url=None, tokens=None, demo_enabled=None):
     engine, sessions = connect(url)
     @asynccontextmanager
     async def lifespan(app):
-        Base.metadata.create_all(engine)  # 초기 개발용. 스키마 변경은 별도 마이그레이션 필요.
+        if engine is not None:  # Firestore 저장소는 테이블 생성이 필요 없습니다.
+            Base.metadata.create_all(engine)  # 초기 개발용. 스키마 변경은 별도 마이그레이션 필요.
         yield
-        engine.dispose()
+        if engine is not None:
+            engine.dispose()
     app = FastAPI(title='자취 가이드 중앙 코어', version='0.1.0', lifespan=lifespan)
     app.state.sessions = sessions
     app.add_middleware(CORSMiddleware, allow_origins=os.getenv('CORS_ORIGINS', 'http://localhost:5173,http://127.0.0.1:5173,http://localhost:8081,http://127.0.0.1:8081').split(','),

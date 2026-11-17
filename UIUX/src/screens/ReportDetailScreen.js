@@ -5,7 +5,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import BackHeader from '../components/BackHeader';
 import AiSayCard from '../components/AiSayCard';
 import { reportTexts, pastReports } from '../data/lifeInfo/reports';
-import { spendingData } from '../data/spending/spending';
 import { fridgeData } from '../data/fridge/fridge';
 import { useAppData } from '../store/AppDataContext';
 import { getMonthlyReport, buildPastReport } from '../utils/reportSummary';
@@ -17,7 +16,7 @@ export default function ReportDetailScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
   const t = reportTexts.detail;
   const reportId = route.params?.reportId;
-  const { transactions, fridgeItems } = useAppData();
+  const { transactions, fridgeItems, budget: monthBudget } = useAppData();
 
   const report = useMemo(() => {
     const now = new Date();
@@ -26,12 +25,12 @@ export default function ReportDetailScreen({ navigation, route }) {
     return getMonthlyReport({
       transactions,
       fridgeItems,
-      budget: spendingData.budget,
+      budget: monthBudget,
       now,
       baseDate: toDateString(now),
       urgentWithinDays: fridgeData.urgentWithinDays,
     });
-  }, [reportId, transactions, fridgeItems]);
+  }, [reportId, transactions, fridgeItems, monthBudget]);
 
   const { spent, budget, remaining, usedPercent, prevDiffPercent, categories, fridge } = report;
   const barWidth = `${Math.min(usedPercent, 100)}%`;

@@ -55,6 +55,7 @@ export function importExpense(state, expense, items) {
       id: `expense-${expense.id}-${index}`, name: item.name.trim(), quantity: item.quantity,
       unit: item.unit.trim(), expiresAt: item.expiresAt, sourceExpenseId: expense.id,
       ...(item.dateType === 'unknown' ? { dateType: 'unknown' } : {}),
+      ...(['refrigerated', 'frozen', 'room'].includes(item.storageMethod) ? { storageMethod: item.storageMethod } : {}),
     }))],
     importedExpenseIds: [...state.importedExpenseIds, expense.id],
   };

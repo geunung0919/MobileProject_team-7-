@@ -63,6 +63,8 @@ function toDraft(receipt) {
       inFridge: !!it.inFridge,
       expiry: it.inFridge ? addDays(date, DEFAULT_EXPIRY_DAYS) : null,
     })),
+    // 실제 촬영한 영수증이면 OCR 원문/품목 정보를 함께 들고 있다가 저장할 때 서버로 보냅니다 (샘플이면 null).
+    ocr: receipt.ocr ?? null,
   };
 }
 
@@ -76,6 +78,8 @@ export default function ReceiptResultScreen({ navigation, route }) {
   const nextKey = useRef(1);
 
   const [draft, setDraft] = useState(() => toDraft(route.params?.receipt ?? sampleReceipt));
+  // 서버 OCR 이 알려 준 주의 사항 (흐린 사진, 바코드만 읽힌 품목 등)
+  const ocrWarnings = route.params?.receipt?.warnings ?? [];
   const [editing, setEditing] = useState(false);
   const [snapshot, setSnapshot] = useState(null); // 수정을 시작할 때의 값 (취소하면 되돌립니다)
   // 열려 있는 날짜 시트가 다루는 칸: null(닫힘) | 'purchase'(구매일) | 품목 key(그 품목의 유통기한)
@@ -157,6 +161,7 @@ export default function ReceiptResultScreen({ navigation, route }) {
       icon: 'receipt-text-outline',
       source: 'receipt',
       items: toSavedItems(items),
+      ocr: draft.ocr,
     });
     // 식품으로 체크한 품목은 냉장고에도 담습니다.
     addCheckedItemsToFridge(items, date, addFridgeItem);
@@ -210,6 +215,13 @@ export default function ReceiptResultScreen({ navigation, route }) {
       >
         <Text style={styles.title}>{t.title}</Text>
         <Text style={styles.subtitle}>{editing ? t.editSubtitle : t.subtitle}</Text>
+        {!editing && ocrWarnings.length > 0 ? (
+          <View style={styles.ocrWarning}>
+            {ocrWarnings.slice(0, 3).map((w) => (
+              <Text key={w} style={styles.ocrWarningText}>• {w}</Text>
+            ))}
+          </View>
+        ) : null}
 
         {editing ? (
           /* 수정 모드: 상호명 / 구매일 / 총액 */
@@ -406,6 +418,18 @@ const styles = StyleSheet.create({
     marginTop: 10,
     fontFamily: fonts.regular,
     fontSize: 15,
+    color: colors.textSecondary,
+  },
+  ocrWarning: {
+    marginTop: 12,
+    padding: 12,
+    borderRadius: 12,
+    backgroundColor: colors.cardBg,
+  },
+  ocrWarningText: {
+    fontFamily: fonts.regular,
+    fontSize: 13,
+    lineHeight: 19,
     color: colors.textSecondary,
   },
 

@@ -125,3 +125,29 @@ test('server validation rejects malformed responses and canonical equality ignor
  assert.throws(()=>validateRemote({revision:1,snapshot:{data,source_updated_at:'invalid'}}),/형식/);
  assert.equal(sameInventory(data,{items:[{...data.items[0],quantity:1}]}),false);
 });
+
+test('autoLink links only when nothing can be overwritten (Firestore server inventory)',async()=>{
+ // 서버가 비어 있으면 기기 재고를 올리고 자동 연결
+ const a=await setup();await a.actions.saveItem(item);await a.sync.autoLink();
+ assert.equal(a.store.getState().inventorySync.enabled,true);assert.equal(a.remote.remote.revision,1);assert.equal(a.remote.writes,1);
+ // 기기가 비어 있으면 서버 재고를 가져옴
+ const b=await setup();b.remote.remote=response({items:[inventoryToServer([item]).items[0]]},3);await b.sync.autoLink();
+ assert.equal(b.store.getState().inventory[0].name,'달걀');assert.equal(b.store.getState().inventorySync.revision,3);assert.equal(b.remote.writes,0);
+ // 양쪽이 다르면 아무것도 덮어쓰지 않음
+ const c=await setup();await c.actions.saveItem(item);c.remote.remote=response({items:[]},2);await c.sync.autoLink();
+ assert.equal(c.store.getState().inventorySync,undefined);assert.equal(c.remote.writes,0);assert.equal(c.store.getState().inventory.length,1);
+ // 일시중지한 계정은 그대로
+ const d=await setup();await link(d);await d.sync.pause();const before=d.remote.writes;await d.actions.saveItem({...item,id:'milk',name:'우유'});await d.sync.autoLink();
+ assert.equal(d.store.getState().inventorySync.enabled,false);assert.equal(d.remote.writes,before);
+ // 서버 연결이 없으면 아무것도 하지 않음
+ const e=await setup();await e.actions.saveItem(item);await createInventorySync(e.store,null).autoLink();assert.equal(e.store.getState().inventorySync,undefined);
+});
+
+test('receipt ingredients keep the storage method so they can sync to the server',async()=>{
+ const {importExpense,emptyState}=await import('../src/features/fridge/domain/store.mjs');
+ const state=importExpense(emptyState(),{id:'r1',import_source:'ocr',category:'groceries'},[{name:'우유',quantity:1,unit:'개',storageMethod:'refrigerated',dateType:'unknown',expiresAt:''}]);
+ assert.equal(state.inventory[0].storageMethod,'refrigerated');
+ assert.deepEqual(inventoryToServer(state.inventory).items[0],{item_id:'expense-r1-0',name:'우유',quantity:1,unit:'piece',storage:'fridge',target_date:null,date_source:'unknown'});
+ const ignored=importExpense(emptyState(),{id:'r2',import_source:'ocr',category:'groceries'},[{name:'우유',quantity:1,unit:'개',storageMethod:'garage',dateType:'unknown',expiresAt:''}]);
+ assert.equal(ignored.inventory[0].storageMethod,undefined);
+});
