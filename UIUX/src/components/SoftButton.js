@@ -1,5 +1,6 @@
 import React from 'react';
-import { Text, Pressable, StyleSheet } from 'react-native';
+import { Pressable, StyleSheet } from 'react-native';
+import Text from './AppText';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, fonts } from '../theme';
 
@@ -19,7 +20,7 @@ export default function SoftButton({ label, icon, onPress }) {
 
 const styles = StyleSheet.create({
   button: {
-    height: 54,
+    minHeight: 54,
     borderRadius: 22,
     backgroundColor: colors.tabActiveBg,
     flexDirection: 'row',

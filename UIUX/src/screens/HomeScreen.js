@@ -132,6 +132,7 @@ export default function HomeScreen({ navigation }) {
             <TaskRow
               key={task.id}
               title={task.title}
+              icon={task.icon}
               status={sharedReceipts && task.id === 'routine' && !routineRows ? '—' : summary.tasks[task.id].status}
               summary={sharedReceipts && task.id === 'routine' && !routineRows ? (sharedUid ? '서버 루틴을 확인해 주세요.' : '로그인하면 루틴을 불러와요.') : summary.tasks[task.id].summary}
               isLast={i === tasks.length - 1}
@@ -187,7 +188,7 @@ const styles = StyleSheet.create({
     color: colors.warnText,
   },
   calmTag: {
-    backgroundColor: colors.divider,
+    backgroundColor: colors.calmBg,
   },
   calmTagText: {
     color: colors.textSecondary,

@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, ScrollView, StyleSheet } from 'react-native';
+import { View, ScrollView, StyleSheet } from 'react-native';
+import Text from '../components/AppText';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRoutineAlerts } from '../features/routine/RoutineAlerts';
 import BackHeader from '../components/BackHeader';

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, KeyboardAvoidingView, Platform, StyleSheet } from 'react-native';
+import { View, ScrollView, KeyboardAvoidingView, Platform, StyleSheet } from 'react-native';
+import Text from '../components/AppText';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { auth } from '../../../firebase/firebaseConfig';
 import { loadProfile, saveProfile } from '../../../api/receiptApi';

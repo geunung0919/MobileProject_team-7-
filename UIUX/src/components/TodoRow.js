@@ -15,6 +15,7 @@ export default function TodoRow({
   overdue = false,
   done = false,
   onToggle,
+  onDelete,
 }) {
   return (
     <View
@@ -70,11 +71,34 @@ export default function TodoRow({
           </Text>
         </View>
       </View>
+
+      {onDelete ? (
+        <Pressable
+          onPress={onDelete}
+          hitSlop={10}
+          accessibilityRole="button"
+          accessibilityLabel={`${title} 삭제`}
+          style={styles.deleteButton}
+        >
+          <Ionicons
+            name="trash-outline"
+            size={21}
+            color={colors.textSecondary}
+          />
+        </Pressable>
+      ) : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  deleteButton: {
+    width: 40,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 8,
+  },
   row: {
     flexDirection: 'row',
     alignItems: 'center',

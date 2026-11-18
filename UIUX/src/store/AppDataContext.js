@@ -10,6 +10,7 @@ import React, {
 } from 'react';
 
 import { AppState } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { onAuthStateChanged } from 'firebase/auth';
 
 import { auth } from '../../../firebase/firebaseConfig';
@@ -153,6 +154,88 @@ export function AppDataProvider({
   // 연규 UIUX 추가: 월 예산
   const [budget, setBudget] = useState(spendingData.budget);
 
+  // 사용자 지정 소비 카테고리
+  const [customCategories, setCustomCategories] = useState(() => {
+    const fixed = [
+      spendingData.foodCategory,
+      spendingData.defaultCategory,
+    ];
+
+    return [...new Set(
+      spendingData.transactions.map((t) => t.category)
+    )].filter((category) => category && !fixed.includes(category));
+  });
+
+  const addCategory = useCallback((name) => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+
+    setCustomCategories((prev) =>
+      prev.includes(trimmed) ? prev : [...prev, trimmed]
+    );
+  }, []);
+  // 로그인 계정별 카테고리 저장소
+  const categoryStorageKey = sharedReceipts
+    ? (sharedUid ? `spending-categories:${sharedUid}` : null)
+    : 'spending-categories:local';
+
+  const [categoryStoreReady, setCategoryStoreReady] = useState(null);
+
+  // 앱 실행 또는 로그인 계정 변경 시 저장된 목록 복원
+  useEffect(() => {
+    let active = true;
+
+    setCategoryStoreReady(null);
+    setCustomCategories([]);
+
+    if (!categoryStorageKey) {
+      return () => {
+        active = false;
+      };
+    }
+
+    AsyncStorage.getItem(categoryStorageKey)
+      .then((raw) => {
+        if (!active) return;
+
+        const parsed = raw ? JSON.parse(raw) : [];
+        const categories = Array.isArray(parsed)
+          ? [...new Set(parsed.filter(
+              (name) =>
+                typeof name === 'string' &&
+                name.length > 0 &&
+                name.length <= 10
+            ))]
+          : [];
+
+        setCustomCategories(categories);
+        setCategoryStoreReady(categoryStorageKey);
+      })
+      .catch((error) => {
+        console.warn('카테고리 불러오기 실패:', error);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [categoryStorageKey]);
+
+  // 목록을 불러온 이후에만 변경 내용을 저장
+  useEffect(() => {
+    if (
+      !categoryStorageKey ||
+      categoryStoreReady !== categoryStorageKey
+    ) {
+      return;
+    }
+
+    AsyncStorage.setItem(
+      categoryStorageKey,
+      JSON.stringify(customCategories)
+    ).catch((error) => {
+      console.warn('카테고리 저장 실패:', error);
+    });
+  }, [categoryStorageKey, categoryStoreReady, customCategories]);
   const addTransaction = useCallback(
     ({
       title,
@@ -295,6 +378,71 @@ export function AppDataProvider({
     );
   });
 
+  // 로그인 계정별 할 일 로컬 저장소
+  const todoStorageKey = sharedReceipts
+    ? (sharedUid ? `todos:${sharedUid}` : null)
+    : 'todos:local';
+
+  const [todoStoreReady, setTodoStoreReady] = useState(null);
+
+  // 앱 시작 또는 계정 변경 시 저장된 할 일 복원
+  useEffect(() => {
+    let active = true;
+    setTodoStoreReady(null);
+    setTodos([]);
+
+    if (!todoStorageKey) {
+      return () => {
+        active = false;
+      };
+    }
+
+    AsyncStorage.getItem(todoStorageKey)
+      .then((raw) => {
+        if (!active) return;
+
+        if (raw !== null) {
+          const parsed = JSON.parse(raw);
+          if (!Array.isArray(parsed)) {
+            throw new Error('할 일 저장 데이터 형식이 잘못되었습니다.');
+          }
+          setTodos(parsed);
+        } else {
+          const today = toDateString(new Date());
+          setTodos(
+            todoData.items.map(({ daysFromToday, ...todo }) => ({
+              ...todo,
+              due: daysFromToday == null
+                ? null
+                : addDays(today, daysFromToday),
+            }))
+          );
+        }
+
+        setTodoStoreReady(todoStorageKey);
+      })
+      .catch((error) => {
+        console.warn('할 일 불러오기 실패:', error);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [todoStorageKey]);
+
+  // 복원이 끝난 후에만 저장해서 기존 기록 덮어쓰기 방지
+  useEffect(() => {
+    if (!todoStorageKey || todoStoreReady !== todoStorageKey) {
+      return;
+    }
+
+    AsyncStorage.setItem(
+      todoStorageKey,
+      JSON.stringify(todos)
+    ).catch((error) => {
+      console.warn('할 일 저장 실패:', error);
+    });
+  }, [todoStorageKey, todoStoreReady, todos]);
   const addTodo = useCallback(({ title, due }) => {
     setTodos((prev) => [
       ...prev,
@@ -307,6 +455,12 @@ export function AppDataProvider({
     ]);
   }, []);
 
+  // 사용자가 선택한 할 일 삭제
+  const removeTodo = useCallback((id) => {
+    setTodos((prev) =>
+      prev.filter((todo) => todo.id !== id)
+    );
+  }, []);
   const toggleTodo = useCallback((id) => {
     setTodos((prev) =>
       prev.map((todo) =>
@@ -456,6 +610,8 @@ export function AppDataProvider({
 
       // 소비
       transactions,
+      customCategories,
+      addCategory,
       addTransaction,
       updateTransaction,
       removeTransaction,
@@ -473,6 +629,7 @@ export function AppDataProvider({
       // 할 일
       todos,
       addTodo,
+      removeTodo,
       toggleTodo,
 
       // 루틴
@@ -499,6 +656,8 @@ export function AppDataProvider({
       refreshShared,
 
       transactions,
+      customCategories,
+      addCategory,
       addTransaction,
       updateTransaction,
       removeTransaction,
@@ -513,6 +672,7 @@ export function AppDataProvider({
 
       todos,
       addTodo,
+      removeTodo,
       toggleTodo,
 
       routines,

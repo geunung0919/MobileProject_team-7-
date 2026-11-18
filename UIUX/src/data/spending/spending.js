@@ -8,6 +8,7 @@ import { sampleReceipt } from './receipt';
 
 export const spendingData = {
   budget: 1000000,
+  foodCategory: '식품',
   // 카테고리를 고르지 않은 지출(직접 입력 등)의 기본값
   defaultCategory: '기타',
   defaultIcon: 'wallet-outline',

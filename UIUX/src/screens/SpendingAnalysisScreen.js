@@ -119,7 +119,7 @@ function getCategory(row) {
     return '미분류(이전 기록)';
   }
 
-  return '기타';
+  return category;
 }
 
 export default function SpendingAnalysisScreen({

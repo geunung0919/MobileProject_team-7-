@@ -20,6 +20,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import BackHeader from '../components/BackHeader';
 import FormField from '../components/FormField';
 import Chip from '../components/Chip';
+import CategorySelector from '../components/CategorySelector';
 import PrimaryButton from '../components/PrimaryButton';
 
 import { colors, spacing } from '../theme';
@@ -146,6 +147,8 @@ export default function SharedReceiptScreen({
   const {
     sharedUid,
     refreshShared,
+    customCategories,
+    addCategory,
   } = useAppData();
 
   const [draft, setDraft] = useState(emptyDraft);
@@ -739,30 +742,23 @@ export default function SharedReceiptScreen({
                 keyboardType="number-pad"
               />
 
-              {/* 신규: 소비 카테고리 선택 */}
-              <Text
-                style={{
-                  fontSize: 15,
-                  fontWeight: '700',
-                  color: colors.textPrimary,
-                  marginTop: 12,
-                }}
-              >
-                소비 카테고리
-              </Text>
-
-              <Choices
-                choices={SPENDING_CATEGORIES.map(
-                  (category) => [
-                    category,
-                    category,
-                  ]
-                )}
+              {/* 기존 소비 카테고리 + 사용자 지정 카테고리 */}
+              <CategorySelector
+                style={{ marginTop: 12 }}
+                customCategories={[
+                  ...new Set([
+                    ...SPENDING_CATEGORIES,
+                    ...customCategories,
+                  ]),
+                ]}
                 value={draft.category ?? '기타'}
                 onChange={(category) =>
-                  patch('category', category)
+                  patch('category', category ?? '기타')
                 }
+                onAddCategory={addCategory}
+                hint="선택한 카테고리로 소비 내역을 저장해요."
               />
+
 
               {/* 구매 품목 */}
               {draft.items.map((item) => (

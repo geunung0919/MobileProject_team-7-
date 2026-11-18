@@ -161,6 +161,7 @@ export default function FridgeScreen({ navigation }) {
           subtitle="우리 집 식재료, 기한 전에 챙겨요."
         />
 
+        <View style={{ gap: 14 }}>
         <SoftButton
           label="AI 레시피 추천"
           icon="fridge-outline"
@@ -191,6 +192,8 @@ export default function FridgeScreen({ navigation }) {
           icon="bell-outline"
           onPress={openExpiryAlert}
         />
+
+        </View>
 
         {sharedReceipts ? (
           <View style={styles.serverSection}>

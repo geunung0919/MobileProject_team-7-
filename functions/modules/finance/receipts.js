@@ -34,9 +34,15 @@ function normalize(body) {
   const amount = money(body.amount);
   const category = body.category;
   if (category !== undefined &&
-      !["식비", "생활용품", "교통비", "주거비", "통신비", "의료비",
-        "문화·여가", "쇼핑", "기타"].includes(category)) {
-    fail("소비 카테고리를 확인해 주세요.");
+      (typeof category !== "string" ||
+       category.trim().length < 1 ||
+       category.trim().length > 10 ||
+       category !== category.trim() ||
+       Array.from(category).some((char) => {
+         const code = char.charCodeAt(0);
+         return code <= 31 || code === 127;
+       }))) {
+    fail("소비 카테고리는 1~10자로 입력해 주세요.");
   }
   if (!Array.isArray(body.items) || body.items.length > 100) fail("품목은 100개 이하로 보내 주세요.");
   const seen = new Set();

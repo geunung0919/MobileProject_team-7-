@@ -56,9 +56,15 @@ export function reviewedPayload(draft) {
   // 신규: 소비 카테고리 검증
   const category = draft.category ?? '기타';
 
-  if (!SPENDING_CATEGORIES.includes(category)) {
+  if (
+    typeof category !== 'string' ||
+    category.trim().length < 1 ||
+    category.trim().length > 10 ||
+    category !== category.trim() ||
+    /[\x00-\x1F\x7F]/.test(category)
+  ) {
     throw new Error(
-      '소비 카테고리를 선택해 주세요.'
+      '소비 카테고리는 1~10자로 입력해 주세요.'
     );
   }
 

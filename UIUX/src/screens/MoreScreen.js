@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native';
+import { View, ScrollView, Pressable, StyleSheet } from 'react-native';
+import Text from '../components/AppText';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ScreenHeader from '../components/ScreenHeader';
@@ -63,7 +64,7 @@ export default function MoreScreen({ navigation }) {
           <MenuRow key={menu.id} {...menu} onPress={() => openMenu(menu.id)} />
         ))}
 
-        {sharedReceipts ? <>
+        {sharedReceipts ? <View style={{ gap: 14 }}>
           {!sharedUid ? <SoftButton label="로그인" onPress={() => navigation.navigate('SharedLogin')} /> :
             confirmUid === sharedUid ? <View style={{ gap: 8 }}>
               <Text>이 기기에서 로그아웃할까요?</Text>
@@ -72,7 +73,7 @@ export default function MoreScreen({ navigation }) {
             </View> : <SoftButton label={logoutLabel} onPress={() => setConfirmUid(sharedUid)} />}
           {error ? <Text accessibilityRole="alert">{error}</Text> : null}
           <SoftButton label="내 생활 리포트" onPress={() => navigation.navigate('SharedReports')} />
-        </> : null}
+        </View> : null}
 
         {/* 생활 데이터 수정 카드 */}
         {sharedReceipts ? <Pressable
@@ -136,6 +137,7 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   lifeCard: {
+    marginTop: 20,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.heroBg,
