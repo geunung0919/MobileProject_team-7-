@@ -9,6 +9,7 @@ import AddTodoSheet from '../components/AddTodoSheet';
 import Fab from '../components/Fab';
 import { todoData } from '../data/lifeInfo/todos';
 import { useAppData } from '../store/AppDataContext';
+import { confirmAction } from '../utils/confirm';
 import {
   daysBetween,
   toDateString,
@@ -37,7 +38,7 @@ export default function TodoScreen({ navigation }) {
 
   // 할 일 목록은 공용 저장소(AppDataContext)에 있어 화면을 나갔다 와도 유지되고 홈에도 반영됩니다.
   // TODO: 서버 연결은 store/AppDataContext.js 의 addTodo / toggleTodo 안에서 하세요.
-  const { todos: items, addTodo, toggleTodo: toggleDone } = useAppData();
+  const { todos: items, addTodo, toggleTodo: toggleDone, removeTodo } = useAppData();
   const [addVisible, setAddVisible] = useState(false);
 
   const { remaining, completed } = useMemo(() => {
@@ -68,6 +69,15 @@ export default function TodoScreen({ navigation }) {
         overdue={tone === 'overdue'}
         done={item.done}
         onToggle={() => toggleDone(item.id)}
+        onDelete={() =>
+          confirmAction({
+            title: '할 일을 삭제할까요?',
+            message: `'${item.title}'이(가) 목록에서 사라져요.`,
+            confirmLabel: '삭제',
+            destructive: true,
+            onConfirm: () => removeTodo(item.id),
+          })
+        }
       />
     );
   };

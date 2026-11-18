@@ -218,6 +218,11 @@ export function AppDataProvider({ children, sharedReceipts = false }) {
     setTodos((prev) => [...prev, { id: makeId('td'), title, due, done: false }]);
   }, []);
 
+  // 할 일 삭제
+  const removeTodo = useCallback((id) => {
+    setTodos((prev) => prev.filter((t) => t.id !== id));
+  }, []);
+
   const toggleTodo = useCallback((id) => {
     setTodos((prev) => prev.map((t) => (t.id === id ? { ...t, done: !t.done } : t)));
   }, []);
@@ -271,6 +276,7 @@ export function AppDataProvider({ children, sharedReceipts = false }) {
       todos,
       addTodo,
       toggleTodo,
+      removeTodo,
       routines,
       addRoutine,
       toggleRoutine,
@@ -298,6 +304,7 @@ export function AppDataProvider({ children, sharedReceipts = false }) {
       todos,
       addTodo,
       toggleTodo,
+      removeTodo,
       routines,
       addRoutine,
       toggleRoutine,

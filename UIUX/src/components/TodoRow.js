@@ -7,7 +7,7 @@ import { colors, fonts } from '../theme';
 // 할 일 목록의 한 줄: 체크박스 + 제목 + 마감 안내.
 // subText(제목 아래 글자), extraText(뒤에 " · " 로 붙는 초록 글씨), tone('normal' | 'today' | 'overdue'),
 // overdue(기한 지난 할 일 전용 카드 모양), done(완료: 초록 체크 + 취소선), disabled(오늘은 쉬는 항목: 흐리게, 체크 불가),
-// vertical(위아래 여백), onToggle(체크를 눌렀을 때)
+// vertical(위아래 여백), onToggle(체크를 눌렀을 때), onDelete(있으면 오른쪽에 삭제 버튼을 보여 줌)
 export default function TodoRow({
   title,
   subText,
@@ -18,6 +18,7 @@ export default function TodoRow({
   done = false,
   disabled = false,
   onToggle,
+  onDelete,
 }) {
   return (
     <View
@@ -75,6 +76,18 @@ export default function TodoRow({
           </Text>
         </View>
       </View>
+
+      {onDelete ? (
+        <Pressable
+          onPress={onDelete}
+          hitSlop={10}
+          accessibilityRole="button"
+          accessibilityLabel={`${title} 삭제`}
+          style={styles.deleteButton}
+        >
+          <Ionicons name="trash-outline" size={22} color={colors.textSecondary} />
+        </Pressable>
+      ) : null}
     </View>
   );
 }
@@ -116,6 +129,10 @@ const styles = StyleSheet.create({
   checkboxDone: {
     borderColor: colors.green,
     backgroundColor: colors.green,
+  },
+  deleteButton: {
+    marginLeft: 8,
+    padding: 6,
   },
   texts: {
     flex: 1,
