@@ -20,7 +20,16 @@ import {
   getTaskSummaries,
 } from '../utils/homeSummary';
 import { formatNumber, formatKoreanDate, toDateString } from '../utils/format';
+import { DAY_LABELS } from '../utils/time';
 import { colors, fonts, spacing } from '../theme';
+
+// 서버 루틴(repeat_days: ['월','수'], doneToday)을 홈 요약이 쓰는 형식(days: [1,3])으로 바꿉니다.
+// 오늘 쉬는 루틴도 함께 넘겨야 요약이 '루틴 없음'이 아니라 '오늘은 쉬는 날'로 나옵니다.
+const serverRoutineToLocal = (row) => ({
+  ...row,
+  time: row.time || '',
+  days: (row.repeat_days ?? []).map((label) => DAY_LABELS.indexOf(label)).filter((n) => n >= 0),
+});
 
 export default function HomeScreen({ navigation }) {
   const insets = useSafeAreaInsets();
@@ -59,7 +68,7 @@ export default function HomeScreen({ navigation }) {
         remaining: budget?.budget != null ? budget.budget - budget.spent : null } :
         getSpendingSummary(transactions, localBudget, new Date()),
       fridge: getFridgeSummary(sharedReceipts ? sharedFridgeEntries(visibleShared?.inventory) : fridgeItems, baseDate, fridgeData.urgentWithinDays),
-      tasks: getTaskSummaries(sharedReceipts ? (routineRows?.items ?? []).filter((row) => row.scheduledToday).map((row) => ({ ...row, time: row.time || '' })) : routines, todos, baseDate),
+      tasks: getTaskSummaries(sharedReceipts ? (routineRows?.items ?? []).map(serverRoutineToLocal) : routines, todos, baseDate),
     }),
     [transactions, fridgeItems, todos, routines, baseDate, localBudget, sharedReceipts, visibleShared?.inventory, budget, routineRows]
   );
