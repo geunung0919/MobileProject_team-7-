@@ -91,12 +91,18 @@ export default function HomeScreen({ navigation }) {
           <SummaryCard title={spending.title} onPress={() => navigation.navigate('Spending')}>
             <Text style={summaryStyles.label}>{spendingSummary.month}월 남은 예산</Text>
             <View style={summaryStyles.bigRow}>
-              <Text style={summaryStyles.bigText}>{spendingSummary.remaining == null ? '—' : formatNumber(spendingSummary.remaining)}</Text>
-              <Text style={summaryStyles.unit}>원</Text>
+              {spendingSummary.remaining == null ? (
+                <Text style={styles.fridgeHeadline}>예산 미설정</Text>
+              ) : (
+                <>
+                  <Text style={summaryStyles.bigText}>{formatNumber(spendingSummary.remaining)}</Text>
+                  <Text style={summaryStyles.unit}>원</Text>
+                </>
+              )}
             </View>
             <View style={styles.spendingSub}>
               <Text style={summaryStyles.sub}>지출 {spendingSummary.spent == null ? '—' : `${formatNumber(spendingSummary.spent)}원`}</Text>
-              <Text style={summaryStyles.sub}>예산 {spendingSummary.budget == null ? '—' : `${formatNumber(spendingSummary.budget)}원`}</Text>
+              <Text style={summaryStyles.sub}>예산 {spendingSummary.budget == null ? '미설정' : `${formatNumber(spendingSummary.budget)}원`}</Text>
             </View>
           </SummaryCard>
 
