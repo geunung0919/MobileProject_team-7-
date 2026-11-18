@@ -85,6 +85,25 @@ PC는 터미널에 나온 웹 주소를 연다. 아이폰 Safari로 열려면 PC
 개발 서버의 LAN 주소이므로 공개 Wi-Fi에서는 사용하지 않는다.
 첫 검증은 로그인 후 사진 없이 **소비 → 서버 소비 기록 → 소비 직접 입력**을 이용한다. 냉장고에서 별도 **식재료 추가 → 서버에 저장**도 확인한다. 두 직접 입력 기능은 해당 서버 코드가 배포된 이후 동작한다.
 
+## 아이폰에서 영수증 촬영 → 로컬 OCR (사파리)
+
+앱스토어 Expo Go 는 최신 SDK 하나만 지원해서 아이폰에서 이 앱(SDK 58, 개발 빌드 전제)을 바로 열 수 없을 수 있다.
+사파리 웹으로 열면 Expo Go·Apple 개발자 계정 없이 카메라 촬영 → PC의 jachwi-core OCR 까지 동작한다.
+
+1. PC 창 1 — OCR 서버 (같은 Wi-Fi 에서 접속할 수 있게 `--host 0.0.0.0`):
+   ```bash
+   cd jachwi-core
+   ./.venv/Scripts/python.exe -m uvicorn app.main:create_app --factory --host 0.0.0.0 --port 8000
+   ```
+   Windows 방화벽 창이 뜨면 **개인 네트워크 허용**. Tesseract(kor+eng) 설치는 `jachwi-core/docs/RECEIPT_OCR.md`.
+2. PC 창 2 — 저장소 루트에서 `npm ci` 후 `npm run receipt:web`. 터미널 맨 위에 **아이폰 브라우저 주소**(`http://<PC IP>:8081`)가 나온다.
+3. 아이폰(같은 Wi-Fi) 사파리에서 그 주소 열기 → 소비 → 로그인 → 영수증 저장 → **사진 촬영 후 분석**.
+   - OCR 서버 주소는 연 페이지의 PC 주소로 자동 설정된다(`http://<PC IP>:8000`). 다른 주소를 쓰려면 루트 `.env.local` 에 `EXPO_PUBLIC_RECEIPT_OCR_BASE_URL`.
+   - OCR 개발 토큰은 `local-demo-token-user-a` 로 미리 채워진다(`EXPO_PUBLIC_RECEIPT_DEV_TOKEN` 으로 변경).
+   - 아이폰 사진(8MB 이상일 수 있음)은 브라우저에서 긴 변 2400px JPEG 로 줄여서 보낸다.
+   - jachwi-core 는 개발 모드에서 같은 Wi-Fi 의 사설 IP(192.168.x.x, 10.x.x.x, 172.16~31.x.x) 웹 주소를 CORS 로 허용한다. 끄려면 `CORS_ALLOW_PRIVATE_NETWORK=false`.
+4. 연결 실패 메시지가 나오면: 서버가 `--host 0.0.0.0` 으로 켜졌는지, 같은 Wi-Fi 인지, 방화벽에서 8000·8081 포트가 허용됐는지 확인.
+
 ## 앱에서 확인하는 순서
 루트 `.env.local`에 다음을 설정하고 루트에서 `npm ci`, `npx expo start --clear`를 실행한다. 개발 클라이언트는 새 네이티브 패키지가 들어간 빌드가 필요할 수 있다.
 
@@ -112,7 +131,7 @@ OCR은 `main`의 `jachwi-core` 서버를 별도 실행하고 `jachwi-core/docs/R
 - npm --prefix functions run lint
 - npm --prefix ai_manager/functions run build
 - Auth/Firestore 에뮬레이터와 공통 HTTP 핸들러: `npx firebase-tools emulators:exec --project demo-shared-receipts --config firebase.receipt-test.json --only auth,firestore "node functions/tests/shared-receipt-e2e.mjs"` (127.0.0.1의 포트 9099/8080 설정).
-- 실제 클라우드 Firestore와 휴대폰 사진 촬영은 미검증.
+- 웹 촬영 경로는 Chrome(아이폰 화면 크기)에서 20.8MB 영수증 사진 → 브라우저 축소 → 로컬 OCR(Tesseract kor+eng)까지 확인. 실제 아이폰 사파리와 클라우드 Firestore 저장은 기기에서 확인 필요.
 - Firebase 인증된 PC에서 배포할 경우 대상 프로젝트를 명시하고 변경 범위를 한정한다:
   firebase deploy --project solo-living-ai --only functions:api
 - AI 어댑터 변경은 AI 코드베이스 배포를 별도로 검토한다. 기존 함수 전체를 무작정 덮어쓰지 않는다.

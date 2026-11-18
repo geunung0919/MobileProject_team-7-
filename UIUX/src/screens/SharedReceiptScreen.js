@@ -10,7 +10,7 @@ import PrimaryButton from '../components/PrimaryButton';
 import { colors, spacing } from '../theme';
 import { auth } from '../../../firebase/firebaseConfig';
 import { confirmReceipt, createTransaction } from '../../../api/receiptApi';
-import { receiptOcrBase, receiptUsesDevelopmentToken, recognizeReceipt, previewPayment } from '../../../api/receiptRecognition';
+import { receiptOcrBase, receiptUsesDevelopmentToken, receiptDefaultDevelopmentToken, recognizeReceipt, previewPayment } from '../../../api/receiptRecognition';
 import { draftFromRecognition, draftFromPayment, emptyLine, reviewedPayload } from '../utils/sharedReceipt.mjs';
 import { getPendingNotifications, isPaymentNotificationModuleAvailable, isNotificationAccessEnabled,
   markProcessedNotifications, openNotificationAccessSettings } from '../../../modules/payment-notifications';
@@ -41,7 +41,7 @@ export default function SharedReceiptScreen({ navigation, route }) {
   const [ready, setReady] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
-  const [ocrToken, setOcrToken] = useState('');
+  const [ocrToken, setOcrToken] = useState(receiptDefaultDevelopmentToken);
   const [ocrBusy, setOcrBusy] = useState(false);
   const lock = useRef(false);
   const key = sharedUid ? `${payment ? 'shared-payment-pending' : manual ? 'shared-manual-pending' : 'shared-receipt-pending'}:${sharedUid}` : null;
@@ -49,7 +49,7 @@ export default function SharedReceiptScreen({ navigation, route }) {
     let active = true;
     setReady(false);
     setPending(null);
-    setOcrToken('');
+    setOcrToken(receiptDefaultDevelopmentToken);
     setRawText('');
     setInbox(null);
     setSelectedNotification(null);
@@ -76,7 +76,8 @@ export default function SharedReceiptScreen({ navigation, route }) {
     setMessage('');
     try {
       const options = { mediaTypes: ['images'], base64: true, quality: 0.85 };
-      if (camera && !(await ImagePicker.requestCameraPermissionsAsync()).granted) throw new Error('카메라 권한을 확인해 주세요.');
+      // 웹(아이폰 사파리)은 버튼을 누른 직후에 바로 카메라/사진 선택창을 열어야 막히지 않아요. 웹은 권한을 따로 묻지 않습니다.
+      if (camera && Platform.OS !== 'web' && !(await ImagePicker.requestCameraPermissionsAsync()).granted) throw new Error('카메라 권한을 확인해 주세요.');
       const picked = camera ? await ImagePicker.launchCameraAsync(options) : await ImagePicker.launchImageLibraryAsync(options);
       if (picked.canceled) return;
       const recognized = await recognizeReceipt(picked.assets[0], ocrToken, sharedUid);
@@ -160,11 +161,12 @@ export default function SharedReceiptScreen({ navigation, route }) {
     {!sharedUid ? <Text>로그인 후 소비를 저장할 수 있어요.</Text> : null}
     {message ? <Text accessibilityRole="alert" style={{ color: colors.warnText }}>{message}</Text> : null}
     {ready && !pending && !busy ? <>
+      {!manual && !payment && !receiptOcrBase ? <Text>영수증 분석 서버 주소가 없어 사진 분석을 쓸 수 없어요. 루트 .env.local 에 EXPO_PUBLIC_RECEIPT_OCR_BASE_URL 을 넣거나 개발 서버(npm run receipt:web)로 실행해 주세요. 직접 입력으로는 저장할 수 있어요.</Text> : null}
       {!manual && !payment && receiptOcrBase ? <>
         {receiptUsesDevelopmentToken ? <FormField label="OCR 개발용 토큰" value={ocrToken} onChangeText={setOcrToken} secureTextEntry /> : null}
-        <Text>사진은 설정한 OCR 서버로 보내요. 영수증 한 장씩 선택해 주세요.</Text>
+        <Text>사진은 OCR 서버({receiptOcrBase})로 보내요. 영수증 한 장씩 밝은 곳에서 크게 찍어 주세요.</Text>
         {ocrBusy ? <Text>사진 분석 중…</Text> : <>
-          {Platform.OS !== 'web' ? <Chip label="사진 촬영 후 분석" onPress={() => pick(true)} /> : null}
+          <Chip label="사진 촬영 후 분석" onPress={() => pick(true)} />
           <Chip label="사진첩에서 선택 후 분석" onPress={() => pick(false)} />
         </>}
       </> : null}

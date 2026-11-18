@@ -150,7 +150,7 @@ Content-Type: application/json
 ```
 
 4번 Flutter Web은 `http://localhost:5173` 또는 `http://127.0.0.1:5173`에서 실행하도록
-포트를 맞추거나 `.env`의 CORS_ORIGINS를 실제 개발 주소에 맞춰 변경하고 서버를 재시작하세요.
+포트를 맞추거나 `.env`의 CORS_ORIGINS를 실제 개발 주소에 맞춰 변경하고 서버를 재시작하세요. 개발 모드에서는 같은 Wi-Fi 의 사설 IP 주소(예: 아이폰 사파리의 `http://192.168.0.15:8081`)를 자동으로 허용합니다 (`CORS_ALLOW_PRIVATE_NETWORK=false` 로 끄기).
 CORS 설정은 인증이나 외부 배포를 대신하지 않습니다.
 
 현재 127.0.0.1은 실행 중인 PC 자신입니다. 친구 PC나 iPhone에서 같은 주소를 입력해도
@@ -176,7 +176,7 @@ CORS 설정은 인증이나 외부 배포를 대신하지 않습니다.
 SQLite 자료는 MySQL로 자동 이전되지 않습니다.
 테이블 최초 생성은 지원하지만 기존 테이블 변경용 마이그레이션은 아직 없습니다.
 
-기존 팀 기획 문서에는 Firebase DB 구상도 있으므로 최종 DB는 팀에서 합의해야 합니다.
+팀 DB는 Firebase 로 정했습니다. Firestore 저장 설정은 [FIRESTORE.md](FIRESTORE.md)를 보세요.
 이 PR은 FastAPI + SQLAlchemy와 SQLite/MySQL 연결을 기준으로 만든 개발 초안입니다.
 
 ## 9. 오류 해결
