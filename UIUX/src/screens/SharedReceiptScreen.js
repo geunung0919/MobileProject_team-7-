@@ -10,7 +10,7 @@ import PrimaryButton from '../components/PrimaryButton';
 import { colors, spacing } from '../theme';
 import { auth } from '../../../firebase/firebaseConfig';
 import { confirmReceipt, createTransaction } from '../../../api/receiptApi';
-import { receiptOcrBase, receiptUsesDevelopmentToken, receiptDefaultDevelopmentToken, recognizeReceipt, previewPayment } from '../../../api/receiptRecognition';
+import { receiptOcrBase, receiptOcrMissingReason, receiptUsesDevelopmentToken, receiptDefaultDevelopmentToken, recognizeReceipt, previewPayment } from '../../../api/receiptRecognition';
 import { draftFromRecognition, draftFromPayment, emptyLine, inventoryDefaults, reviewedPayload } from '../utils/sharedReceipt.mjs';
 import { getPendingNotifications, isPaymentNotificationModuleAvailable, isNotificationAccessEnabled,
   markProcessedNotifications, openNotificationAccessSettings } from '../../../modules/payment-notifications';
@@ -161,7 +161,7 @@ export default function SharedReceiptScreen({ navigation, route }) {
     {!sharedUid ? <Text>로그인 후 소비를 저장할 수 있어요.</Text> : null}
     {message ? <Text accessibilityRole="alert" style={{ color: colors.warnText }}>{message}</Text> : null}
     {ready && !pending && !busy ? <>
-      {!manual && !payment && !receiptOcrBase ? <Text>영수증 분석 서버 주소가 없어 사진 분석을 쓸 수 없어요. 루트 .env.local 에 EXPO_PUBLIC_RECEIPT_OCR_BASE_URL 을 넣거나 개발 서버(npm run receipt:web)로 실행해 주세요. 직접 입력으로는 저장할 수 있어요.</Text> : null}
+      {!manual && !payment && !receiptOcrBase ? <Text style={{ color: colors.warnText }}>{receiptOcrMissingReason} 직접 입력으로는 저장할 수 있어요.</Text> : null}
       {!manual && !payment && receiptOcrBase ? <>
         {receiptUsesDevelopmentToken ? <FormField label="OCR 개발용 토큰" value={ocrToken} onChangeText={setOcrToken} secureTextEntry /> : null}
         <Text>사진은 OCR 서버({receiptOcrBase})로 보내요. 영수증 한 장씩 밝은 곳에서 크게 찍어 주세요.</Text>

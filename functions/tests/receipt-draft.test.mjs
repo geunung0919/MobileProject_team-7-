@@ -43,3 +43,17 @@ test('냉장고 등록을 고르면 단위(개)·보관(냉장)만 미리 채우
   const payload = reviewedPayload({ ...draft, receiptId: 'r1', items: [{ ...selected, quantity: '1' }] });
   assert.deepEqual([payload.items[0].quantity, payload.items[0].unit, payload.items[0].storageMethod], [1, '개', 'refrigerated']);
 });
+
+test('OCR 서버 주소는 같은 Wi-Fi(사설 IP)로 연 경우에만 자동으로 정하고, 터널 주소는 쓰지 않는다', async () => {
+  const { ocrBaseForHost, isTunnelHost, isLanHost } = await import('../../api/ocrHost.mjs');
+  assert.equal(ocrBaseForHost('192.168.0.15'), 'http://192.168.0.15:8000');
+  assert.equal(ocrBaseForHost('10.0.0.7', '9000'), 'http://10.0.0.7:9000');
+  assert.equal(ocrBaseForHost('172.20.1.2'), 'http://172.20.1.2:8000');
+  assert.equal(ocrBaseForHost('localhost'), 'http://localhost:8000');
+  for (const host of ['mwwt9cy-anonymous-8081.exp.direct', 'abc.ngrok-free.app', 'example.com', '8.8.8.8', '172.32.0.1', '', undefined]) {
+    assert.equal(ocrBaseForHost(host), '', host);
+  }
+  assert.equal(isTunnelHost('mwwt9cy-anonymous-8081.exp.direct'), true);
+  assert.equal(isTunnelHost('192.168.0.15'), false);
+  assert.equal(isLanHost('192.168.0.15.evil.com'), false);
+});
