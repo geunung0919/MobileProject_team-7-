@@ -31,6 +31,8 @@ import EmergencyAiScreen from './UIUX/src/screens/EmergencyAiScreen';
 import AuthTestScreen from './AuthTestScreen';
 
 import TeamApp from './UIUX/App';
+// 로그인·회원가입·온보딩 기능 (1번 모듈). 화면은 UI 담당이 만들어 screens 로 넘기면 됩니다(auth/README.md).
+import AuthGate from './auth/AuthGate';
 
 const Stack = createNativeStackNavigator();
 
@@ -39,7 +41,9 @@ const Stack = createNativeStackNavigator();
 const DEV_SCREEN = 'emergency';
 
 export default function App() {
-  return process.env.EXPO_PUBLIC_SHARED_RECEIPTS === 'true' ? <TeamApp sharedReceipts /> : <DevApp />;
+  const app = process.env.EXPO_PUBLIC_SHARED_RECEIPTS === 'true' ? <TeamApp sharedReceipts /> : <DevApp />;
+  // 로그인 화면(screens.Login)이 연결되기 전에는 AuthGate가 앱을 그대로 보여 줍니다(auth/README.md).
+  return <AuthGate>{app}</AuthGate>;
 }
 
 function DevApp() {

@@ -10,6 +10,17 @@ service cloud.firestore {
                          && request.auth.uid == userId;
     }
 
+    // 닉네임 선점 문서 (1번 모듈 회원가입): 닉네임 중복을 막기 위해 가입 트랜잭션에서 만듭니다.
+    // 로그인한 사람만 읽을 수 있고, 자기 uid 로만 만들고 자기 것만 지울 수 있습니다. 수정·목록 조회는 불가.
+    match /nicknames/{key} {
+      allow get: if request.auth != null;
+      allow create: if request.auth != null
+                    && request.resource.data.uid == request.auth.uid
+                    && request.resource.data.keys().hasOnly(['uid']);
+      allow delete: if request.auth != null && resource.data.uid == request.auth.uid;
+      allow update, list: if false;
+    }
+
     // 나머지 데이터는 기본적으로 접근 차단
     match /{document=**} {
       allow read, write: if false;
