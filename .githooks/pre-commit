@@ -3,7 +3,7 @@
 current_branch=$(git branch --show-current)
 
 case "$current_branch" in
-  "geunung_map/chat"|"integration/firebase-backend"|"integration/full-app-20261114"|"integration/shared-db-20261117"|"backup/working-features-before-final-ui"|"integration/final-uiux-20261118")
+  "geunung_map/chat"|"integration/firebase-backend"|"integration/full-app-20261114"|"integration/shared-db-20261117"|"backup/working-features-before-final-ui"|"integration/final-uiux-20261118"|"release/final-app")
     exit 0
     ;;
   *)
