@@ -5,16 +5,6 @@ import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 
 class PaymentNotificationListenerService : NotificationListenerService() {
-  private val amountPattern = Regex("""(?<!\d)(?:\d{1,3}(?:,\d{3})+|\d+)\s*원""")
-  private val positiveKeywords = listOf(
-    "승인", "결제", "이용", "사용", "구매",
-    "카카오페이", "네이버페이", "토스페이", "삼성페이", "pay"
-  )
-  private val rejectKeywords = listOf(
-    "승인취소", "결제취소", "취소완료", "승인거절", "결제실패",
-    "거절", "실패", "환불", "입금", "청구서", "혜택", "이벤트", "광고"
-  )
-
   override fun onNotificationPosted(sbn: StatusBarNotification?) {
     if (sbn == null || sbn.packageName == packageName) return
     val notification = sbn.notification ?: return
@@ -39,7 +29,7 @@ class PaymentNotificationListenerService : NotificationListenerService() {
     }
     val body = bodyParts.joinToString("\n")
     val combined = listOf(title, body).filter { it.isNotBlank() }.joinToString("\n")
-    if (!looksLikePayment(combined)) return
+    if (!PaymentAlertMatcher.matches(combined)) return
 
     val appLabel = try {
       val appInfo = packageManager.getApplicationInfo(sbn.packageName, 0)
@@ -68,16 +58,9 @@ class PaymentNotificationListenerService : NotificationListenerService() {
         appLabel = appLabel.take(100),
         title = title.take(500),
         text = body.take(3000),
-        rawText = rawText,
+        rawText = PaymentAlertMatcher.normalize(rawText).take(5000),
         postedAt = sbn.postTime.takeIf { it > 0L } ?: System.currentTimeMillis(),
       )
     )
-  }
-
-  private fun looksLikePayment(text: String): Boolean {
-    val normalized = text.lowercase()
-    if (!amountPattern.containsMatchIn(text)) return false
-    if (rejectKeywords.any { normalized.contains(it.lowercase()) }) return false
-    return positiveKeywords.any { normalized.contains(it.lowercase()) }
   }
 }
