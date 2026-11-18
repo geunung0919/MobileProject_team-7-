@@ -1,7 +1,8 @@
 import React from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { View, Pressable, StyleSheet } from 'react-native';
+import Text from './AppText';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { fonts, emergencyColors as c } from '../theme';
+import { colors, fonts } from '../theme';
 
 // 비상매뉴얼 상단의 긴급 연락처 카드 (119 / 112).
 export default function EmergencyContactCard({ number, label, onPress }) {
@@ -15,7 +16,7 @@ export default function EmergencyContactCard({ number, label, onPress }) {
       <Text style={styles.number}>{number}</Text>
       <Text style={styles.label}>{label}</Text>
       <View style={styles.phone}>
-        <MaterialCommunityIcons name="phone-outline" size={22} color={c.danger} />
+        <MaterialCommunityIcons name="phone-outline" size={22} color={colors.danger} />
       </View>
     </Pressable>
   );
@@ -24,11 +25,11 @@ export default function EmergencyContactCard({ number, label, onPress }) {
 const styles = StyleSheet.create({
   card: {
     flex: 1,
-    height: 86,
+    minHeight: 86,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: c.dangerBorder,
-    backgroundColor: c.dangerBg,
+    borderColor: colors.dangerBorder,
+    backgroundColor: colors.dangerBg,
     paddingTop: 10,
     paddingHorizontal: 16,
   },
@@ -39,14 +40,14 @@ const styles = StyleSheet.create({
     fontFamily: fonts.bold,
     fontSize: 28,
     lineHeight: 34,
-    color: c.danger,
+    color: colors.danger,
   },
   label: {
     marginTop: 2,
     fontFamily: fonts.medium,
     fontSize: 14,
     lineHeight: 20,
-    color: c.text,
+    color: colors.textPrimary,
   },
   phone: {
     position: 'absolute',

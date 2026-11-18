@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { View, Pressable, StyleSheet } from 'react-native';
+import Text from './AppText';
 import BottomSheet from './BottomSheet';
 import { colors, fonts } from '../theme';
 
@@ -39,7 +40,7 @@ const styles = StyleSheet.create({
   },
   pill: {
     minWidth: 72,
-    height: 48,
+    minHeight: 48,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 22,

@@ -1,13 +1,15 @@
 import React, { useMemo, useState } from 'react';
-import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native';
+import { View, ScrollView, Pressable, StyleSheet } from 'react-native';
+import Text from '../components/AppText';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AnalysisSummaryCard from '../components/AnalysisSummaryCard';
 import SegmentedControl from '../components/SegmentedControl';
 import DonutChart from '../components/DonutChart';
 import MonthlyBarChart from '../components/MonthlyBarChart';
-import { analysisData, analysisTexts } from '../data/spending/spendingAnalysis';
+import { analysisConfig, analysisTexts } from '../data/spending/spendingAnalysis';
 import { useAppData } from '../store/AppDataContext';
+import { getCategoryTotals, getMonthlyTotals, getTickStep } from '../utils/spendingAnalysis';
 import { formatNumber } from '../utils/format';
 import { colors, fonts, spacing } from '../theme';
 
@@ -19,40 +21,41 @@ const formatDiff = (diff) => {
   return `${diff > 0 ? '+' : MINUS}${formatNumber(Math.abs(diff))}원`;
 };
 
+// params: { year, month } (없으면 오늘이 속한 달). 소비 탭에서 보고 있던 달을 그대로 분석합니다.
 export default function SpendingAnalysisScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
   const [tab, setTab] = useState('category');
-  const { sharedReceipts, visibleShared } = useAppData();
+  const { transactions: localTransactions, budget: localBudget, sharedReceipts, visibleShared } = useAppData();
+  const t = analysisTexts;
+  // 서버 연결 모드: 서버 지출(visibleShared.spending)을 같은 계산에 넣고, 기록 방식(직접 입력/영수증/결제 가져오기)을 카테고리로 봅니다.
+  const transactions = useMemo(() => {
+    if (!sharedReceipts) return localTransactions;
+    return (visibleShared?.spending ?? [])
+      .filter((row) => Number.isFinite(row.amount) && typeof row.date === 'string')
+      .map((row) => ({
+        ...row,
+        category: row.source === 'manual' ? '직접 입력' : row.source === 'ocr' ? '영수증'
+          : ['sms', 'kakao', 'notification', 'commerce'].includes(row.source) ? '결제 가져오기' : row.category || '기타',
+      }));
+  }, [sharedReceipts, visibleShared?.spending, localTransactions]);
+  const budget = sharedReceipts ? null : localBudget;
+  const available = !sharedReceipts || Boolean(visibleShared?.spending && !visibleShared.spendingTruncated && !visibleShared.spendingError);
+
   const now = new Date();
   const year = route.params?.year ?? now.getFullYear();
   const month = route.params?.month ?? now.getMonth() + 1;
-  const live = useMemo(() => {
-    const bySource = new Map();
-    const byMonth = new Map();
-    const target = `${year}-${String(month).padStart(2, '0')}`;
-    for (const row of visibleShared?.spending ?? []) {
-      const key = row.date?.slice(0, 7);
-      if (!key || !Number.isFinite(row.amount)) continue;
-      byMonth.set(key, (byMonth.get(key) ?? 0) + row.amount);
-      if (key === target) {
-        const source = row.source === 'manual' ? '직접 입력' : row.source === 'ocr' ? '영수증' :
-          ['sms', 'kakao', 'notification', 'commerce'].includes(row.source) ? '결제 가져오기' : row.category || '기타';
-        bySource.set(source, (bySource.get(source) ?? 0) + row.amount);
-      }
-    }
-    const palette = ['#65C695', '#9ECCB6', '#C2D9A8', '#D9DED7'];
+  const isCurrent = year === now.getFullYear() && month === now.getMonth() + 1;
+  const word = isCurrent ? '이번 달' : `${month}월`;
+
+  // 실제 지출 내역으로 계산 (소비 탭 / 홈과 같은 데이터)
+  const { categories, months, spent } = useMemo(() => {
+    const monthList = getMonthlyTotals(transactions, year, month, analysisConfig.monthCount);
     return {
-      period: { year, month }, spent: byMonth.get(target) ?? 0, budget: null,
-      categories: [...bySource].map(([name, amount], i) => ({ id: name, name, amount, color: palette[i % palette.length] })),
-      months: Array.from({ length: Math.min(month, 4) }, (_, i) => {
-        const m = Math.max(1, month - 3) + i;
-        return { month: m, amount: byMonth.get(`${year}-${String(m).padStart(2, '0')}`) ?? 0 };
-      }),
+      categories: getCategoryTotals(transactions, year, month, analysisConfig),
+      months: monthList,
+      spent: monthList[monthList.length - 1].amount,
     };
-  }, [visibleShared, year, month]);
-  const { period, budget, spent, categories, months } = sharedReceipts ? live : analysisData;
-  const available = !sharedReceipts || (visibleShared?.spending && !visibleShared.spendingTruncated && !visibleShared.spendingError);
-  const t = analysisTexts;
+  }, [transactions, year, month]);
 
   return (
     <View style={styles.container}>
@@ -76,34 +79,36 @@ export default function SpendingAnalysisScreen({ navigation, route }) {
           <Text style={styles.title}>{t.title}</Text>
         </View>
 
-        {!available ? <Text accessibilityRole="alert">{visibleShared?.spendingError || (visibleShared?.spendingTruncated ?
-          '기록이 너무 많아 전체 분석을 표시할 수 없어요. 월 총지출은 소비 화면에서 확인해 주세요.' : '서버 기록을 불러오는 중이에요.')}</Text> : <>
+        {!available ? (
+          <Text accessibilityRole="alert">
+            {visibleShared?.spendingError || (visibleShared?.spendingTruncated ? '지출이 많아 일부만 불러왔어요. 분석이 정확하지 않을 수 있어요.' : '지출을 불러오는 중이에요.')}
+          </Text>
+        ) : null}
         <AnalysisSummaryCard
-          periodLabel={`${period.year}년 ${period.month}월`}
-          spentLabel={t.periodSpentLabel}
+          periodLabel={`${year}년 ${month}월`}
+          spentLabel={t.spentLabel(word)}
           spent={spent}
-          budgetLabel={t.budgetLabel}
+          budgetLabel={t.budgetLabel(word)}
           budget={budget}
           remainingLabel={t.remainingLabel}
         />
 
         <View style={styles.tabs}>
-          <SegmentedControl options={sharedReceipts ? [{ value: 'category', label: '기록 방식별 지출' }, t.tabs[1]] : t.tabs} value={tab} onChange={setTab} showCheck={false} />
+          <SegmentedControl options={t.tabs} value={tab} onChange={setTab} showCheck={false} />
         </View>
 
         {tab === 'category' ? (
-          <CategoryTab categories={categories} shared={sharedReceipts} />
+          <CategoryTab categories={categories} word={word} />
         ) : (
-          <MonthTab months={months} year={period.year} />
+          <MonthTab months={months} isCurrent={isCurrent} />
         )}
-        </>}
       </ScrollView>
     </View>
   );
 }
 
 // 탭 1: 카테고리별 지출 (도넛 차트 + 목록)
-function CategoryTab({ categories, shared }) {
+function CategoryTab({ categories, word }) {
   const t = analysisTexts;
   const sum = categories.reduce((s, c) => s + c.amount, 0);
 
@@ -111,7 +116,7 @@ function CategoryTab({ categories, shared }) {
   if (categories.length === 0 || sum <= 0) {
     return (
       <View>
-        <SectionHeader title={shared ? '기록 방식별 지출' : t.categoryTitle} subtitle={shared ? '직접 입력, 영수증, 결제 가져오기 기준' : t.categorySubtitle} />
+        <SectionHeader title={t.categoryTitle} subtitle={t.categorySubtitle(word)} />
         <Text style={styles.emptyText}>{t.emptyText}</Text>
       </View>
     );
@@ -122,7 +127,7 @@ function CategoryTab({ categories, shared }) {
 
   return (
     <View>
-      <SectionHeader title={shared ? '기록 방식별 지출' : t.categoryTitle} subtitle={shared ? '직접 입력, 영수증, 결제 가져오기 기준' : t.categorySubtitle} />
+      <SectionHeader title={t.categoryTitle} subtitle={t.categorySubtitle(word)} />
 
       <View style={styles.donutWrap}>
         <DonutChart segments={rows.map((r) => ({ value: r.amount, color: r.color }))}>
@@ -147,7 +152,7 @@ function CategoryTab({ categories, shared }) {
 }
 
 // 탭 2: 월별 소비 비교 (막대 차트 + 표)
-function MonthTab({ months, year }) {
+function MonthTab({ months, isCurrent }) {
   const t = analysisTexts;
   const rows = months.map((m, i) => ({
     ...m,
@@ -156,7 +161,8 @@ function MonthTab({ months, year }) {
   const current = rows[rows.length - 1];
   const prev = rows[rows.length - 2];
 
-  if (!current) {
+  // 비교할 달 모두 지출이 없으면 안내 글만 보여 줍니다.
+  if (!current || months.every((m) => m.amount === 0)) {
     return (
       <View>
         <Text style={styles.emptyText}>{t.emptyText}</Text>
@@ -165,13 +171,14 @@ function MonthTab({ months, year }) {
   }
 
   // 지난달과 비교한 제목/설명 (이번 달이 줄었는지, 늘었는지에 따라 문구가 바뀝니다)
-  let title = '지난달과 같아요';
+  const prevWord = isCurrent ? '지난달' : '전월';
+  let title = `${prevWord}과 같아요`;
   let subtitle = '';
   if (prev && current.diff !== 0) {
     const less = current.diff < 0;
     // 지난달 지출이 0원이면 퍼센트를 계산할 수 없어서 퍼센트 없이 보여 줍니다.
     const percent = prev.amount > 0 ? Math.round((Math.abs(current.diff) / prev.amount) * 100) : null;
-    title = `지난달보다 ${percent === null ? '' : `${percent}% `}${less ? '줄었어요' : '늘었어요'}`;
+    title = `${prevWord}보다 ${percent === null ? '' : `${percent}% `}${less ? '줄었어요' : '늘었어요'}`;
     subtitle = `${prev.month}월보다 ${formatNumber(Math.abs(current.diff))}원 ${less ? '덜' : '더'} 썼어요.`;
   }
 
@@ -180,22 +187,23 @@ function MonthTab({ months, year }) {
       <SectionHeader title={title} subtitle={subtitle} />
 
       <Text style={styles.unit}>{t.chartUnit}</Text>
-      <MonthlyBarChart data={months} />
+      <MonthlyBarChart data={months} tickStep={getTickStep(months)} />
 
       <View style={styles.tableHeader}>
-        <Text style={[styles.headerText, styles.colMonth]}>{year}년</Text>
+        <Text style={[styles.headerText, styles.colMonth]}>{current.year}년</Text>
         <Text style={[styles.headerText, styles.colAmount]}>{t.tableSpentLabel}</Text>
         <Text style={[styles.headerText, styles.colDiff]}>{t.tableDiffLabel}</Text>
       </View>
       {rows.map((r, i) => {
-        const isCurrent = i === rows.length - 1;
+        const isLast = i === rows.length - 1;
         return (
-          <View key={r.month} style={[styles.tableRow, isCurrent && styles.currentRow]}>
-            <Text style={[styles.cellMonth, styles.colMonth, isCurrent && styles.currentText]}>
+          <View key={`${r.year}-${r.month}`} style={[styles.tableRow, isLast && styles.currentRow]}>
+            <Text style={[styles.cellMonth, styles.colMonth, isLast && styles.currentText]}>
+              {r.year === current.year ? '' : `${r.year}년 `}
               {r.month}월
             </Text>
             <Text style={[styles.cellAmount, styles.colAmount]}>{formatNumber(r.amount)}원</Text>
-            <Text style={[styles.cellDiff, styles.colDiff, isCurrent && styles.currentText]}>
+            <Text style={[styles.cellDiff, styles.colDiff, isLast && styles.currentText]}>
               {formatDiff(r.diff)}
             </Text>
           </View>
@@ -205,16 +213,13 @@ function MonthTab({ months, year }) {
   );
 }
 
-// 제목 + 설명 + 오른쪽 "예시 데이터" 라벨
+// 제목 + 설명
 function SectionHeader({ title, subtitle }) {
   return (
     <View style={styles.sectionHeader}>
       <View style={styles.sectionTexts}>
         <Text style={styles.sectionTitle}>{title}</Text>
         {subtitle ? <Text style={styles.sectionSubtitle}>{subtitle}</Text> : null}
-      </View>
-      <View style={styles.sampleBadge}>
-        <Text style={styles.sampleBadgeText}>{analysisTexts.sampleBadge}</Text>
       </View>
     </View>
   );
@@ -265,20 +270,6 @@ const styles = StyleSheet.create({
     marginTop: 6,
     fontFamily: fonts.regular,
     fontSize: 15,
-    color: colors.textSecondary,
-  },
-  sampleBadge: {
-    marginTop: 2,
-    paddingHorizontal: 10,
-    height: 26,
-    borderRadius: 8,
-    backgroundColor: colors.cardBg,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  sampleBadgeText: {
-    fontFamily: fonts.regular,
-    fontSize: 12.5,
     color: colors.textSecondary,
   },
 

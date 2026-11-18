@@ -3,6 +3,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import TabNavigator from './TabNavigator';
 import ManualEntryScreen from '../screens/ManualEntryScreen';
 import FridgeAddScreen from '../screens/FridgeAddScreen';
+import FridgeDiscardScreen from '../screens/FridgeDiscardScreen';
 import RecipeListScreen from '../screens/RecipeListScreen';
 import RecipeDetailScreen from '../screens/RecipeDetailScreen';
 import TodoScreen from '../screens/TodoScreen';
@@ -17,7 +18,15 @@ import SpendingDetailScreen from '../screens/SpendingDetailScreen';
 import SpendingAllScreen from '../screens/SpendingAllScreen';
 import EmergencyDetailScreen from '../screens/EmergencyDetailScreen';
 import AiManagerScreen from '../screens/AiManagerScreen';
+import EmergencyAiScreen from '../screens/EmergencyAiScreen';
+import ReportDetailScreen from '../screens/ReportDetailScreen';
+import ReportListScreen from '../screens/ReportListScreen';
 import ProfileScreen from '../screens/ProfileScreen';
+import LifeDataScreen from '../screens/LifeDataScreen';
+import WelcomeScreen from '../screens/WelcomeScreen';
+import LoginScreen from '../screens/LoginScreen';
+import SignUpScreen from '../screens/SignUpScreen';
+import ProfileSetupScreen from '../screens/ProfileSetupScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import HelpScreen from '../screens/HelpScreen';
 
@@ -26,7 +35,13 @@ const Stack = createNativeStackNavigator();
 // 탭 바가 없는 화면(상세, 입력 등)은 여기에 등록합니다.
 export default function RootNavigator() {
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
+    <Stack.Navigator initialRouteName="Welcome" screenOptions={{ headerShown: false }}>
+      {/* 앱을 켜면 처음 나오는 화면들 (로그인하면 replace 로 Tabs 로 들어감) */}
+      <Stack.Screen name="Welcome" component={WelcomeScreen} />
+      <Stack.Screen name="Login" component={LoginScreen} />
+      <Stack.Screen name="SignUp" component={SignUpScreen} />
+      {/* 회원가입 직후 프로필 설정 (5단계 + 진단 결과). 끝나면 Tabs 로 이동 */}
+      <Stack.Screen name="ProfileSetup" component={ProfileSetupScreen} />
       <Stack.Screen name="Tabs" component={TabNavigator} />
       <Stack.Screen name="SharedOnboarding" component={SharedOnboardingScreen} />
       <Stack.Screen name="SharedReports" component={SharedReportsScreen} />
@@ -34,6 +49,8 @@ export default function RootNavigator() {
       <Stack.Screen name="SharedLogin" component={AuthTestScreen} />
       <Stack.Screen name="ManualEntry" component={ManualEntryScreen} />
       <Stack.Screen name="FridgeAdd" component={FridgeAddScreen} />
+      {/* 유통기한이 지난 식재료 폐기. params: { id } */}
+      <Stack.Screen name="FridgeDiscard" component={FridgeDiscardScreen} />
       <Stack.Screen name="RecipeList" component={RecipeListScreen} />
       <Stack.Screen name="RecipeDetail" component={RecipeDetailScreen} />
       <Stack.Screen name="Todo" component={TodoScreen} />
@@ -47,8 +64,13 @@ export default function RootNavigator() {
       {/* params: { id, title } */}
       <Stack.Screen name="EmergencyDetail" component={EmergencyDetailScreen} />
       <Stack.Screen name="AiManager" component={AiManagerScreen} />
+      <Stack.Screen name="EmergencyAi" component={EmergencyAiScreen} />
+      {/* params: { reportId } (없으면 이번 달 리포트) */}
+      <Stack.Screen name="ReportDetail" component={ReportDetailScreen} />
+      <Stack.Screen name="ReportList" component={ReportListScreen} />
       {/* 더보기 하위 화면 */}
       <Stack.Screen name="Profile" component={ProfileScreen} />
+      <Stack.Screen name="LifeData" component={LifeDataScreen} />
       <Stack.Screen name="Settings" component={SettingsScreen} />
       <Stack.Screen name="Help" component={HelpScreen} />
     </Stack.Navigator>

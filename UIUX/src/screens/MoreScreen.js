@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native';
+import { View, ScrollView, Pressable, StyleSheet } from 'react-native';
+import { CommonActions } from '@react-navigation/native';
+import Text from '../components/AppText';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ScreenHeader from '../components/ScreenHeader';
@@ -11,6 +13,7 @@ import { useAppData } from '../store/AppDataContext';
 import SoftButton from '../components/SoftButton';
 import IconBox from '../components/IconBox';
 import { TAB_BAR_HEIGHT } from '../components/TabBar';
+import { confirmAction } from '../utils/confirm';
 import { moreData } from '../data/more/more';
 import { colors, fonts, radius, spacing } from '../theme';
 
@@ -31,7 +34,8 @@ export default function MoreScreen({ navigation }) {
   const [confirmUid, setConfirmUid] = useState(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
-  const handleLogout = async () => {
+  // 서버(Firebase) 연결 모드의 로그아웃
+  const handleSharedLogout = async () => {
     if (!sharedUid || auth.currentUser?.uid !== sharedUid || busy) return;
     setBusy(true);
     setError('');
@@ -43,6 +47,19 @@ export default function MoreScreen({ navigation }) {
     } finally {
       setBusy(false);
     }
+  };
+
+  // 확인 후 첫 화면(Welcome)으로 돌아갑니다. TODO: 인증을 붙이면 실제 로그아웃 처리(토큰 삭제 등)를 함께 연결하세요.
+  const handleLogout = () => {
+    confirmAction({
+      title: '로그아웃할까요?',
+      confirmLabel: '로그아웃',
+      destructive: true,
+      onConfirm: () =>
+        (navigation.getParent() ?? navigation).dispatch(
+          CommonActions.reset({ index: 0, routes: [{ name: 'Welcome' }] }),
+        ),
+    });
   };
 
   return (
@@ -67,16 +84,26 @@ export default function MoreScreen({ navigation }) {
           {!sharedUid ? <SoftButton label="로그인" onPress={() => navigation.navigate('SharedLogin')} /> :
             confirmUid === sharedUid ? <View style={{ gap: 8 }}>
               <Text>이 기기에서 로그아웃할까요?</Text>
-              <SoftButton label={busy ? '로그아웃 중…' : '로그아웃 확인'} onPress={handleLogout} />
+              <SoftButton label={busy ? '로그아웃 중…' : '로그아웃 확인'} onPress={handleSharedLogout} />
               <SoftButton label="취소" onPress={() => !busy && setConfirmUid(null)} />
             </View> : <SoftButton label={logoutLabel} onPress={() => setConfirmUid(sharedUid)} />}
           {error ? <Text accessibilityRole="alert">{error}</Text> : null}
           <SoftButton label="내 생활 리포트" onPress={() => navigation.navigate('SharedReports')} />
-        </> : null}
+        </> : (
+          /* 더미 모드: 첫 화면(Welcome)으로 돌아감 */
+          <Pressable
+            onPress={handleLogout}
+            accessibilityRole="button"
+            style={({ pressed }) => [styles.logoutRow, pressed && styles.pressed]}
+          >
+            <Text style={styles.logoutText}>{logoutLabel}</Text>
+            <MaterialCommunityIcons name="logout" size={20} color={colors.textSecondary} />
+          </Pressable>
+        )}
 
         {/* 생활 데이터 수정 카드 */}
-        {sharedReceipts ? <Pressable
-          onPress={() => navigation.navigate(sharedUid ? 'SharedOnboarding' : 'SharedLogin')}
+        <Pressable
+          onPress={() => navigation.navigate(sharedReceipts ? (sharedUid ? 'SharedOnboarding' : 'SharedLogin') : 'LifeData')}
           accessibilityRole="button"
           style={({ pressed }) => [styles.lifeCard, pressed && styles.pressed]}
         >
@@ -91,7 +118,7 @@ export default function MoreScreen({ navigation }) {
             <Text style={styles.lifeDescription}>{sharedReceipts ? '기본 월 예산과 요리 환경을 설정해요.' : lifeData.description}</Text>
           </View>
           <Ionicons name="chevron-forward" size={20} color={colors.green} />
-        </Pressable> : null}
+        </Pressable>
 
         {/* 앱 이용 안내 */}
         <SectionTitle style={[styles.sectionTitle, styles.sectionAfterCard]}>

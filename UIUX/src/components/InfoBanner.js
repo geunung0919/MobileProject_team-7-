@@ -1,7 +1,8 @@
 import React from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { View, Pressable, StyleSheet } from 'react-native';
+import Text from './AppText';
 import { Ionicons } from '@expo/vector-icons';
-import { fonts, emergencyColors as c } from '../theme';
+import { colors, fonts } from '../theme';
 
 // 화면 하단의 안내 배너 (제목 + 초록 링크 문구 + 오른쪽 화살표).
 export default function InfoBanner({ title, linkLabel, onPress, style }) {
@@ -16,7 +17,7 @@ export default function InfoBanner({ title, linkLabel, onPress, style }) {
         <Text style={styles.title}>{title}</Text>
         <Text style={styles.link}>{linkLabel}</Text>
       </View>
-      <Ionicons name="chevron-forward" size={20} color={c.textSecondary} />
+      <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
     </Pressable>
   );
 }
@@ -26,7 +27,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderRadius: 12,
-    backgroundColor: c.surface,
+    backgroundColor: colors.cardBg,
     paddingVertical: 9,
     paddingHorizontal: 14,
   },
@@ -40,13 +41,13 @@ const styles = StyleSheet.create({
     fontFamily: fonts.medium,
     fontSize: 14,
     lineHeight: 20,
-    color: c.text,
+    color: colors.textPrimary,
   },
   link: {
     marginTop: 2,
     fontFamily: fonts.regular,
     fontSize: 12,
     lineHeight: 16,
-    color: c.accent,
+    color: colors.accent,
   },
 });

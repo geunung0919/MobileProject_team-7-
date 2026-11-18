@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { View, Pressable, StyleSheet } from 'react-native';
+import Text from './AppText';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, fonts } from '../theme';
 
@@ -31,7 +32,7 @@ export default function SegmentedControl({ options, value, onChange, showCheck =
 
 const styles = StyleSheet.create({
   segment: {
-    height: 46,
+    minHeight: 46,
     flexDirection: 'row',
     padding: 4,
     borderRadius: 20,

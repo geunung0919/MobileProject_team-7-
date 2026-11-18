@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
-import { View, Text, ScrollView, StyleSheet } from 'react-native';
+import { View, ScrollView, StyleSheet } from 'react-native';
+import Text from '../components/AppText';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import BackHeader from '../components/BackHeader';
 import TransactionRow from '../components/TransactionRow';

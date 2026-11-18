@@ -9,6 +9,8 @@ export const aiManagerData = {
   inputPlaceholder: '궁금한 점을 입력하세요',
   suggestionsLabel: '이런 걸 물어볼 수 있어요',
   suggestions: ['천장에서 물이 새요', '유통기한 지난 음식은요?', '이번 달 소비 점검해줘', '청소 주기 알려줘'],
+  // 하단 리포트 버튼 (리포트 내용은 data/lifeInfo/reports.js, utils/reportSummary.js)
+  reportButtons: { detail: '리포트 상세보기', past: '지난 리포트 보기' },
   fallback: {
     text: '아직 잘 모르는 질문이에요. 누수, 정전, 냉장고, 소비, 청소처럼 생활 이야기를 물어봐 주세요.',
     action: null,

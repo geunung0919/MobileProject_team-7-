@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native';
+import { View, ScrollView, Pressable, StyleSheet } from 'react-native';
+import Text from '../components/AppText';
 import { Ionicons } from '@expo/vector-icons';
 import { useIsFocused } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -23,7 +24,7 @@ const RECENT_LIMIT = 10;
 export default function SpendingScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const focused = useIsFocused();
-  const { budget, addOptions } = spendingData;
+  const { addOptions } = spendingData;
   const { transactions, sharedReceipts, sharedUid, visibleShared, refreshShared } = useAppData();
   // 처음에는 오늘이 속한 달을 보여줍니다.
   const [period, setPeriod] = useState(() => {
@@ -46,6 +47,11 @@ export default function SpendingScreen({ navigation }) {
     if (id === 'manual') {
       if (sharedReceipts && sharedUid) navigation.navigate('SharedReceipt', { source: 'manual' });
       else navigation.navigate(sharedReceipts ? 'SharedLogin' : 'ManualEntry');
+    }
+    if (id === 'gallery') {
+      // TODO: 앨범에서 사진을 고르는 기능(expo-image-picker 등)을 붙이고, 인식 결과를 navigate('ReceiptResult', { receipt }) 로 넘기세요.
+      // 지금은 샘플 결과 화면을 바로 보여줍니다.
+      navigation.navigate('ReceiptResult');
     }
     if (id === 'receipt') {
       // TODO: 카메라 화면이 완성되면 'ReceiptCamera' 로 이동하고, 인식 결과를 navigate('ReceiptResult', { receipt }) 로 넘기세요.
@@ -182,8 +188,8 @@ export default function SpendingScreen({ navigation }) {
 
         <SoftButton
           label="소비 분석 보기"
-          icon="camera-outline"
-          onPress={() => navigation.navigate('SpendingAnalysis')}
+          icon="chart-donut"
+          onPress={() => navigation.navigate('SpendingAnalysis', { year: period.year, month: period.month })}
         />
 
         <View style={styles.list}>

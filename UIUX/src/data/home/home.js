@@ -19,7 +19,7 @@ export const homeData = {
     emptyText: '보관 중인 식재료가 없어요',
   },
   tasks: [
-    { id: 'routine', route: 'Routine', title: '루틴' },
-    { id: 'todo', route: 'Todo', title: '할 일' },
+    { id: 'routine', route: 'Routine', title: '루틴', icon: 'repeat' },
+    { id: 'todo', route: 'Todo', title: '할 일', icon: 'format-list-checks' },
   ],
 };

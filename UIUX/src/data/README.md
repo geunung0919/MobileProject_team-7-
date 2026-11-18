@@ -8,7 +8,7 @@
 | `home/` | 홈 | `home.js` | 홈 화면의 AI 한마디, 카드 제목 |
 | `spending/` | 소비 | `spending.js` | 소비 내역(더미), 예산, 카테고리 |
 | | | `spendingDetail.js` | 지출 상세 화면 문구 |
-| | | `spendingAnalysis.js` | 소비 분석 화면 데이터 |
+| | | `spendingAnalysis.js` | 소비 분석 화면 문구, 카테고리 색상, 월별 비교 개월 수 |
 | | | `spendingAll.js` | 소비 전체보기 화면 문구 |
 | | | `receipt.js` | 영수증 인식 결과 형식과 샘플 |
 | `fridge/` | 냉장고 | `fridge.js` | 식재료 목록(더미), 단위 목록, 임박 기준일 |
@@ -19,8 +19,11 @@
 | | | `emergency.js`, `emergencyGuides.js` | 비상매뉴얼 상황 목록, 상황별 대처 |
 | | | `survivalMap.js` | 자취생존맵 장소 데이터 |
 | | | `aiManager.js` | AI 자취 매니저 문구와 답변 |
+| `auth/` | (탭 아님) 첫 화면 | `auth.js` | 로그인/회원가입 화면 문구와 입력 확인 안내 |
+| | | `profileSetup.js` | 회원가입 후 프로필 설정(5단계 + 진단 결과) 문구와 진단 문장 틀 |
 | `more/` | 더보기 | `more.js` | 더보기 탭 메뉴 문구 |
 | | | `account.js` | 프로필, 설정, 도움말 데이터 |
+| | | `lifeData.js` | 생활 데이터 수정 화면 문구, 선택지(목표·조리 도구), 처음 값 |
 
 ## 새 데이터 파일을 만들 때
 1. 어느 탭 화면에서 쓰는지 정해서 그 탭 폴더 안에 파일을 만드세요. (예: 냉장고 화면 → `fridge/`)
@@ -83,7 +86,6 @@
 
 | 화면 | 파일 | 설명 |
 | --- | --- | --- |
-| 소비 분석 | `spending/spendingAnalysis.js` | 화면에 "예시 데이터" 라벨이 붙은 고정 값입니다. 실제 지출 내역(`transactions`)으로 계산하거나 서버 값으로 교체하세요. |
 | 월 예산 | `spending/spending.js` 의 `budget` | 소비 탭과 홈이 같이 씁니다. 사용자마다 예산이 다르다면 저장소로 옮기세요. |
 | 영수증 인식 | `spending/receipt.js` | 카메라 화면이 아직 없어서 샘플 결과를 보여줍니다. 카메라가 인식한 결과를 `navigate('ReceiptResult', { receipt })` 로 넘기면 됩니다. |
 | AI 레시피 추천 | `fridge/recipes.js` | 정적 레시피 데이터입니다. |

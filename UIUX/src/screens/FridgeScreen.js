@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { View, Text, ScrollView, StyleSheet } from 'react-native';
+import { View, ScrollView, StyleSheet } from 'react-native';
+import Text from '../components/AppText';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ScreenHeader from '../components/ScreenHeader';
 import SoftButton from '../components/SoftButton';
@@ -24,7 +25,7 @@ export default function FridgeScreen({ navigation }) {
   const { fridgeItems: items, sharedReceipts, sharedUid, visibleShared, refreshShared } = useAppData();
   const now = new Date();
   const baseDate = toDateString(now); // 기준일 = 오늘
-  const [filter, setFilter] = useState('all'); // 'all' | 'urgent'
+  const [filter, setFilter] = useState('all'); // 'all' | 'urgent' | 'expired'
 
   // 유통기한 빠른 순으로 정렬하고, 남은 일수/임박 여부를 계산합니다.
   const enriched = useMemo(
@@ -40,7 +41,13 @@ export default function FridgeScreen({ navigation }) {
   );
 
   const urgentCount = enriched.filter((i) => i.urgent).length;
-  const visible = filter === 'urgent' ? enriched.filter((i) => i.urgent) : enriched;
+  const expiredCount = enriched.filter((i) => i.daysLeft < 0).length;
+  const visible =
+    filter === 'urgent'
+      ? enriched.filter((i) => i.urgent)
+      : filter === 'expired'
+        ? enriched.filter((i) => i.daysLeft < 0)
+        : enriched;
 
   return (
     <View style={styles.container}>
@@ -88,6 +95,12 @@ export default function FridgeScreen({ navigation }) {
             selected={filter === 'urgent'}
             onPress={() => setFilter('urgent')}
           />
+          <Chip
+            label="폐기"
+            count={expiredCount}
+            selected={filter === 'expired'}
+            onPress={() => setFilter('expired')}
+          />
         </View>
 
         <View style={styles.metaRow}>
@@ -101,7 +114,12 @@ export default function FridgeScreen({ navigation }) {
               key={item.id}
               {...item}
               isLast={i === visible.length - 1}
-              onPress={() => navigation.navigate('FridgeAdd', { id: item.id })}
+              onPress={() =>
+                // 유통기한이 지난 품목은 수정 화면 대신 폐기 화면으로 갑니다.
+                item.daysLeft < 0
+                  ? navigation.navigate('FridgeDiscard', { id: item.id })
+                  : navigation.navigate('FridgeAdd', { id: item.id })
+              }
             />
           ))}
         </View>

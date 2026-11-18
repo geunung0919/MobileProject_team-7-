@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { View, Pressable, StyleSheet } from 'react-native';
+import Text from './AppText';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, fonts } from '../theme';
 import { toDateString } from '../utils/format';

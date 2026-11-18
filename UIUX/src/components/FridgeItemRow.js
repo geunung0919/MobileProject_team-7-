@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { View, Pressable, StyleSheet } from 'react-native';
+import Text from './AppText';
 import IconBox from './IconBox';
 import { colors, fonts } from '../theme';
 import { formatDotDate } from '../utils/format';
@@ -17,6 +18,7 @@ export default function FridgeItemRow({
   onPress,
 }) {
   const badgeLabel = badgeDueLabel(daysLeft);
+  const expired = daysLeft < 0; // 유통기한 지남 → "폐기 필요" 를 진한 빨강으로 강조
 
   return (
     <Pressable
@@ -30,8 +32,18 @@ export default function FridgeItemRow({
         <Text style={styles.quantity}>{quantity}</Text>
       </View>
       <View style={styles.right}>
-        <View style={[styles.badge, urgent ? styles.badgeUrgent : styles.badgeNormal]}>
-          <Text style={[styles.badgeText, urgent ? styles.badgeTextUrgent : styles.badgeTextNormal]}>
+        <View
+          style={[
+            styles.badge,
+            expired ? styles.badgeExpired : urgent ? styles.badgeUrgent : styles.badgeNormal,
+          ]}
+        >
+          <Text
+            style={[
+              styles.badgeText,
+              expired ? styles.badgeTextExpired : urgent ? styles.badgeTextUrgent : styles.badgeTextNormal,
+            ]}
+          >
             {badgeLabel}
           </Text>
         </View>
@@ -80,8 +92,11 @@ const styles = StyleSheet.create({
   badgeUrgent: {
     backgroundColor: colors.warnBg,
   },
+  badgeExpired: {
+    backgroundColor: colors.expired,
+  },
   badgeNormal: {
-    backgroundColor: colors.cardBg,
+    backgroundColor: colors.calmBg,
   },
   badgeText: {
     fontFamily: fonts.medium,
@@ -89,6 +104,9 @@ const styles = StyleSheet.create({
   },
   badgeTextUrgent: {
     color: colors.warnText,
+  },
+  badgeTextExpired: {
+    color: colors.white,
   },
   badgeTextNormal: {
     color: colors.textSecondary,

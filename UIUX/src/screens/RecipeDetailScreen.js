@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
-import { View, Text, ScrollView, Alert, StyleSheet } from 'react-native';
+import { View, ScrollView, Alert, StyleSheet } from 'react-native';
+import Text from '../components/AppText';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import BackHeader from '../components/BackHeader';

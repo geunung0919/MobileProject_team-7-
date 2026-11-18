@@ -1,5 +1,7 @@
 import React from 'react';
-import { View, Text, TextInput, Pressable, StyleSheet } from 'react-native';
+import { View, Pressable, StyleSheet } from 'react-native';
+import Text from './AppText';
+import TextInput from './AppTextInput';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, fonts } from '../theme';
 
@@ -19,6 +21,7 @@ export default function FormField({
   editable = true,
   secureTextEntry = false,
   marginTop = 28,
+  inputProps, // TextInput 에 그대로 넘길 추가 속성 (예: secureTextEntry, autoCapitalize)
 }) {
   const box = (
     <View style={styles.box}>
@@ -38,6 +41,7 @@ export default function FormField({
           keyboardType={keyboardType}
           maxLength={maxLength}
           accessibilityLabel={label}
+          {...inputProps}
         />
       )}
       {suffix ? <Text style={styles.suffix}>{suffix}</Text> : null}
@@ -73,7 +77,7 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   box: {
-    height: 58,
+    minHeight: 58,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.cardBg,

@@ -1,12 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
-  Text,
   ScrollView,
   Pressable,
   KeyboardAvoidingView,
   Keyboard,
-  Alert,
   Platform,
   StyleSheet,
 } from 'react-native';
@@ -25,6 +23,8 @@ import PrimaryButton from '../components/PrimaryButton';
 import { fridgeData } from '../data/fridge/fridge';
 import { useAppData } from '../store/AppDataContext';
 import { formatDotDate, toDateString, fromDateString, addDays } from '../utils/format';
+import Text from '../components/AppText';
+import { confirmAction } from '../utils/confirm';
 import { colors, fonts, spacing } from '../theme';
 
 // "1개 · 1L" 같은 예전 형식의 글자에서 수량 숫자와 단위를 뽑아냅니다. (amount / unit 이 없는 항목용)
@@ -221,17 +221,16 @@ export default function FridgeAddScreen({ navigation, route }) {
       setDeleteConfirm(true);
       return;
     }
-    Alert.alert('식재료를 삭제할까요?', `'${name.trim() || '이 식재료'}'이(가) 냉장고에서 삭제돼요.`, [
-      { text: '취소', style: 'cancel' },
-      {
-        text: '삭제',
-        style: 'destructive',
-        onPress: () => {
-          removeFridgeItem(editId);
-          navigation.goBack();
-        },
+    confirmAction({
+      title: '식재료를 삭제할까요?',
+      message: `'${name.trim() || '이 식재료'}'이(가) 냉장고에서 삭제돼요.`,
+      confirmLabel: '삭제',
+      destructive: true,
+      onConfirm: () => {
+        removeFridgeItem(editId);
+        navigation.goBack();
       },
-    ]);
+    });
   };
 
   const sheet = getDateConfig(activeTarget);

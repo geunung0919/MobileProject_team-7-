@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, Pressable, Linking, Alert, StyleSheet } from 'react-native';
+import { View, ScrollView, Pressable, Linking, Alert, StyleSheet } from 'react-native';
+import Text from '../components/AppText';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import BackHeader from '../components/BackHeader';

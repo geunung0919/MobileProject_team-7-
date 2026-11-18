@@ -20,13 +20,13 @@ export const lifeInfoData = {
       id: 'todo',
       title: '할 일 기록',
       description: '오늘 할 일을 빠르게 기록하고 관리해요.',
-      icon: 'calendar-check-outline',
+      icon: 'format-list-checks',
     },
     {
       id: 'routine',
       title: '생활 루틴 설정',
       description: '청소·빨래 등 나만의 생활 주기를 정해요.',
-      icon: 'calendar-check-outline',
+      icon: 'repeat',
     },
     {
       id: 'emergency',

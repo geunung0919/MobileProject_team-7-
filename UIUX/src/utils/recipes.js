@@ -46,10 +46,10 @@ export function analyzeRecipe(recipe, entries) {
   };
 }
 
-// 배너 칩용: "1일 지남" / "오늘까지" / "1일"
+// 배너 칩용: "폐기 필요" / "오늘까지" / "1일"
 export const shortDueLabel = (daysLeft) =>
-  !Number.isFinite(daysLeft) ? '기한 미입력' : daysLeft < 0 ? `${-daysLeft}일 지남` : daysLeft === 0 ? '오늘까지' : `${daysLeft}일`;
+  !Number.isFinite(daysLeft) ? '기한 미입력' : daysLeft < 0 ? '폐기 필요' : daysLeft === 0 ? '오늘까지' : `${daysLeft}일`;
 
-// 카드 배지용 (냉장고, 레시피, 홈 공용): "1일 지남" / "오늘까지" / "2일 남음"
+// 카드 배지용 (냉장고, 레시피, 홈 공용): "폐기 필요" / "오늘까지" / "2일 남음"
 export const badgeDueLabel = (daysLeft) =>
-  !Number.isFinite(daysLeft) ? '기한 미입력' : daysLeft < 0 ? `${-daysLeft}일 지남` : daysLeft === 0 ? '오늘까지' : `${daysLeft}일 남음`;
+  !Number.isFinite(daysLeft) ? '기한 미입력' : daysLeft < 0 ? '폐기 필요' : daysLeft === 0 ? '오늘까지' : `${daysLeft}일 남음`;

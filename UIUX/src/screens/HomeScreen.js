@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, ScrollView, StyleSheet } from 'react-native';
+import { View, ScrollView, StyleSheet } from 'react-native';
+import Text from '../components/AppText';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useIsFocused } from '@react-navigation/native';
 import { loadBudget, listRoutines } from '../../../api/receiptApi';
@@ -10,7 +11,6 @@ import TaskRow from '../components/TaskRow';
 import { TAB_BAR_HEIGHT } from '../components/TabBar';
 import ScreenHeader from '../components/ScreenHeader';
 import { homeData } from '../data/home/home';
-import { spendingData } from '../data/spending/spending';
 import { fridgeData } from '../data/fridge/fridge';
 import { useAppData } from '../store/AppDataContext';
 import {
@@ -25,7 +25,7 @@ import { colors, fonts, spacing } from '../theme';
 export default function HomeScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const { hero, spending, fridge, tasks } = homeData;
-  const { transactions, fridgeItems, todos, routines, sharedReceipts, sharedUid, visibleShared } = useAppData();
+  const { transactions, fridgeItems, todos, routines, budget: localBudget, sharedReceipts, sharedUid, visibleShared } = useAppData();
 
   // 홈의 숫자는 저장소 데이터로 계산합니다 (다른 탭에서 바꾸면 홈에 바로 반영).
   const now = new Date();
@@ -57,11 +57,11 @@ export default function HomeScreen({ navigation }) {
     () => ({
       spending: sharedReceipts ? { month: now.getMonth() + 1, spent: budget?.spent, budget: budget?.budget,
         remaining: budget?.budget != null ? budget.budget - budget.spent : null } :
-        getSpendingSummary(transactions, spendingData.budget, new Date()),
+        getSpendingSummary(transactions, localBudget, new Date()),
       fridge: getFridgeSummary(sharedReceipts ? sharedFridgeEntries(visibleShared?.inventory) : fridgeItems, baseDate, fridgeData.urgentWithinDays),
       tasks: getTaskSummaries(sharedReceipts ? (routineRows?.items ?? []).filter((row) => row.scheduledToday).map((row) => ({ ...row, time: row.time || '' })) : routines, todos, baseDate),
     }),
-    [transactions, fridgeItems, todos, routines, baseDate, sharedReceipts, visibleShared?.inventory, budget, routineRows]
+    [transactions, fridgeItems, todos, routines, baseDate, localBudget, sharedReceipts, visibleShared?.inventory, budget, routineRows]
   );
   const { fridge: fridgeSummary, spending: spendingSummary } = summary;
   const first = fridgeSummary.first;
@@ -132,6 +132,7 @@ export default function HomeScreen({ navigation }) {
             <TaskRow
               key={task.id}
               title={task.title}
+              icon={task.icon}
               status={sharedReceipts && task.id === 'routine' && !routineRows ? '—' : summary.tasks[task.id].status}
               summary={sharedReceipts && task.id === 'routine' && !routineRows ? (sharedUid ? '서버 루틴을 확인해 주세요.' : '로그인하면 루틴을 불러와요.') : summary.tasks[task.id].summary}
               isLast={i === tasks.length - 1}
@@ -187,7 +188,7 @@ const styles = StyleSheet.create({
     color: colors.warnText,
   },
   calmTag: {
-    backgroundColor: colors.divider,
+    backgroundColor: colors.calmBg,
   },
   calmTagText: {
     color: colors.textSecondary,

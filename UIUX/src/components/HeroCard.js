@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
+import Text from './AppText';
 import { colors, fonts, radius } from '../theme';
 
 export default function HeroCard({ label, badge, title, description }) {

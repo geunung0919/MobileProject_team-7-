@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { View, Pressable, StyleSheet } from 'react-native';
+import Text from './AppText';
 import { Ionicons } from '@expo/vector-icons';
 import IconBox from './IconBox';
 import { colors, fonts, radius } from '../theme';
@@ -87,7 +88,7 @@ const styles = StyleSheet.create({
   },
   button: {
     marginTop: 18,
-    height: 44,
+    minHeight: 44,
     borderRadius: 22,
     backgroundColor: colors.tabActiveBg,
     flexDirection: 'row',
