@@ -1,5 +1,6 @@
 // 루트 앱(npm run receipt:web / receipt:native)의 번들러 설정
 // https://docs.expo.dev/guides/customizing-metro/
+const http = require('http');
 const path = require('path');
 const { getDefaultConfig } = require('expo/metro-config');
 
@@ -24,5 +25,42 @@ config.resolver.blockList = [
   inside('jachwi-core', '\\.venv'),
   inside('jachwi-core', 'data'),
 ];
+
+// 영수증 OCR 중계: 앱이 개발 서버의 /__ocr/... 로 보내면 이 PC 의 jachwi-core(127.0.0.1:8000)로 전달합니다.
+// 앱이 열리는 곳이면(같은 Wi-Fi, 핫스팟, --tunnel) 어디서든 OCR 이 되고, 휴대폰이 8000번에 직접 붙을 필요가 없어요.
+const OCR_PREFIX = '/__ocr';
+const ocrPort = Number(process.env.RECEIPT_OCR_PORT || process.env.EXPO_PUBLIC_RECEIPT_OCR_PORT || 8000);
+
+function proxyToOcr(req, res) {
+  const headers = { ...req.headers, host: `127.0.0.1:${ocrPort}` };
+  delete headers.origin; // 같은 출처 요청이라 CORS 확인이 필요 없어요.
+  delete headers.referer;
+  const upstream = http.request(
+    { host: '127.0.0.1', port: ocrPort, method: req.method, path: req.url.slice(OCR_PREFIX.length) || '/', headers },
+    (response) => {
+      res.writeHead(response.statusCode || 502, response.headers);
+      response.pipe(res);
+    }
+  );
+  upstream.setTimeout(120000, () => upstream.destroy(new Error('timeout')));
+  upstream.on('error', () => {
+    if (!res.headersSent) res.writeHead(502, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify({ error: { message:
+      `PC 의 영수증 OCR 서버(jachwi-core, ${ocrPort}번)가 꺼져 있거나 응답하지 않아요. jachwi-core 폴더에서 서버를 먼저 켜 주세요.` } }));
+  });
+  req.pipe(upstream);
+}
+
+const previousEnhance = config.server?.enhanceMiddleware;
+config.server = {
+  ...config.server,
+  enhanceMiddleware: (middleware, server) => {
+    const next = previousEnhance ? previousEnhance(middleware, server) : middleware;
+    return (req, res, fallthrough) => {
+      if (req.url === OCR_PREFIX || req.url.startsWith(`${OCR_PREFIX}/`)) return proxyToOcr(req, res);
+      return next(req, res, fallthrough);
+    };
+  },
+};
 
 module.exports = config;

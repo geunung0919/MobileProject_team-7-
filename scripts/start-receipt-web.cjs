@@ -1,8 +1,14 @@
 const { spawnSync } = require('node:child_process');
 const os = require('node:os');
 
+// npm run receipt:web                → 웹(같은 Wi-Fi·핫스팟에서 휴대폰 브라우저로 열기)
+// npm run receipt:web -- --tunnel    → 어디서든(다른 네트워크·LTE) 열 수 있는 인터넷 주소로 실행
+// npm run receipt:native             → 개발 빌드 앱 (뒤에 -- --tunnel 가능)
 const args = process.argv.slice(2);
 const native = args[0] === '--native';
+const rest = native ? args.slice(1) : args;
+const tunnel = rest.includes('--tunnel');
+const host = tunnel || rest.includes('--localhost') || rest.includes('--lan') ? [] : ['--lan'];
 const target = native ? ['--dev-client'] : ['--web', '--go'];
 
 // 같은 Wi-Fi 의 휴대폰에서 열 수 있는 이 PC 의 사설 IPv4 주소
@@ -17,24 +23,26 @@ function lanAddress() {
   return candidates[0]?.address;
 }
 
+const ocrPort = process.env.RECEIPT_OCR_PORT || process.env.EXPO_PUBLIC_RECEIPT_OCR_PORT || '8000';
 const ip = lanAddress();
-const ocrPort = process.env.EXPO_PUBLIC_RECEIPT_OCR_PORT || '8000';
 console.log('');
 console.log('==================== 영수증 테스트 ====================');
-if (ip) {
-  if (!native) console.log(`아이폰/안드로이드 브라우저 주소 : http://${ip}:8081  (PC와 같은 Wi-Fi)`);
-  console.log(`영수증 OCR 서버              : http://${ip}:${ocrPort}`);
+console.log('1) 다른 창에서 영수증 OCR 서버를 먼저 켜 두세요 (이 PC 안에서만 열어도 돼요):');
+console.log('     cd jachwi-core');
+console.log(`     ./.venv/Scripts/python.exe -m uvicorn app.main:create_app --factory --port ${ocrPort}`);
+console.log('   앱의 OCR 요청은 이 개발 서버(/__ocr)를 거쳐 OCR 서버로 전달돼요.');
+if (tunnel) {
+  console.log('2) 터널 모드: 아래 Expo 화면에 나오는 https://...exp.direct 주소(웹) 또는 QR(앱)로 어디서든 열 수 있어요.');
+} else if (ip) {
+  console.log(`2) 같은 Wi-Fi·핫스팟의 휴대폰에서 열 주소: ${native ? `QR 코드 (exp://${ip}:8081)` : `http://${ip}:8081`}`);
+  console.log('   다른 네트워크(LTE 등)에서 열려면: npm run receipt:web -- --tunnel');
 } else {
-  console.log('Wi-Fi IPv4 주소를 찾지 못했어요. ipconfig 로 PC 주소를 확인해 주세요.');
+  console.log('2) Wi-Fi IPv4 주소를 찾지 못했어요. 어디서든 열려면: npm run receipt:web -- --tunnel');
 }
-console.log('OCR 서버는 다른 창에서 먼저 켜 두세요:');
-console.log('  cd jachwi-core');
-console.log(`  ./.venv/Scripts/python.exe -m uvicorn app.main:create_app --factory --host 0.0.0.0 --port ${ocrPort}`);
-console.log('Windows 방화벽 창이 뜨면 "개인 네트워크" 허용을 눌러 주세요.');
 console.log('=======================================================');
 console.log('');
 
-const result = spawnSync(process.execPath, [require.resolve('expo/bin/cli'), 'start', '--lan', ...target, ...(native ? args.slice(1) : args)], {
+const result = spawnSync(process.execPath, [require.resolve('expo/bin/cli'), 'start', ...host, ...target, ...rest], {
   stdio: 'inherit',
   env: {
     ...process.env,

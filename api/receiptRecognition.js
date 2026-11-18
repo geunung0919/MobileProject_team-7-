@@ -1,11 +1,10 @@
 import { Platform } from 'react-native';
 import { auth } from '../firebase/firebaseConfig';
 import { environment } from '../config/environment';
-import { ocrBaseForHost, isTunnelHost } from './ocrHost.mjs';
+import { ocrBaseFromDevServer } from './ocrHost.mjs';
 
 const configuredBase = process.env.EXPO_PUBLIC_RECEIPT_OCR_BASE_URL?.trim() ?? '';
 const mode = process.env.EXPO_PUBLIC_RECEIPT_AUTH_MODE?.trim() || 'development';
-const ocrPort = process.env.EXPO_PUBLIC_RECEIPT_OCR_PORT?.trim() || '8000';
 
 function analysisBase(value) {
   try {
@@ -17,23 +16,18 @@ function analysisBase(value) {
   return '';
 }
 
-// 개발 실행에서 OCR 서버 주소를 따로 설정하지 않았으면, 앱을 띄운 개발 PC(같은 Wi-Fi)의 jachwi-core 를 씁니다.
-// - 웹(아이폰 사파리 등): 지금 연 페이지의 주소. http://192.168.0.15:8081 로 열었으면 http://192.168.0.15:8000
-// - 앱(Expo Go/개발 빌드): Metro 개발 서버 주소의 PC IP
-// 터널(--tunnel) 주소는 OCR 서버로 이어지지 않으므로 자동으로 쓰지 않습니다 (api/ocrHost.mjs).
-function developmentHost() {
-  if (Platform.OS === 'web') return window.location.hostname;
-  if (environment.devHost) return environment.devHost;
+// 개발 실행에서 OCR 서버 주소를 따로 설정하지 않았으면, 앱이 연결된 Expo 개발 서버의 /__ocr 를 씁니다.
+// 개발 서버(metro.config.js)가 같은 PC 의 jachwi-core 로 전달하므로 같은 Wi-Fi·핫스팟·--tunnel 어디서든 동작해요.
+function developmentServerUrl() {
+  if (Platform.OS === 'web') return window.location.href;
   const getDevServer = require('react-native/Libraries/Core/Devtools/getDevServer').default;
-  return new URL(getDevServer().url).hostname;
+  return getDevServer().url;
 }
 
-let detectedHost = '';
 function developmentPcBase() {
   if (mode !== 'development' || !__DEV__) return '';
   try {
-    detectedHost = developmentHost() || '';
-    return ocrBaseForHost(detectedHost, ocrPort);
+    return ocrBaseFromDevServer(developmentServerUrl());
   } catch {
     return '';
   }
@@ -42,9 +36,8 @@ function developmentPcBase() {
 export const receiptOcrBase = analysisBase(configuredBase || developmentPcBase());
 export const receiptUsesDevelopmentToken = mode === 'development';
 // OCR 서버 주소를 정하지 못했을 때 화면에 보여 줄 이유
-export const receiptOcrMissingReason = receiptOcrBase ? '' : isTunnelHost(detectedHost)
-  ? `터널(--tunnel)로 실행 중이라 OCR 서버 주소를 자동으로 찾을 수 없어요. 루트 .env.local 에 EXPO_PUBLIC_RECEIPT_OCR_BASE_URL=http://<PC IP>:${ocrPort} 를 넣고 Expo 를 -c 로 다시 시작해 주세요. 휴대폰과 PC 는 같은 Wi-Fi(또는 휴대폰 핫스팟)여야 해요.`
-  : `영수증 분석 서버 주소가 없어요. 루트 .env.local 에 EXPO_PUBLIC_RECEIPT_OCR_BASE_URL=http://<PC IP>:${ocrPort} 를 넣거나 같은 Wi-Fi 에서 npm run receipt:web 으로 실행해 주세요.`;
+export const receiptOcrMissingReason = receiptOcrBase ? '' :
+  '영수증 분석 서버 주소를 찾지 못했어요. 개발 서버(npm run receipt:web 또는 receipt:native)로 실행하거나, 루트 .env.local 에 EXPO_PUBLIC_RECEIPT_OCR_BASE_URL 을 넣어 주세요.';
 // 개발 모드에서 미리 채워 두는 OCR 서버 토큰 (jachwi-core/.env 의 DEV_TOKENS_JSON 에 있는 공개 시연용 토큰)
 export const receiptDefaultDevelopmentToken = receiptUsesDevelopmentToken
   ? process.env.EXPO_PUBLIC_RECEIPT_DEV_TOKEN?.trim() || 'local-demo-token-user-a'
@@ -81,7 +74,7 @@ function connectionError(error) {
   }
   // fetch 자체가 실패함 = 서버에 닿지 못함 (브라우저는 TypeError, 안드로이드는 'fetch failed: ...')
   if (error instanceof TypeError || /fetch|network|canceled|cancelled|timed? ?out/i.test(String(error?.message))) {
-    return new Error(`분석 서버(${receiptOcrBase})에 연결하지 못했어요. PC에서 jachwi-core 서버가 --host 0.0.0.0 으로 켜져 있는지, 휴대폰과 같은 Wi-Fi 인지, Windows 방화벽에서 ${ocrPort}번 포트가 허용됐는지 확인해 주세요.`);
+    return new Error(`분석 서버(${receiptOcrBase})에 연결하지 못했어요. PC 에서 Expo 개발 서버와 jachwi-core 서버가 켜져 있는지, 휴대폰 인터넷이 연결돼 있는지 확인해 주세요.`);
   }
   return error;
 }

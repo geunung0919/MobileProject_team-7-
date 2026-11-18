@@ -85,29 +85,35 @@ PC는 터미널에 나온 웹 주소를 연다. 아이폰 Safari로 열려면 PC
 개발 서버의 LAN 주소이므로 공개 Wi-Fi에서는 사용하지 않는다.
 첫 검증은 로그인 후 사진 없이 **소비 → 서버 소비 기록 → 소비 직접 입력**을 이용한다. 냉장고에서 별도 **식재료 추가 → 서버에 저장**도 확인한다. 두 직접 입력 기능은 해당 서버 코드가 배포된 이후 동작한다.
 
-## 아이폰에서 영수증 촬영 → 로컬 OCR (사파리)
+## 휴대폰에서 영수증 촬영 → PC 의 OCR (어디서든)
 
-앱스토어 Expo Go 는 최신 SDK 하나만 지원해서 아이폰에서 이 앱(SDK 58, 개발 빌드 전제)을 바로 열 수 없을 수 있다.
-사파리 웹으로 열면 Expo Go·Apple 개발자 계정 없이 카메라 촬영 → PC의 jachwi-core OCR 까지 동작한다.
+앱은 OCR 요청을 자기가 연결된 Expo 개발 서버의 `/__ocr` 로 보내고, 개발 서버(`metro.config.js`)가 같은 PC 의
+jachwi-core(127.0.0.1:8000)로 전달한다. 앱이 열리는 곳이면 같은 Wi-Fi·핫스팟·`--tunnel`(LTE 등 다른 네트워크) 어디서든
+OCR 이 된다. OCR 서버 주소 설정, `--host 0.0.0.0`, 방화벽 8000번 허용은 필요 없다.
 
-1. PC 창 1 — OCR 서버 (같은 Wi-Fi 에서 접속할 수 있게 `--host 0.0.0.0`):
+앱스토어 Expo Go 는 최신 SDK 하나만 지원해서 아이폰에서 이 앱을 바로 열 수 없을 수 있다. 사파리(웹)로 열면
+Expo Go·Apple 개발자 계정 없이 카메라 촬영까지 된다.
+
+1. PC 창 1 — OCR 서버:
    ```bash
    cd jachwi-core
-   ./.venv/Scripts/python.exe -m uvicorn app.main:create_app --factory --host 0.0.0.0 --port 8000
+   ./.venv/Scripts/python.exe -m uvicorn app.main:create_app --factory --port 8000
    ```
-   Windows 방화벽 창이 뜨면 **개인 네트워크 허용**. Tesseract(kor+eng) 설치는 `jachwi-core/docs/RECEIPT_OCR.md`.
-2. PC 창 2 — 저장소 루트에서 `npm ci` 후 `npm run receipt:web`. 터미널 맨 위에 **아이폰 브라우저 주소**(`http://<PC IP>:8081`)가 나온다.
-3. 아이폰(같은 Wi-Fi) 사파리에서 그 주소 열기 → 소비 → 로그인 → 영수증 저장 → **사진 촬영 후 분석**.
-   - OCR 서버 주소는 연 페이지의 PC 주소로 자동 설정된다(`http://<PC IP>:8000`). 다른 주소를 쓰려면 루트 `.env.local` 에 `EXPO_PUBLIC_RECEIPT_OCR_BASE_URL`.
+   Tesseract(kor+eng) 설치는 `jachwi-core/docs/RECEIPT_OCR.md`.
+2. PC 창 2 — 저장소 루트에서 `npm ci` 후
+   - 같은 Wi-Fi·핫스팟: `npm run receipt:web` → 터미널 맨 위의 `http://<PC IP>:8081` 을 휴대폰 브라우저로 연다.
+   - 어디서든(다른 네트워크): `npm run receipt:web -- --tunnel` → Expo 가 보여 주는 `https://...exp.direct` 주소를 연다.
+   - 개발 빌드 앱: `npm run receipt:native` (또는 `-- --tunnel`) → QR.
+3. 소비 → 로그인 → 영수증 저장 → **사진 촬영 후 분석**.
    - OCR 개발 토큰은 `local-demo-token-user-a` 로 미리 채워진다(`EXPO_PUBLIC_RECEIPT_DEV_TOKEN` 으로 변경).
    - 아이폰 사진(8MB 이상일 수 있음)은 브라우저에서 긴 변 2400px JPEG 로 줄여서 보낸다.
-   - jachwi-core 는 개발 모드에서 같은 Wi-Fi 의 사설 IP(192.168.x.x, 10.x.x.x, 172.16~31.x.x) 웹 주소를 CORS 로 허용한다. 끄려면 `CORS_ALLOW_PRIVATE_NETWORK=false`.
-4. 연결 실패 메시지가 나오면: 서버가 `--host 0.0.0.0` 으로 켜졌는지, 같은 Wi-Fi 인지, 방화벽에서 8000·8081 포트가 허용됐는지 확인.
+   - 다른 OCR 서버를 쓰려면 루트 `.env.local` 에 `EXPO_PUBLIC_RECEIPT_OCR_BASE_URL`. 이 값이 있으면 개발 서버 중계 대신 그 주소로 보낸다.
+4. "OCR 서버가 꺼져 있어요" 가 나오면 창 1 의 jachwi-core 를 켠다. "연결하지 못했어요" 는 휴대폰 인터넷/Expo 개발 서버를 확인.
 
 ### 시연 전 체크리스트
-- [ ] **네트워크:** 학교·카페 Wi-Fi 는 기기끼리 통신을 막는 경우가 많다. 휴대폰 핫스팟에 PC 와 시연 휴대폰을 함께 연결한다.
-- [ ] **OCR 서버:** `--host 0.0.0.0` 으로 실행, Windows 방화벽에서 Python(8000)·Node(8081) 개인 네트워크 허용, Tesseract kor+eng 설치 확인.
-- [ ] **웹 앱:** `npm run receipt:web` 이 출력한 `http://<PC IP>:8081` 을 휴대폰 브라우저(아이폰 사파리·안드로이드 Chrome)로 연다.
+- [ ] **네트워크:** 학교·카페 Wi-Fi 는 기기끼리 통신을 막는 경우가 많다. 휴대폰 핫스팟에 PC 와 시연 휴대폰을 함께 연결하거나, `npm run receipt:web -- --tunnel` 로 실행한다.
+- [ ] **OCR 서버:** jachwi-core 실행, Tesseract kor+eng 설치 확인. (휴대폰이 8000번에 직접 붙지 않으므로 방화벽 설정 불필요)
+- [ ] **웹 앱:** `npm run receipt:web` 이 출력한 주소(또는 터널 주소)를 휴대폰 브라우저(아이폰 사파리·안드로이드 Chrome)로 연다.
 - [ ] **리허설:** 로그인 → 영수증 저장 → 사진 촬영 후 분석 → 품목 확인(식재료는 냉장고에도 등록 + 수량 입력) → 확인하고 저장 → 소비 목록·냉장고·홈 확인.
 - [ ] **시연용 영수증:** 글자가 또렷한 영수증을 미리 골라 두고, 같은 영수증은 두 번 저장되지 않는다(중복 방지)는 점을 기억한다.
 - [ ] **대비책:** 촬영이 안 되면 "사진첩에서 선택 후 분석"(미리 찍어 둔 사진), 그것도 안 되면 "소비 직접 입력".
