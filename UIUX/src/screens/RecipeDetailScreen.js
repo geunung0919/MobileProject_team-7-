@@ -44,7 +44,7 @@ export default function RecipeDetailScreen({ navigation, route }) {
             navigation.goBack();
             return;
           }
-          Promise.all(targets.map((it) => removeSharedFridgeItem(it.id)))
+          Promise.all(targets.map((it) => removeSharedFridgeItem(it.id, 'cook')))
             .then(() => navigation.goBack())
             .catch((e) => Alert.alert('재료를 빼지 못했어요', e.message || '잠시 후 다시 시도해 주세요.'));
         },

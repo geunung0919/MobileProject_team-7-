@@ -10,7 +10,7 @@ import React, {
 import { AppState } from 'react-native';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../../../firebase/firebaseConfig';
-import { listTransactions, listFridgeItems, changeFridgeItem } from '../../../api/receiptApi';
+import { listTransactions, listFridgeItems, consumeFridgeItem } from '../../../api/receiptApi';
 import { spendingData } from '../data/spending/spending';
 import { fridgeData } from '../data/fridge/fridge';
 import { todoData } from '../data/lifeInfo/todos';
@@ -195,14 +195,15 @@ export function AppDataProvider({ children, sharedReceipts = false }) {
     setFridgeItems((prev) => prev.filter((it) => it.id !== id));
   }, []);
 
-  // 서버(Firestore) 모드의 식재료 삭제. 서버가 버전을 확인하므로 목록의 version 을 함께 보냅니다.
+  // 서버(Firestore) 모드의 식재료 소진(action: 'discard' 폐기 | 'cook' 요리 사용). 서버가 버전을 확인하므로 목록의 version 을 함께 보냅니다.
   // 이미 없는 항목(404)은 삭제된 것으로 보고 목록만 새로 고칩니다. 실패하면 throw 합니다.
-  const removeSharedFridgeItem = useCallback(async (id) => {
+  const removeSharedFridgeItem = useCallback(async (id, action = 'discard') => {
     const uid = sharedUid;
     const row = visibleShared?.inventory?.find((it) => it.id === id);
     if (!uid || !row) throw new Error('식재료를 찾지 못했어요. 목록을 새로 고쳐 주세요.');
     try {
-      await changeFridgeItem({ action: 'delete', id, version: row.version }, uid);
+      const requestId = `u${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
+      await consumeFridgeItem({ action, id, version: row.version, requestId }, uid); // 남은 수량 전부 + 소진 기록(fridgeLogs)
     } catch (e) {
       if (e.status !== 404) {
         if (e.status === 409) void refreshShared(uid);

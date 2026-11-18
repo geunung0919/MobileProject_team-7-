@@ -30,7 +30,7 @@ UIUX-Edit은 `UIUX/` 폴더를 지우고 앱을 저장소 루트에 올린 브�
 1. **로그인 화면 연결**: UIUX-Edit의 Login/SignUp/ProfileSetup 화면은 아직 가짜 로그인(화면 이동만)입니다.
    `auth/UI_CONNECT.md`와 `AuthContext`(`signIn`, `signUp`, `completeOnboarding`)로 연결하고, 서버 모드의 `SharedLogin`(AuthTestScreen)을 대체하세요.
 2. **시작 화면**: 네비게이터에 Welcome이 들어왔으므로 서버 모드에서 로그인 상태에 따라 첫 화면을 정하세요.
-3. ~~냉장고 폐기(FridgeDiscard)~~ 완료: 서버 모드에서 `/refrigerator/items/change`(action=delete, 버전 검사)로 삭제. 레시피 '요리 완료'의 재료 제거도 동일.
+3. ~~냉장고 폐기(FridgeDiscard)~~ 완료: 서버 모드에서 `POST /refrigerator/items/use`(action=discard|cook, 버전 검사, 수량·잔여금액 차감, `fridgeLogs/{requestId}` 기록, 멱등)로 처리. `amount` 를 주면 일부 차감도 가능(앱 화면은 아직 전량만 사용). 레시피 '요리 완료'의 재료 제거도 동일.
 4. **module3**: 서버의 단위(개/봉/모/팩/병/캔/g/kg/ml/L)·보관(refrigerated/frozen/room)·기한유형(package/reference/unknown) 값이 module3와 같아 변환 어댑터는 필요 없음. 아직 서버 API가 없는 module3 기능(요리 부분 차감, 폐기 기록, 되돌리기, 장보기, 식사 기록)은 서버 API부터 만들어야 연결 가능.
 5. UIUX-Edit의 지도·비상매뉴얼·AI 화면 디자인 수정 반영 (담당자 확인 후).
 6. main 처리: `git merge -s ours origin/main` 후 main 교체 (main에만 있는 `jachwi-core`/`mobile` 작업이 더 필요한지 먼저 확인).

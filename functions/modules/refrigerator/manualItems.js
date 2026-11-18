@@ -79,4 +79,41 @@ async function changeFridgeItem(db, uid, body) {
   });
 }
 
-module.exports = {createManualItem, changeFridgeItem};
+// 식재료 소진 기록: 폐기(discard) 또는 요리 사용(cook). amount 를 생략하면 남은 수량 전부.
+// 수량·잔여 금액을 함께 줄이고, 다 쓰면 재고 문서를 지웁니다. 기록은 fridgeLogs/{requestId} 에 남기며
+// 같은 requestId 재시도는 다시 차감하지 않습니다(내용이 다르면 409).
+async function useFridgeItem(db, uid, body) {
+  if (!body || !["discard", "cook"].includes(body.action) ||
+      typeof body.id !== "string" || !/^[a-zA-Z0-9_-]{1,90}$/.test(body.id) ||
+      typeof body.requestId !== "string" || !/^[a-zA-Z0-9_-]{1,80}$/.test(body.requestId) ||
+      !Number.isSafeInteger(body.version) || body.version < 1) fail("식재료 사용 정보를 확인해 주세요.");
+  if (body.amount != null && (!Number.isFinite(body.amount) || body.amount <= 0)) fail("수량을 확인해 주세요.");
+  const reason = body.reason == null ? null : String(body.reason).trim().slice(0, 100) || null;
+  const root = `users/${uid}`;
+  const ref = db.doc(`${root}/fridgeItems/${body.id}`);
+  const log = db.doc(`${root}/fridgeLogs/${body.requestId}`);
+  const digest = createHash("sha256").update(JSON.stringify([body.action, body.id, body.amount ?? null, reason])).digest("hex");
+  return db.runTransaction(async (tx) => {
+    const [existingLog, current] = [await tx.get(log), await tx.get(ref)];
+    if (existingLog.exists) {
+      if (existingLog.data().digest !== digest) fail("같은 요청으로 다른 내용을 저장할 수 없어요.", 409);
+      return {id: body.id, replayed: true, removed: existingLog.data().amount, cost: existingLog.data().cost};
+    }
+    if (!current.exists) fail("식재료를 찾지 못했어요.", 404);
+    const item = current.data();
+    if (item.version !== body.version) fail("다른 곳에서 식재료가 바뀌었어요. 목록을 다시 열어 주세요.", 409);
+    const amount = body.amount ?? item.quantity;
+    if (amount > item.quantity) fail("남은 수량보다 많이 뺄 수 없어요.");
+    const all = amount === item.quantity;
+    const hasCost = Number.isFinite(item.remainingCost);
+    const cost = hasCost ? (all ? item.remainingCost : Math.round(item.remainingCost * amount / item.quantity)) : null;
+    const stamp = new Date().toISOString();
+    if (all) tx.delete(ref);
+    else tx.update(ref, {quantity: item.quantity - amount, remainingCost: hasCost ? item.remainingCost - cost : null, version: item.version + 1, updatedAt: stamp});
+    tx.create(log, {digest, type: body.action, itemId: body.id, name: item.name, unit: item.unit, amount, cost, reason,
+      storageMethod: item.storageMethod ?? null, expiresAt: item.expiresAt ?? null, createdAt: stamp});
+    return {id: body.id, removed: amount, cost, deleted: all, version: all ? null : item.version + 1};
+  });
+}
+
+module.exports = {createManualItem, changeFridgeItem, useFridgeItem};

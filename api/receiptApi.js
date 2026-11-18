@@ -47,6 +47,7 @@ export const listRoutines = (uid) => request('/routines', undefined, uid);
 export const writeRoutine = (body, uid) => request('/routines', body, uid);
 
 export const changeFridgeItem = (body, uid) => request('/refrigerator/items/change', body, uid);
+export const consumeFridgeItem = (body, uid) => request('/refrigerator/items/use', body, uid);
 export const loadProfile = (uid) => request('/profile', undefined, uid);
 export const saveProfile = (body, uid) => request('/profile', body, uid, 'PUT');
 
