@@ -69,3 +69,8 @@ export const mapColors = {
   userDot: '#3F83CE',
   userHalo: 'rgba(63,131,206,0.18)',
 };
+
+export const fontScale = {
+  body: 1.4,
+  chrome: 1.2,
+};

@@ -267,7 +267,7 @@ exports.api = onRequest(
           return await handler(getFirestore(), user.uid, req, res);
         } catch (error) {
           console.error("Shared finance or routine request failed", {
-            path: req.path, code: error.code,
+            path: req.path, code: error.code, message: error.message,
           });
           return res.status(503).json({error: "서버 연결을 확인해 주세요."});
         }

@@ -1,4 +1,6 @@
+
 """2번 소비 관리: 사용자별 원장, 월 예산, 공통 SpendingSnapshot 연결."""
+
 from datetime import date, datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 from uuid import uuid4
@@ -23,9 +25,11 @@ Period = Annotated[str, Field(pattern=r'^[0-9]{4}-(0[1-9]|1[0-2])$')]
 
 class LedgerRow(Base):
     __tablename__ = 'fintech_ledgers'
+
     user_id: Mapped[str] = mapped_column(String(64), primary_key=True)
     payload: Mapped[dict] = mapped_column(JSON)
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+
     __mapper_args__ = {'version_id_col': version}
 
 
@@ -59,7 +63,10 @@ class ReceiptItemInput(Contract):
     item_type: Literal['ingredient', 'food', 'living', 'other', 'unknown'] = 'unknown'
     is_ingredient: bool = False
     ingredient_confidence: Annotated[float, Field(ge=0, le=1)] = 0
-    match_method: Literal['none', 'rule', 'exact', 'fuzzy', 'learned', 'dataset', 'ai', 'unknown'] | None = None
+    match_method: Literal[
+        'none', 'rule', 'exact', 'fuzzy', 'learned',
+        'dataset', 'ai', 'unknown'
+    ] | None = None
     matched_alias: str | None = Field(default=None, max_length=120)
     suggested_for_inventory: bool = False
 
@@ -78,32 +85,56 @@ _AMOUNT_PATTERNS = [
     ),
     re.compile(r'([0-9][0-9,]{0,15})\s*원\s*(?:승인|결제|이용)', re.I),
 ]
+
 _GENERIC_AMOUNT_RE = re.compile(r'([0-9][0-9,]{0,15})\s*원')
+
 _FULL_DATE_RE = re.compile(
     r'(?<!\d)(20\d{2})[./-](0?[1-9]|1[0-2])[./-](0?[1-9]|[12]\d|3[01])(?!\d)'
 )
+
 _SHORT_DATE_RE = re.compile(
     r'(?<![\d./-])(0?[1-9]|1[0-2])[/-](0?[1-9]|[12]\d|3[01])(?!\d)'
 )
+
 _KO_DATE_RE = re.compile(
     r'(?:(20\d{2})년\s*)?(0?[1-9]|1[0-2])월\s*(0?[1-9]|[12]\d|3[01])일'
 )
+
 _TIME_RE = re.compile(r'\b(?:[01]?\d|2[0-3]):[0-5]\d\b')
+
 _ISSUER_TOKENS = (
     '국민카드', 'KB국민', '신한카드', '삼성카드', '현대카드',
     '롯데카드', '하나카드', '우리카드', 'NH카드', 'BC카드',
 )
+
 _GENERIC_MERCHANTS = {
     '카카오페이', '네이버페이', '토스페이', '삼성페이',
     '영수증', 'receipt', '승인', '결제', '결제완료', '주문완료',
 }
-_CATEGORY_RULES = [
-    ('transport', ('택시', '카카오t', '버스', '지하철', '코레일', 'srt', '주유', '충전소', '주차', '통행료', '톨게이트')),
-    ('groceries', ('이마트', '홈플러스', '롯데마트', '하나로마트', '마트', '슈퍼', 'gs25', 'cu', '세븐일레븐', '편의점', '장보기')),
-    ('food', ('스타벅스', '카페', '커피', '배달의민족', '배민', '요기요', '쿠팡이츠', '맥도날드', '버거', '식당', '음식점', '치킨', '피자', '분식', '베이커리')),
-    ('living', ('다이소', '올리브영', '약국', '세탁', '생활용품', '문구', '잡화')),
-]
 
+_CATEGORY_RULES = [
+    (
+        'transport',
+        ('택시', '카카오t', '버스', '지하철', '코레일', 'srt',
+         '주유', '충전소', '주차', '통행료', '톨게이트'),
+    ),
+    (
+        'groceries',
+        ('이마트', '홈플러스', '롯데마트', '하나로마트', '마트',
+         '슈퍼', 'gs25', 'cu', '세븐일레븐', '편의점', '장보기'),
+    ),
+    (
+        'food',
+        ('스타벅스', '카페', '커피', '배달의민족', '배민',
+         '요기요', '쿠팡이츠', '맥도날드', '버거', '식당',
+         '음식점', '치킨', '피자', '분식', '베이커리'),
+    ),
+    (
+        'living',
+        ('다이소', '올리브영', '약국', '세탁',
+         '생활용품', '문구', '잡화'),
+    ),
+]
 
 _OCR_NUMERIC_TOKEN_RE = re.compile(
     r'(?<![0-9A-Za-z가-힣])([0-9OIl][0-9OIl,.]{1,18})(?=$|[\s원]|[^0-9A-Za-z가-힣])'
@@ -116,13 +147,18 @@ def normalize_ocr_numeric_text(value):
 
     def replace(match):
         token = match.group(1)
+
         if not re.search(r'\d', token):
             return token
+
         # Keep short unit tokens such as "1l" intact; they are not monetary OCR.
         if len(token) < 3 and any(char in token for char in 'OIl'):
             return token
+
         fixed = token.translate(translations)
-        # Korean receipts often print 1,350 but OCR may turn the separator into a dot.
+
+        # Korean receipts often print 1,350 but OCR may turn
+        # the separator into a dot.
         fixed = re.sub(r'(?<=\d)\.(?=\d{3}(?:[.,]|$))', ',', fixed)
         return fixed
 
@@ -139,7 +175,9 @@ def normalize_import_text(value):
 
 def import_fingerprint(source, raw_text):
     normalized = normalize_import_text(raw_text).casefold()
-    return hashlib.sha256((source + '\n' + normalized).encode('utf-8')).hexdigest()[:24]
+    return hashlib.sha256(
+        (source + '\n' + normalized).encode('utf-8')
+    ).hexdigest()[:24]
 
 
 def _amount_value(value):
@@ -147,11 +185,15 @@ def _amount_value(value):
         amount = int(value.replace(',', ''))
     except ValueError:
         return None
+
     return amount if 0 < amount <= 1_000_000_000 else None
 
 
 # Conservative extraction: totals/balances/discounts are not a new purchase.
-_NON_TRANSACTION_AMOUNT_RE = re.compile(r'누적|잔액|한도|청구|할인|적립|포인트|거스름')
+_NON_TRANSACTION_AMOUNT_RE = re.compile(
+    r'누적|잔액|한도|청구|할인|적립|포인트|거스름'
+)
+
 _NON_PURCHASE_EVENT_RE = re.compile(
     r'(?:승인|결제)\s*(?:취소|거절|실패)|취소\s*완료|환불\s*(?:완료|금액)'
 )
@@ -162,7 +204,11 @@ def is_non_purchase_event(text):
 
 
 def extract_amount(text):
-    lines = [line for line in text.split('\n') if not _NON_TRANSACTION_AMOUNT_RE.search(line)]
+    lines = [
+        line for line in text.split('\n')
+        if not _NON_TRANSACTION_AMOUNT_RE.search(line)
+    ]
+
     for patterns in (_AMOUNT_PATTERNS, [_GENERIC_AMOUNT_RE]):
         amounts = {
             amount
@@ -171,9 +217,11 @@ def extract_amount(text):
             for match in pattern.finditer(line)
             if (amount := _amount_value(match.group(1))) is not None
         }
+
         if amounts:
-            # Multiple plausible amounts require a person to choose, not first-match wins.
+            # Multiple plausible amounts require a person to choose.
             return next(iter(amounts)) if len(amounts) == 1 else None
+
     return None
 
 
@@ -197,6 +245,7 @@ def extract_date(text, today=None):
     if match:
         year = int(match.group(1)) if match.group(1) else today.year
         parsed = _safe_date(year, int(match.group(2)), int(match.group(3)))
+
         if parsed:
             if not match.group(1) and parsed > today + timedelta(days=7):
                 parsed = _safe_date(year - 1, parsed.month, parsed.day)
@@ -204,10 +253,14 @@ def extract_date(text, today=None):
 
     match = _SHORT_DATE_RE.search(text)
     if match:
-        parsed = _safe_date(today.year, int(match.group(1)), int(match.group(2)))
+        parsed = _safe_date(
+            today.year, int(match.group(1)), int(match.group(2))
+        )
         if parsed:
             if parsed > today + timedelta(days=7):
-                parsed = _safe_date(today.year - 1, parsed.month, parsed.day)
+                parsed = _safe_date(
+                    today.year - 1, parsed.month, parsed.day
+                )
             return parsed, False
 
     return today, True
@@ -220,17 +273,26 @@ def _clean_merchant(value):
         cleaned,
         maxsplit=1,
     )[0].strip()
-    cleaned = re.sub(r'\b(?:승인|결제완료|결제|주문완료)\b', ' ', cleaned)
+
+    cleaned = re.sub(
+        r'\b(?:승인|결제완료|결제|주문완료)\b', ' ', cleaned
+    )
+
     return ' '.join(cleaned.split())[:100].strip()
 
 
 def extract_merchant(text):
-    lines = [line.strip() for line in text.split('\n') if line.strip()]
+    lines = [
+        line.strip()
+        for line in text.split('\n')
+        if line.strip()
+    ]
 
     label_re = re.compile(
         r'^(?:가맹점|사용처|상호|매장|판매자)\s*[:：]\s*(.+)$',
         re.I,
     )
+
     for line in lines:
         match = label_re.match(line)
         if match:
@@ -242,10 +304,12 @@ def extract_merchant(text):
         r'(?:20\d{2}[./-]\d{1,2}[./-]\d{1,2}|\d{1,2}[/-]\d{1,2})'
         r'(?:\s+(?:[01]?\d|2[0-3]):[0-5]\d)?\s+(.+)$'
     )
+
     for line in lines:
         match = tail_re.search(line)
         if match:
             merchant = _clean_merchant(match.group(1))
+
             if (
                 merchant
                 and not _TIME_RE.fullmatch(merchant)
@@ -260,10 +324,15 @@ def extract_merchant(text):
 
         if not merchant or len(merchant) < 2 or len(merchant) > 100:
             continue
+
         if lowered in _GENERIC_MERCHANTS:
             continue
-        if merchant in {'감사합니다', '고객님', '승인내역', '결제내역'}:
+
+        if merchant in {
+            '감사합니다', '고객님', '승인내역', '결제내역'
+        }:
             continue
+
         if (
             _GENERIC_AMOUNT_RE.search(line)
             or _FULL_DATE_RE.search(line)
@@ -271,10 +340,18 @@ def extract_merchant(text):
             or _TIME_RE.search(line)
         ):
             continue
-        if any(token.casefold() in lowered for token in _ISSUER_TOKENS):
+
+        if any(
+            token.casefold() in lowered
+            for token in _ISSUER_TOKENS
+        ):
             continue
-        if merchant in {'카카오페이', '네이버페이', '토스페이', '삼성페이'}:
+
+        if merchant in {
+            '카카오페이', '네이버페이', '토스페이', '삼성페이'
+        }:
             continue
+
         return merchant, False
 
     return '사용처 확인 필요', True
@@ -282,9 +359,14 @@ def extract_merchant(text):
 
 def suggest_category(title, raw_text):
     haystack = (title + '\n' + raw_text).casefold()
+
     for category, keywords in _CATEGORY_RULES:
-        if any(keyword.casefold() in haystack for keyword in keywords):
+        if any(
+            keyword.casefold() in haystack
+            for keyword in keywords
+        ):
             return category
+
     return 'other'
 
 
@@ -295,16 +377,53 @@ _OCR_TOTALS = (
 
 
 def extract_receipt_amount(text):
+    # OCR 금액 오인식 방지:
+    # 예: "합계 12,300원" -> "합계 12,3002!"
+    #
+    # 총액 행에서 쉼표 뒤 숫자가 4자리 이상이면
+    # 정확한 금액을 판단할 수 없으므로 None 반환.
+    # 일반 금액 추출로 다시 넘어가서 잘못된 금액이
+    # 자동 선택되는 것도 방지한다.
+    #
+    # 단, 쉼표를 사용하지 않는 금액 오인식은
+    # 별도의 검증이 필요하다.
+    malformed_total = re.compile(
+        r'^(?:총\s*합\s*계|합\s*계|총\s*액|'
+        r'결제\s*대상\s*금액|총\s*결제\s*금액|'
+        r'결제\s*금액|승인\s*금액|받을\s*금액)'
+        r'\s*[:：]?\s*[0-9]{1,3},[0-9]{4,}(?![0-9])',
+        re.I,
+    )
+
+    if any(
+        malformed_total.match(line.strip())
+        for line in text.splitlines()
+    ):
+        return None
+
     for labels in _OCR_TOTALS:
-        spaced = '|'.join(r'\s*'.join(label) for label in labels.split('|'))
-        pattern = re.compile(r'^(?:' + spaced + r')\s*[:：]?\s*([0-9][0-9,]*)\s*원?$')
+        spaced = '|'.join(
+            r'\s*'.join(label)
+            for label in labels.split('|')
+        )
+
+        pattern = re.compile(
+            r'^(?:' + spaced
+            + r')\s*[:：]?\s*([0-9][0-9,]*)\s*원?$'
+        )
+
         amounts = {
-            amount for line in text.splitlines()
+            amount
+            for line in text.splitlines()
             if (match := pattern.fullmatch(line))
-            and (amount := _amount_value(match.group(1))) is not None
+            and (
+                amount := _amount_value(match.group(1))
+            ) is not None
         }
+
         if amounts:
             return next(iter(amounts)) if len(amounts) == 1 else None
+
     return extract_amount(text)
 
 
@@ -313,6 +432,7 @@ _RECEIPT_TOTAL_ANCHOR_RE = re.compile(
     r'[^0-9]{0,20}([0-9][0-9,]{2,})',
     re.I,
 )
+
 _RECEIPT_FULL_DATE_HINT_RE = re.compile(
     r'(?<!\d)(20\d{2})[./-](0?[1-9]|1[0-2])[./-](0?[1-9]|[12]\d|3[01])(?!\d)'
 )
@@ -320,99 +440,208 @@ _RECEIPT_FULL_DATE_HINT_RE = re.compile(
 
 def receipt_document_issues(text):
     issues = []
+
     totals = {
         _amount_value(match.group(1))
         for match in _RECEIPT_TOTAL_ANCHOR_RE.finditer(text)
         if _amount_value(match.group(1)) is not None
     }
-    dates = {match.group(0) for match in _RECEIPT_FULL_DATE_HINT_RE.finditer(text)}
+
+    dates = {
+        match.group(0)
+        for match in _RECEIPT_FULL_DATE_HINT_RE.finditer(text)
+    }
+
     if len(totals) >= 2 and len(dates) >= 2:
         issues.append('multiple_receipts_suspected')
+
     return issues
 
 
 def extract_receipt_merchant(text):
     for line in text.splitlines():
-        match = re.match(r'^(?:상호(?:명)?|가맹점(?:명)?|매장명|사용처)\s*[:：]\s*(.+)$', line)
+        match = re.match(
+            r'^(?:상호(?:명)?|가맹점(?:명)?|매장명|사용처)\s*[:：]\s*(.+)$',
+            line,
+        )
+
         if match and re.search(r'[가-힣A-Za-z]', match.group(1)):
             return _clean_merchant(match.group(1)), False
 
     for line in text.splitlines():
         compact = re.sub(r'\s+', '', line)
-        if re.search(r'상품명|품목명|단가수량|\d{4}[./-]\d{1,2}[./-]\d{1,2}', compact):
+
+        if re.search(
+            r'상품명|품목명|단가수량|\d{4}[./-]\d{1,2}[./-]\d{1,2}',
+            compact,
+        ):
             break
-        if re.search(r'POS|사업자|전화|주소|영수증|고객|교환|환불|구매|카드|단말기|거래번호|매출전표', compact, re.I):
+
+        if re.search(
+            r'POS|사업자|전화|주소|영수증|고객|교환|환불|구매|'
+            r'카드|단말기|거래번호|매출전표',
+            compact,
+            re.I,
+        ):
             continue
-        if re.search(r'(?:점|마트|상회|편의점|식당|카페)$', line) and not re.search(r'^[0-9]', line):
+
+        if (
+            re.search(
+                r'(?:점|마트|상회|편의점|식당|카페)$', line
+            )
+            and not re.search(r'^[0-9]', line)
+        ):
             return _clean_merchant(line), False
 
     return '사용처 확인 필요', True
 
 
 def parse_import_candidate(raw_text, source='unknown', today=None):
-    normalized_source = normalize_ocr_numeric_text(raw_text) if source == 'ocr' else raw_text
+    normalized_source = (
+        normalize_ocr_numeric_text(raw_text)
+        if source == 'ocr'
+        else raw_text
+    )
+
     text = normalize_import_text(normalized_source)
+
     if source == 'ocr':
         amount = extract_receipt_amount(text)
-        date_text = re.sub(r'(?<=\d)[ \t]*([./-])[ \t]*(?=\d)', r'\1', text)
-        spent_on, date_inferred = extract_date(date_text, today=today)
+        date_text = re.sub(
+            r'(?<=\d)[ \t]*([./-])[ \t]*(?=\d)',
+            r'\1',
+            text,
+        )
+        spent_on, date_inferred = extract_date(
+            date_text, today=today
+        )
         title, title_inferred = extract_receipt_merchant(text)
     else:
         amount = extract_amount(text)
-        spent_on, date_inferred = extract_date(text, today=today)
+        spent_on, date_inferred = extract_date(
+            text, today=today
+        )
         title, title_inferred = extract_merchant(text)
 
     warnings = []
     non_expense = is_non_purchase_event(text)
+
     if non_expense:
-        warnings.append('취소·거절·실패·환불 내역은 새 지출로 가져올 수 없어요.')
+        warnings.append(
+            '취소·거절·실패·환불 내역은 새 지출로 가져올 수 없어요.'
+        )
         amount = None
+
     if amount is None:
         warnings.append('금액을 자동 추출하지 못했어요.')
+
     if date_inferred:
         warnings.append('날짜가 없어 오늘 날짜로 채웠어요.')
+
     if title_inferred:
         warnings.append('사용처를 자동 추출하지 못했어요.')
 
-    receipt_document = classify_receipt_document(text) if source == 'ocr' else {
-        'document_type': 'not_applicable',
-        'allow_inventory': False,
-        'confidence': 1.0,
-    }
-    receipt_items = extract_receipt_items(text) if source == 'ocr' else []
-    receipt_issues = receipt_document_issues(text) if source == 'ocr' else []
-    if receipt_document['document_type'] == 'multiple_receipts' or 'multiple_receipts_suspected' in receipt_issues:
+    receipt_document = (
+        classify_receipt_document(text)
+        if source == 'ocr'
+        else {
+            'document_type': 'not_applicable',
+            'allow_inventory': False,
+            'confidence': 1.0,
+        }
+    )
+
+    receipt_items = (
+        extract_receipt_items(text)
+        if source == 'ocr'
+        else []
+    )
+
+    receipt_issues = (
+        receipt_document_issues(text)
+        if source == 'ocr'
+        else []
+    )
+
+    if (
+        receipt_document['document_type'] == 'multiple_receipts'
+        or 'multiple_receipts_suspected' in receipt_issues
+    ):
         if 'multiple_receipts_suspected' not in receipt_issues:
-            receipt_issues.append('multiple_receipts_suspected')
-        warnings.append('한 사진에 여러 영수증이 함께 인식된 것 같아요. 한 장만 남도록 잘라 다시 분석하는 것을 권장해요.')
+            receipt_issues.append(
+                'multiple_receipts_suspected'
+            )
+
+        warnings.append(
+            '한 사진에 여러 영수증이 함께 인식된 것 같아요. '
+            '한 장만 남도록 잘라 다시 분석하는 것을 권장해요.'
+        )
+
     elif receipt_document['document_type'] == 'payment_detail':
-        warnings.append('카드 승인 상세 화면으로 보여요. 소비내역 저장은 가능하지만 개별 구매 품목을 냉장고에 자동 등록하지 않아요.')
+        warnings.append(
+            '카드 승인 상세 화면으로 보여요. '
+            '소비내역 저장은 가능하지만 개별 구매 품목을 '
+            '냉장고에 자동 등록하지 않아요.'
+        )
+
     elif receipt_document['document_type'] == 'food_service':
-        warnings.append('카페·음식점·배달 주문 내역으로 보여요. 완성 음식은 냉장고 식재료 후보로 자동 등록하지 않아요.')
-    if any(item.get('product_code') and item['raw_name'] == '상품명 확인 필요' for item in receipt_items):
-        warnings.append('상품명이 보이지 않고 바코드만 인식된 품목이 있어 이름 확인이 필요해요.')
+        warnings.append(
+            '카페·음식점·배달 주문 내역으로 보여요. '
+            '완성 음식은 냉장고 식재료 후보로 자동 등록하지 않아요.'
+        )
+
+    if any(
+        item.get('product_code')
+        and item['raw_name'] == '상품명 확인 필요'
+        for item in receipt_items
+    ):
+        warnings.append(
+            '상품명이 보이지 않고 바코드만 인식된 품목이 있어 '
+            '이름 확인이 필요해요.'
+        )
 
     category = suggest_category(title, text)
-    if source == 'ocr' and category == 'other' and any(item['is_ingredient'] for item in receipt_items):
+
+    if (
+        source == 'ocr'
+        and category == 'other'
+        and any(
+            item['is_ingredient']
+            for item in receipt_items
+        )
+    ):
         category = 'groceries'
+
     if source == 'ocr':
         if not receipt_items:
-            warnings.append('영수증의 개별 품목을 자동으로 분리하지 못했어요. 원문을 확인해 주세요.')
-        elif any(not item['row_consistent'] for item in receipt_items):
-            warnings.append('수량과 품목 금액이 맞지 않는 행이 있어 냉장고 등록 전에 확인이 필요해요.')
+            warnings.append(
+                '영수증의 개별 품목을 자동으로 분리하지 못했어요. '
+                '원문을 확인해 주세요.'
+            )
+        elif any(
+            not item['row_consistent']
+            for item in receipt_items
+        ):
+            warnings.append(
+                '수량과 품목 금액이 맞지 않는 행이 있어 '
+                '냉장고 등록 전에 확인이 필요해요.'
+            )
 
         item_amount_sum = sum(
             item['item_amount_krw']
             for item in receipt_items
             if item.get('item_amount_krw') is not None
         )
+
         if amount is not None and item_amount_sum:
             gap = abs(amount - item_amount_sum)
             tolerance = max(1000, int(amount * 0.15))
+
             if gap > tolerance:
                 warnings.append(
                     '인식된 품목 금액 합계와 영수증 총액 차이가 커요. '
-                    '가려진 품목이나 OCR 누락이 있을 수 있어 사진을 다시 확인해 주세요.'
+                    '가려진 품목이나 OCR 누락이 있을 수 있어 '
+                    '사진을 다시 확인해 주세요.'
                 )
 
     confidence = 0.0
@@ -427,11 +656,19 @@ def parse_import_candidate(raw_text, source='unknown', today=None):
             'amount_krw': amount,
             'spent_on': spent_on.isoformat(),
             'category': category,
-            **({'transaction_kind': 'non_expense'} if non_expense else {}),
+            **(
+                {'transaction_kind': 'non_expense'}
+                if non_expense
+                else {}
+            ),
         },
         'source': source,
-        'fingerprint': import_fingerprint(source, raw_text),
-        'confidence': round(min(confidence, 0.99), 2),
+        'fingerprint': import_fingerprint(
+            source, raw_text
+        ),
+        'confidence': round(
+            min(confidence, 0.99), 2
+        ),
         'needs_review': bool(warnings) or confidence < 0.8,
         'warnings': warnings,
         'receipt_items': receipt_items,
@@ -441,47 +678,76 @@ def parse_import_candidate(raw_text, source='unknown', today=None):
 
 
 def current_period():
-    return datetime.now(ZoneInfo('Asia/Seoul')).strftime('%Y-%m')
+    return datetime.now(
+        ZoneInfo('Asia/Seoul')
+    ).strftime('%Y-%m')
 
 
 def snapshot_for(row, period):
     data = row.payload
+
     spent = sum(
         e['amount_krw']
         for e in data['expenses']
         if e['spent_on'][:7] == period
     )
+
     budget = data['budgets'].get(period)
+
     return SpendingSnapshot(
         source_updated_at=data['updated_at'],
         data=Spending(
             period=period,
             budget_krw=budget,
             spent_krw=spent,
-            remaining_krw=None if budget is None else budget - spent,
+            remaining_krw=(
+                None
+                if budget is None
+                else budget - spent
+            ),
         ),
     )
 
 
 def _product_learning_key(value):
-    return re.sub(r'[^0-9a-z가-힣]+', '', (value or '').casefold())
+    return re.sub(
+        r'[^0-9a-z가-힣]+',
+        '',
+        (value or '').casefold(),
+    )
 
 
 def _learned_receipt_products(row):
     """Build positive user-confirmed product mappings from prior OCR imports."""
     by_code = {}
     by_name = {}
+
     if row is None:
         return by_code, by_name
 
-    for expense in reversed(row.payload.get('expenses', [])):
-        for item in reversed(expense.get('receipt_items', [])):
+    for expense in reversed(
+        row.payload.get('expenses', [])
+    ):
+        for item in reversed(
+            expense.get('receipt_items', [])
+        ):
             if not item.get('is_ingredient'):
                 continue
-            normalized = (item.get('normalized_name') or '').strip()
-            raw_name = (item.get('raw_name') or '').strip()
-            if not normalized or normalized == '상품명 확인 필요':
+
+            normalized = (
+                item.get('normalized_name') or ''
+            ).strip()
+
+            raw_name = (
+                item.get('raw_name') or ''
+            ).strip()
+
+            if (
+                not normalized
+                or normalized == '상품명 확인 필요'
+            ):
                 continue
+
             learned = {
                 'normalized_name': normalized,
                 'item_type': 'ingredient',
@@ -489,75 +755,136 @@ def _learned_receipt_products(row):
                 'ingredient_confidence': 0.99,
                 'match_method': 'learned',
             }
-            code = str(item.get('product_code') or '').strip()
+
+            code = str(
+                item.get('product_code') or ''
+            ).strip()
+
             if code and code not in by_code:
                 by_code[code] = learned
-            name_key = _product_learning_key(raw_name)
-            if name_key and name_key not in by_name:
+
+            name_key = _product_learning_key(
+                raw_name
+            )
+
+            if (
+                name_key
+                and name_key not in by_name
+            ):
                 by_name[name_key] = learned
+
     return by_code, by_name
 
 
 def apply_learned_receipt_items(result, row):
     """Apply previous user confirmations without weakening document safety rules."""
     items = result.get('receipt_items') or []
+
     if not items:
         result['learned_item_count'] = 0
         return result
 
     by_code, by_name = _learned_receipt_products(row)
-    allow_inventory = bool(result.get('receipt_document', {}).get('allow_inventory', True))
+
+    allow_inventory = bool(
+        result.get(
+            'receipt_document', {}
+        ).get('allow_inventory', True)
+    )
+
     learned_count = 0
     updated = []
 
     for item in items:
-        code = str(item.get('product_code') or '').strip()
-        learned = by_code.get(code) if code else None
+        code = str(
+            item.get('product_code') or ''
+        ).strip()
+
+        learned = (
+            by_code.get(code)
+            if code
+            else None
+        )
+
         if learned is None:
-            learned = by_name.get(_product_learning_key(item.get('raw_name')))
+            learned = by_name.get(
+                _product_learning_key(
+                    item.get('raw_name')
+                )
+            )
 
         if learned is None:
             updated.append(item)
             continue
 
         learned_count += 1
+
         merged = {
             **item,
             **learned,
             'suggested_for_inventory': bool(
-                allow_inventory and item.get('row_consistent', True)
+                allow_inventory
+                and item.get(
+                    'row_consistent', True
+                )
             ),
         }
+
         updated.append(merged)
 
     result['receipt_items'] = updated
     result['learned_item_count'] = learned_count
-    if learned_count and result.get('candidate', {}).get('category') == 'other':
+
+    if (
+        learned_count
+        and result.get(
+            'candidate', {}
+        ).get('category') == 'other'
+    ):
         result['candidate']['category'] = 'groceries'
 
     unresolved_barcode = any(
-        item.get('product_code') and item.get('raw_name') == '상품명 확인 필요'
+        item.get('product_code')
+        and item.get('raw_name') == '상품명 확인 필요'
         and item.get('match_method') != 'learned'
         for item in updated
     )
+
     if learned_count and not unresolved_barcode:
         result['warnings'] = [
-            warning for warning in result.get('warnings', [])
+            warning
+            for warning in result.get(
+                'warnings', []
+            )
             if '바코드만 인식된 품목' not in warning
-            and '상품명이 보이지 않고 바코드만 인식된 품목' not in warning
+            and '상품명이 보이지 않고 바코드만 인식된 품목'
+            not in warning
         ]
-        result['needs_review'] = bool(result['warnings']) or result.get('confidence', 0) < 0.8
+
+        result['needs_review'] = (
+            bool(result['warnings'])
+            or result.get(
+                'confidence', 0
+            ) < 0.8
+        )
+
     return result
 
 
 def register_fintech(app, current_user, db, *, allow_ai_fallback=True):
-    router = APIRouter(prefix='/api/v1/me/spending', tags=['2번 소비 관리'])
+    router = APIRouter(
+        prefix='/api/v1/me/spending',
+        tags=['2번 소비 관리'],
+    )
 
     def ledger(session, user):
-        return session.get(LedgerRow, user)
+        return session.get(
+            LedgerRow, user
+        )
 
     def ensure(session, user):
         row = ledger(session, user)
+
         if row is None:
             row = LedgerRow(
                 user_id=user,
@@ -565,49 +892,93 @@ def register_fintech(app, current_user, db, *, allow_ai_fallback=True):
                     'expenses': [],
                     'budgets': {},
                     'imported_fingerprints': [],
-                    'updated_at': datetime.now(timezone.utc).isoformat(),
+                    'updated_at': datetime.now(
+                        timezone.utc
+                    ).isoformat(),
                 },
             )
             session.add(row)
+
         return row
 
     def save(session, row, payload):
         totals = {}
+
         for expense in payload['expenses']:
             period = expense['spent_on'][:7]
-            totals[period] = totals.get(period, 0) + expense['amount_krw']
 
-        if any(value > 1_000_000_000 for value in totals.values()):
-            raise HTTPException(422, '월 누적 지출은 10억원 이하여야 합니다.')
+            totals[period] = (
+                totals.get(period, 0)
+                + expense['amount_krw']
+            )
+
+        if any(
+            value > 1_000_000_000
+            for value in totals.values()
+        ):
+            raise HTTPException(
+                422,
+                '월 누적 지출은 10억원 이하여야 합니다.',
+            )
 
         row.payload = {
             **payload,
-            'updated_at': datetime.now(timezone.utc).isoformat(),
+            'updated_at': datetime.now(
+                timezone.utc
+            ).isoformat(),
         }
+
         try:
             session.commit()
         except StaleDataError:
             session.rollback()
             raise HTTPException(
                 409,
-                '다른 요청이 먼저 저장됐습니다. 새로 조회 후 다시 시도하세요.',
+                '다른 요청이 먼저 저장됐습니다. '
+                '새로 조회 후 다시 시도하세요.',
             )
 
     @router.get('')
     def summary(
         period: Annotated[
             str | None,
-            Query(pattern=r'^[0-9]{4}-(0[1-9]|1[0-2])$'),
+            Query(
+                pattern=r'^[0-9]{4}-(0[1-9]|1[0-2])$'
+            ),
         ] = None,
         user=Depends(current_user),
         session=Depends(db),
     ):
         period = period or current_period()
+
         row = ledger(session, user)
-        profile = session.get(ProfileRow, user)
-        suggested = profile.payload.get('monthly_budget_krw') if profile else None
-        snapshot = snapshot_for(row, period) if row else None
-        data = snapshot.data if snapshot else Spending(period=period, spent_krw=0)
+        profile = session.get(
+            ProfileRow, user
+        )
+
+        suggested = (
+            profile.payload.get(
+                'monthly_budget_krw'
+            )
+            if profile
+            else None
+        )
+
+        snapshot = (
+            snapshot_for(row, period)
+            if row
+            else None
+        )
+
+        data = (
+            snapshot.data
+            if snapshot
+            else Spending(
+                period=period,
+                spent_krw=0,
+            )
+        )
+
         expenses = (
             sorted(
                 [
@@ -615,12 +986,16 @@ def register_fintech(app, current_user, db, *, allow_ai_fallback=True):
                     for expense in row.payload['expenses']
                     if expense['spent_on'][:7] == period
                 ],
-                key=lambda expense: (expense['spent_on'], expense['id']),
+                key=lambda expense: (
+                    expense['spent_on'],
+                    expense['id'],
+                ),
                 reverse=True,
             )
             if row
             else []
         )
+
         warning = (
             'unset'
             if data.budget_krw is None
@@ -632,12 +1007,17 @@ def register_fintech(app, current_user, db, *, allow_ai_fallback=True):
             if data.spent_krw * 100 >= data.budget_krw * 80
             else 'normal'
         )
+
         return {
             'data': data,
             'expenses': expenses,
             'warning': warning,
             'suggested_budget_krw': suggested,
-            'source_updated_at': snapshot.source_updated_at if snapshot else None,
+            'source_updated_at': (
+                snapshot.source_updated_at
+                if snapshot
+                else None
+            ),
         }
 
     @router.put('/budgets/{period}')
@@ -648,6 +1028,7 @@ def register_fintech(app, current_user, db, *, allow_ai_fallback=True):
         session=Depends(db),
     ):
         row = ensure(session, user)
+
         save(
             session,
             row,
@@ -659,6 +1040,7 @@ def register_fintech(app, current_user, db, *, allow_ai_fallback=True):
                 },
             },
         )
+
         return {'saved': True}
 
     @router.post('/imports/preview')
@@ -667,32 +1049,78 @@ def register_fintech(app, current_user, db, *, allow_ai_fallback=True):
         user=Depends(current_user),
         session=Depends(db),
     ):
-        result = parse_import_candidate(body.raw_text, body.source)
+        result = parse_import_candidate(
+            body.raw_text,
+            body.source,
+        )
+
         if body.source == 'ocr':
-            result = apply_learned_receipt_items(result, ledger(session, user))
-            if allow_ai_fallback and body.use_ai_fallback:
-                result = apply_ai_receipt_items(result)
+            result = apply_learned_receipt_items(
+                result,
+                ledger(session, user),
+            )
+
+            if (
+                allow_ai_fallback
+                and body.use_ai_fallback
+            ):
+                result = apply_ai_receipt_items(
+                    result
+                )
+
         return result
 
-    @router.post('/imports/confirm', status_code=201)
+    @router.post(
+        '/imports/confirm',
+        status_code=201,
+    )
     def import_confirm(
         body: ImportConfirmInput,
         user=Depends(current_user),
         session=Depends(db),
     ):
-        if is_non_purchase_event(body.raw_text):
-            raise HTTPException(422, '취소·거절·실패·환불 내역은 새 지출로 가져올 수 없어요.')
+        if is_non_purchase_event(
+            body.raw_text
+        ):
+            raise HTTPException(
+                422,
+                '취소·거절·실패·환불 내역은 '
+                '새 지출로 가져올 수 없어요.',
+            )
+
         row = ensure(session, user)
-        fingerprint = import_fingerprint(body.source, body.raw_text)
-        imported = row.payload.get('imported_fingerprints', [])
+
+        fingerprint = import_fingerprint(
+            body.source,
+            body.raw_text,
+        )
+
+        imported = row.payload.get(
+            'imported_fingerprints',
+            [],
+        )
 
         if fingerprint in imported:
-            raise HTTPException(409, '이미 가져온 결제 내역이에요.')
+            raise HTTPException(
+                409,
+                '이미 가져온 결제 내역이에요.',
+            )
 
         receipt_items = []
-        if body.source == 'ocr' and body.receipt_items:
-            document = classify_receipt_document(body.raw_text)
-            receipt_items = [item.model_dump(mode='json') for item in body.receipt_items]
+
+        if (
+            body.source == 'ocr'
+            and body.receipt_items
+        ):
+            document = classify_receipt_document(
+                body.raw_text
+            )
+
+            receipt_items = [
+                item.model_dump(mode='json')
+                for item in body.receipt_items
+            ]
+
             if not document['allow_inventory']:
                 receipt_items = [
                     {
@@ -702,7 +1130,9 @@ def register_fintech(app, current_user, db, *, allow_ai_fallback=True):
                         'item_type': (
                             'unknown'
                             if item.get('item_type') == 'ingredient'
-                            else item.get('item_type', 'unknown')
+                            else item.get(
+                                'item_type', 'unknown'
+                            )
                         ),
                     }
                     for item in receipt_items
@@ -716,38 +1146,59 @@ def register_fintech(app, current_user, db, *, allow_ai_fallback=True):
             'category': body.category,
             'import_source': body.source,
             'import_fingerprint': fingerprint,
-            **({'receipt_items': receipt_items} if receipt_items else {}),
+            **(
+                {'receipt_items': receipt_items}
+                if receipt_items
+                else {}
+            ),
         }
+
         save(
             session,
             row,
             {
                 **row.payload,
-                'expenses': [*row.payload['expenses'], entry],
-                'imported_fingerprints': [*imported, fingerprint],
+                'expenses': [
+                    *row.payload['expenses'],
+                    entry,
+                ],
+                'imported_fingerprints': [
+                    *imported,
+                    fingerprint,
+                ],
             },
         )
+
         return entry
 
-    @router.post('/expenses', status_code=201)
+    @router.post(
+        '/expenses',
+        status_code=201,
+    )
     def add(
         body: ExpenseInput,
         user=Depends(current_user),
         session=Depends(db),
     ):
         row = ensure(session, user)
+
         entry = {
             'id': str(uuid4()),
             **body.model_dump(mode='json'),
         }
+
         save(
             session,
             row,
             {
                 **row.payload,
-                'expenses': [*row.payload['expenses'], entry],
+                'expenses': [
+                    *row.payload['expenses'],
+                    entry,
+                ],
             },
         )
+
         return entry
 
     @router.put('/expenses/{expense_id}')
@@ -758,27 +1209,41 @@ def register_fintech(app, current_user, db, *, allow_ai_fallback=True):
         session=Depends(db),
     ):
         row = ledger(session, user)
+
         if row is None or not any(
             expense['id'] == expense_id
             for expense in row.payload['expenses']
         ):
-            raise HTTPException(404, '소비 내역을 찾을 수 없습니다.')
+            raise HTTPException(
+                404,
+                '소비 내역을 찾을 수 없습니다.',
+            )
 
         previous = next(
             expense
             for expense in row.payload['expenses']
             if expense['id'] == expense_id
         )
+
         entry = {
             'id': expense_id,
             **body.model_dump(mode='json'),
         }
+
         if 'import_source' in previous:
-            entry['import_source'] = previous['import_source']
+            entry['import_source'] = (
+                previous['import_source']
+            )
+
         if 'import_fingerprint' in previous:
-            entry['import_fingerprint'] = previous['import_fingerprint']
+            entry['import_fingerprint'] = (
+                previous['import_fingerprint']
+            )
+
         if 'receipt_items' in previous:
-            entry['receipt_items'] = previous['receipt_items']
+            entry['receipt_items'] = (
+                previous['receipt_items']
+            )
 
         save(
             session,
@@ -786,11 +1251,16 @@ def register_fintech(app, current_user, db, *, allow_ai_fallback=True):
             {
                 **row.payload,
                 'expenses': [
-                    entry if expense['id'] == expense_id else expense
+                    (
+                        entry
+                        if expense['id'] == expense_id
+                        else expense
+                    )
                     for expense in row.payload['expenses']
                 ],
             },
         )
+
         return entry
 
     @router.delete('/expenses/{expense_id}')
@@ -800,18 +1270,27 @@ def register_fintech(app, current_user, db, *, allow_ai_fallback=True):
         session=Depends(db),
     ):
         row = ledger(session, user)
+
         if row is None or not any(
             expense['id'] == expense_id
             for expense in row.payload['expenses']
         ):
-            raise HTTPException(404, '소비 내역을 찾을 수 없습니다.')
+            raise HTTPException(
+                404,
+                '소비 내역을 찾을 수 없습니다.',
+            )
 
         removed = next(
             expense
             for expense in row.payload['expenses']
             if expense['id'] == expense_id
         )
-        fingerprints = row.payload.get('imported_fingerprints', [])
+
+        fingerprints = row.payload.get(
+            'imported_fingerprints',
+            [],
+        )
+
         if removed.get('import_fingerprint'):
             fingerprints = [
                 value
@@ -832,6 +1311,7 @@ def register_fintech(app, current_user, db, *, allow_ai_fallback=True):
                 'imported_fingerprints': fingerprints,
             },
         )
+
         return {'deleted': True}
 
     app.include_router(router)

@@ -32,6 +32,12 @@ function normalize(body) {
   const today = new Intl.DateTimeFormat("en-CA", {timeZone: "Asia/Seoul"}).format(new Date());
   if (purchasedAt > today) fail("구매일은 미래일 수 없어요.");
   const amount = money(body.amount);
+  const category = body.category;
+  if (category !== undefined &&
+      !["식비", "생활용품", "교통비", "주거비", "통신비", "의료비",
+        "문화·여가", "쇼핑", "기타"].includes(category)) {
+    fail("소비 카테고리를 확인해 주세요.");
+  }
   if (!Array.isArray(body.items) || body.items.length > 100) fail("품목은 100개 이하로 보내 주세요.");
   const seen = new Set();
   const items = body.items.map((raw) => {
@@ -64,6 +70,7 @@ function normalize(body) {
   if (body.source !== undefined && !["manual", "ocr", "sms", "kakao", "notification", "commerce"].includes(body.source)) fail("입력 방식 확인 필요");
   // Keep the digest of existing OCR requests unchanged.
   return {requestId, receiptId, title, purchasedAt, amount, items,
+    ...(category !== undefined ? {category} : {}),
     ...(body.source && body.source !== "ocr" ? {source: body.source} : {})};
 }
 async function confirmReceipt(db, uid, body) {
@@ -93,7 +100,7 @@ async function confirmReceipt(db, uid, body) {
     tx.create(request, {digest, result, createdAt: stamp});
     tx.create(db.doc(`${root}/transactions/${expenseId}`), {
       id: expenseId, receiptId: input.receiptId, title: input.title, amount: input.amount,
-      date: input.purchasedAt, category: input.source === "manual" ? "직접 입력" : input.source ? "결제 가져오기" : "영수증", source: input.source || "ocr", items: input.items, createdAt: stamp,
+      date: input.purchasedAt, category: input.category ?? (input.source === "manual" ? "직접 입력" : input.source ? "결제 가져오기" : "영수증"), source: input.source || "ocr", items: input.items, createdAt: stamp,
     });
     for (const item of input.items) {
       tx.create(db.doc(`${receipt.path}/items/${item.receiptItemId}`), {...item, expenseId});

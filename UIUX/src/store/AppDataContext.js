@@ -1,3 +1,4 @@
+
 import React, {
   createContext,
   useCallback,
@@ -7,261 +8,547 @@ import React, {
   useRef,
   useState,
 } from 'react';
+
 import { AppState } from 'react-native';
 import { onAuthStateChanged } from 'firebase/auth';
+
 import { auth } from '../../../firebase/firebaseConfig';
-import { listTransactions, listFridgeItems } from '../../../api/receiptApi';
+import {
+  listTransactions,
+  listFridgeItems,
+} from '../../../api/receiptApi';
+
 import { spendingData } from '../data/spending/spending';
 import { fridgeData } from '../data/fridge/fridge';
 import { todoData } from '../data/lifeInfo/todos';
 import { routineData } from '../data/lifeInfo/routines';
 import { profileData, settingsData } from '../data/more/account';
-import { addDays, toDateString, parseAmount } from '../utils/format';
-import { clearRoutineChecks } from '../utils/time';
 
-// 앱 전체가 함께 쓰는 데이터 저장소 (소비, 식재료, 할 일, 루틴, 프로필, 설정). 지금은 메모리에만 저장됩니다.
-// TODO: 서버(Firebase 등) 연결은 이 파일의 불러오기(useState 초기값)와 add/update/remove/toggle 함수 안에서 하세요.
-//       화면 코드는 그대로 둘 수 있습니다.
-// 사용: const { transactions, addTransaction, todos, toggleTodo, ... } = useAppData();
+// 연규 최신 UIUX 생활정보
+import { lifeDataForm } from '../data/more/lifeData';
+
+import {
+  addDays,
+  toDateString,
+  parseAmount,
+} from '../utils/format';
+
+import { clearRoutineChecks } from '../utils/time';
 
 const AppDataContext = createContext(null);
 
-export function AppDataProvider({ children, sharedReceipts = false }) {
+export function AppDataProvider({
+  children,
+  sharedReceipts = false,
+}) {
+  // =====================================
+  // 1. 공용 Firebase DB 연동
+  // =====================================
+
   const [sharedUid, setSharedUid] = useState(null);
   const [sharedRows, setSharedRows] = useState(null);
+
   const generation = useRef(0);
+
   const refreshShared = useCallback(async (uid) => {
-    if (!uid || auth.currentUser?.uid !== uid) return;
+    if (!uid || auth.currentUser?.uid !== uid) {
+      return;
+    }
+
     const ticket = ++generation.current;
+
     const update = async (key, load) => {
       try {
         const result = await load(uid);
-        if (ticket !== generation.current || auth.currentUser?.uid !== uid) return;
+
+        if (
+          ticket !== generation.current ||
+          auth.currentUser?.uid !== uid
+        ) {
+          return;
+        }
+
         setSharedRows((previous) => ({
-          ...(previous?.uid === uid ? previous : {}), uid,
+          ...(previous?.uid === uid ? previous : {}),
+          uid,
           [key]: result.items,
           [`${key}Truncated`]: result.possiblyTruncated,
           [`${key}Error`]: '',
         }));
       } catch (error) {
-        if (ticket !== generation.current || auth.currentUser?.uid !== uid) return;
+        if (
+          ticket !== generation.current ||
+          auth.currentUser?.uid !== uid
+        ) {
+          return;
+        }
+
         setSharedRows((previous) => ({
-          ...(previous?.uid === uid ? previous : {}), uid,
-          [`${key}Error`]: error.message || '서버 목록을 불러오지 못했어요.',
+          ...(previous?.uid === uid ? previous : {}),
+          uid,
+          [`${key}Error`]:
+            error.message ||
+            '서버 목록을 불러오지 못했어요.',
         }));
       }
     };
-    await Promise.all([update('spending', listTransactions), update('inventory', listFridgeItems)]);
+
+    await Promise.all([
+      update('spending', listTransactions),
+      update('inventory', listFridgeItems),
+    ]);
   }, []);
+
   useEffect(() => {
-    if (!sharedReceipts) return;
+    if (!sharedReceipts) {
+      return;
+    }
+
     const stop = onAuthStateChanged(auth, (user) => {
       generation.current++;
+
       setSharedUid(user?.uid ?? null);
       setSharedRows(null);
-      if (user) refreshShared(user.uid);
-    });
-    return () => { generation.current++; stop(); };
-  }, [sharedReceipts, refreshShared]);
-  const visibleShared = sharedRows?.uid === sharedUid ? sharedRows : null;
-  const nextId = useRef(1);
-  const makeId = (prefix) => `${prefix}-new-${Date.now()}-${nextId.current++}`;
 
-  // 더미 소비 내역의 daysAgo 를 실제 날짜로 바꿔서 시작합니다.
+      if (user) {
+        refreshShared(user.uid);
+      }
+    });
+
+    return () => {
+      generation.current++;
+      stop();
+    };
+  }, [sharedReceipts, refreshShared]);
+
+  const visibleShared =
+    sharedRows?.uid === sharedUid
+      ? sharedRows
+      : null;
+
+  // =====================================
+  // 2. 공통 ID 생성
+  // =====================================
+
+  const nextId = useRef(1);
+
+  const makeId = (prefix) =>
+    `${prefix}-new-${Date.now()}-${nextId.current++}`;
+
+  // =====================================
+  // 3. 소비 데이터
+  // =====================================
+
   const [transactions, setTransactions] = useState(() => {
     const today = toDateString(new Date());
-    return spendingData.transactions.map(({ daysAgo, ...t }) => ({
-      ...t,
-      date: addDays(today, -daysAgo),
-    }));
-  });
-  const [fridgeItems, setFridgeItems] = useState(fridgeData.items);
 
-  // 더미 할 일의 daysFromToday 를 실제 마감일(due)로 바꿔서 시작합니다.
+    return spendingData.transactions.map(
+      ({ daysAgo, ...transaction }) => ({
+        ...transaction,
+        date: addDays(today, -daysAgo),
+      })
+    );
+  });
+
+  // 연규 UIUX 추가: 월 예산
+  const [budget, setBudget] = useState(spendingData.budget);
+
+  const addTransaction = useCallback(
+    ({
+      title,
+      amount,
+      date,
+      category,
+      icon,
+      source,
+      items,
+    }) => {
+      const entry = {
+        id: makeId('t'),
+        title,
+        amount: parseAmount(amount),
+        date,
+        category:
+          category ?? spendingData.defaultCategory,
+        icon:
+          icon ?? spendingData.defaultIcon,
+        ...(source ? { source } : {}),
+        ...(items ? { items } : {}),
+      };
+
+      setTransactions((prev) => [entry, ...prev]);
+    },
+    []
+  );
+
+  const updateTransaction = useCallback((id, patch) => {
+    const safePatch =
+      'amount' in patch
+        ? {
+            ...patch,
+            amount: parseAmount(patch.amount),
+          }
+        : patch;
+
+    setTransactions((prev) =>
+      prev.map((transaction) =>
+        transaction.id === id
+          ? { ...transaction, ...safePatch }
+          : transaction
+      )
+    );
+  }, []);
+
+  const removeTransaction = useCallback((id) => {
+    setTransactions((prev) =>
+      prev.filter((transaction) => transaction.id !== id)
+    );
+  }, []);
+
+  // =====================================
+  // 4. 냉장고 데이터
+  // =====================================
+
+  const [fridgeItems, setFridgeItems] = useState(
+    fridgeData.items
+  );
+
+  const addFridgeItem = useCallback(
+    ({
+      name,
+      quantity,
+      unit,
+      purchaseDate,
+      expiry,
+    }) => {
+      const entry = {
+        id: makeId('f'),
+        name,
+        quantity: `${quantity}${unit}`,
+        amount: quantity,
+        unit,
+        purchaseDate,
+        expiry,
+        icon: fridgeData.defaultIcon,
+      };
+
+      setFridgeItems((prev) => [entry, ...prev]);
+    },
+    []
+  );
+
+  const updateFridgeItem = useCallback(
+    (
+      id,
+      {
+        name,
+        quantity,
+        unit,
+        purchaseDate,
+        expiry,
+      }
+    ) => {
+      setFridgeItems((prev) =>
+        prev.map((item) =>
+          item.id !== id
+            ? item
+            : {
+                ...item,
+                name,
+                amount: quantity,
+                unit,
+                quantity: `${quantity}${unit}${
+                  item.detail
+                    ? ` · ${item.detail}`
+                    : ''
+                }`,
+                purchaseDate,
+                expiry,
+              }
+        )
+      );
+    },
+    []
+  );
+
+  const removeFridgeItem = useCallback((id) => {
+    setFridgeItems((prev) =>
+      prev.filter((item) => item.id !== id)
+    );
+  }, []);
+
+  // =====================================
+  // 5. 할 일 데이터
+  // =====================================
+
   const [todos, setTodos] = useState(() => {
     const today = toDateString(new Date());
-    return todoData.items.map(({ daysFromToday, ...t }) => ({
-      ...t,
-      due: daysFromToday == null ? null : addDays(today, daysFromToday),
-    }));
-  });
-  const [routines, setRoutines] = useState(routineData.items);
 
-  // 날짜가 바뀌면 루틴의 "오늘 완료" 체크를 모두 해제합니다.
-  // 확인 시점: 앱 복귀 / 1분마다 / 루틴 체크·추가 직전. (서버에 날짜별 기록을 저장한다면 서버 기준으로 바꾸세요)
-  const routineDay = useRef(toDateString(new Date()));
+    return todoData.items.map(
+      ({ daysFromToday, ...todo }) => ({
+        ...todo,
+        due:
+          daysFromToday == null
+            ? null
+            : addDays(today, daysFromToday),
+      })
+    );
+  });
+
+  const addTodo = useCallback(({ title, due }) => {
+    setTodos((prev) => [
+      ...prev,
+      {
+        id: makeId('td'),
+        title,
+        due,
+        done: false,
+      },
+    ]);
+  }, []);
+
+  const toggleTodo = useCallback((id) => {
+    setTodos((prev) =>
+      prev.map((todo) =>
+        todo.id === id
+          ? { ...todo, done: !todo.done }
+          : todo
+      )
+    );
+  }, []);
+
+  // =====================================
+  // 6. 루틴 데이터
+  // =====================================
+
+  const [routines, setRoutines] = useState(
+    routineData.items
+  );
+
+  const routineDay = useRef(
+    toDateString(new Date())
+  );
+
   const resetRoutinesIfNewDay = useCallback(() => {
     const today = toDateString(new Date());
-    if (routineDay.current === today) return;
+
+    if (routineDay.current === today) {
+      return;
+    }
+
     routineDay.current = today;
+
     setRoutines(clearRoutineChecks);
   }, []);
 
   useEffect(() => {
-    const subscription = AppState.addEventListener('change', (state) => {
-      if (state === 'active') resetRoutinesIfNewDay();
-    });
-    const timer = setInterval(resetRoutinesIfNewDay, 60 * 1000);
+    const subscription = AppState.addEventListener(
+      'change',
+      (state) => {
+        if (state === 'active') {
+          resetRoutinesIfNewDay();
+        }
+      }
+    );
+
+    const timer = setInterval(
+      resetRoutinesIfNewDay,
+      60 * 1000
+    );
+
     return () => {
       subscription.remove();
       clearInterval(timer);
     };
   }, [resetRoutinesIfNewDay]);
 
-  const [profile, setProfile] = useState(profileData.initial);
-  const [settings, setSettings] = useState(settingsData.initial);
-
-  // 소비 추가: { title, amount, date: 'YYYY-MM-DD', category?, icon?, source?, items? }
-  const addTransaction = useCallback(({ title, amount, date, category, icon, source, items }) => {
-    const entry = {
-      id: makeId('t'),
-      title,
-      amount: parseAmount(amount), // 잘못된 값은 0 으로 저장 (합계 보호)
-      date,
-      category: category ?? spendingData.defaultCategory,
-      icon: icon ?? spendingData.defaultIcon,
-      ...(source ? { source } : {}),
-      ...(items ? { items } : {}),
-    };
-    setTransactions((prev) => [entry, ...prev]); // 새 항목을 맨 앞에 (같은 날짜면 최신이 위)
-  }, []);
-
-  // 소비 수정: 바꾼 값만 넘기면 나머지(카테고리, 아이콘 등)는 그대로 둡니다.
-  const updateTransaction = useCallback((id, patch) => {
-    const safePatch = 'amount' in patch ? { ...patch, amount: parseAmount(patch.amount) } : patch;
-    setTransactions((prev) => prev.map((t) => (t.id === id ? { ...t, ...safePatch } : t)));
-  }, []);
-
-  // 소비 삭제 (냉장고에 담긴 식재료는 따로 관리되어 그대로 남습니다)
-  const removeTransaction = useCallback((id) => {
-    setTransactions((prev) => prev.filter((t) => t.id !== id));
-  }, []);
-
-  // 식재료 추가: { name, quantity(숫자), unit, purchaseDate: 'YYYY-MM-DD'|null, expiry: 'YYYY-MM-DD' }
-  const addFridgeItem = useCallback(({ name, quantity, unit, purchaseDate, expiry }) => {
-    const entry = {
-      id: makeId('f'),
-      name,
-      quantity: `${quantity}${unit}`,
-      amount: quantity,
-      unit,
-      purchaseDate,
-      expiry,
-      icon: fridgeData.defaultIcon,
-    };
-    setFridgeItems((prev) => [entry, ...prev]);
-  }, []);
-
-  // 식재료 수정: addFridgeItem 과 같은 값을 통째로 넘깁니다.
-  const updateFridgeItem = useCallback((id, { name, quantity, unit, purchaseDate, expiry }) => {
-    setFridgeItems((prev) =>
-      prev.map((it) =>
-        it.id !== id
-          ? it
-          : {
-              ...it,
-              name,
-              amount: quantity,
-              unit,
-              quantity: `${quantity}${unit}${it.detail ? ` · ${it.detail}` : ''}`,
-              purchaseDate,
-              expiry,
-            },
-      ),
-    );
-  }, []);
-
-  const removeFridgeItem = useCallback((id) => {
-    setFridgeItems((prev) => prev.filter((it) => it.id !== id));
-  }, []);
-
-  // 할 일 추가: { title, due: 'YYYY-MM-DD'|null }
-  const addTodo = useCallback(({ title, due }) => {
-    setTodos((prev) => [...prev, { id: makeId('td'), title, due, done: false }]);
-  }, []);
-
-  const toggleTodo = useCallback((id) => {
-    setTodos((prev) => prev.map((t) => (t.id === id ? { ...t, done: !t.done } : t)));
-  }, []);
-
-  // 루틴 추가: { title, time: 'HH:mm' (24시간제) }
   const addRoutine = useCallback(
     ({ title, time }) => {
       resetRoutinesIfNewDay();
-      setRoutines((prev) => [...prev, { id: makeId('r'), title, time, doneToday: false }]);
+
+      setRoutines((prev) => [
+        ...prev,
+        {
+          id: makeId('r'),
+          title,
+          time,
+          doneToday: false,
+        },
+      ]);
     },
     [resetRoutinesIfNewDay]
   );
 
-  // 루틴 체크 켜기/끄기 (날이 바뀌었다면 먼저 초기화)
   const toggleRoutine = useCallback(
     (id) => {
       resetRoutinesIfNewDay();
-      setRoutines((prev) => prev.map((r) => (r.id === id ? { ...r, doneToday: !r.doneToday } : r)));
+
+      setRoutines((prev) =>
+        prev.map((routine) =>
+          routine.id === id
+            ? {
+                ...routine,
+                doneToday: !routine.doneToday,
+              }
+            : routine
+        )
+      );
     },
     [resetRoutinesIfNewDay]
   );
 
-  // 개인정보 수정: { nickname?, region? } 중 바꿀 값만 넘깁니다.
+  // =====================================
+  // 7. 사용자 프로필
+  // =====================================
+
+  const [profile, setProfile] = useState(
+    profileData.initial
+  );
+
   const updateProfile = useCallback((patch) => {
-    setProfile((prev) => ({ ...prev, ...patch }));
+    setProfile((prev) => ({
+      ...prev,
+      ...patch,
+    }));
   }, []);
 
-  // 앱 설정 켜기/끄기: updateSetting('notifyFridge', true)
-  const updateSetting = useCallback((key, value) => {
-    setSettings((prev) => ({ ...prev, [key]: value }));
+  // =====================================
+  // 8. 생활정보 - 연규 UIUX 추가
+  // =====================================
+
+  const [lifeData, setLifeData] = useState(
+    lifeDataForm.initial
+  );
+
+  const updateLifeData = useCallback((patch) => {
+    setLifeData((prev) => ({
+      ...prev,
+      ...patch,
+    }));
   }, []);
+
+  // =====================================
+  // 9. 앱 설정
+  // =====================================
+
+  const [settings, setSettings] = useState(
+    settingsData.initial
+  );
+
+  const updateSetting = useCallback((key, value) => {
+    setSettings((prev) => ({
+      ...prev,
+      [key]: value,
+    }));
+  }, []);
+
+  // =====================================
+  // 10. 전체 데이터 공유
+  // =====================================
 
   const value = useMemo(
     () => ({
-      sharedReceipts, sharedUid, visibleShared, refreshShared,
+      // 공용 Firestore 조회
+      sharedReceipts,
+      sharedUid,
+      visibleShared,
+      refreshShared,
+
+      // 소비
       transactions,
       addTransaction,
       updateTransaction,
       removeTransaction,
+
+      // 월 예산
+      budget,
+      setBudget,
+
+      // 냉장고
       fridgeItems,
       addFridgeItem,
       updateFridgeItem,
       removeFridgeItem,
+
+      // 할 일
       todos,
       addTodo,
       toggleTodo,
+
+      // 루틴
       routines,
       addRoutine,
       toggleRoutine,
+
+      // 사용자 프로필
       profile,
       updateProfile,
+
+      // 사용자 생활정보
+      lifeData,
+      updateLifeData,
+
+      // 설정
       settings,
       updateSetting,
     }),
     [
-      sharedReceipts, sharedUid, visibleShared, refreshShared,
+      sharedReceipts,
+      sharedUid,
+      visibleShared,
+      refreshShared,
+
       transactions,
       addTransaction,
       updateTransaction,
       removeTransaction,
+
+      budget,
+      setBudget,
+
       fridgeItems,
       addFridgeItem,
       updateFridgeItem,
       removeFridgeItem,
+
       todos,
       addTodo,
       toggleTodo,
+
       routines,
       addRoutine,
       toggleRoutine,
+
       profile,
       updateProfile,
+
+      lifeData,
+      updateLifeData,
+
       settings,
       updateSetting,
     ]
   );
 
-  return <AppDataContext.Provider value={value}>{children}</AppDataContext.Provider>;
+  return (
+    <AppDataContext.Provider value={value}>
+      {children}
+    </AppDataContext.Provider>
+  );
 }
 
+// =====================================
+// 11. 데이터 사용 Hook
+// =====================================
+
 export function useAppData() {
-  const ctx = useContext(AppDataContext);
-  if (!ctx) throw new Error('useAppData 는 AppDataProvider 안에서만 쓸 수 있어요.');
-  return ctx;
+  const context = useContext(AppDataContext);
+
+  if (!context) {
+    throw new Error(
+      'useAppData는 AppDataProvider 내부에서 사용해야 합니다.'
+    );
+  }
+
+  return context;
 }

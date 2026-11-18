@@ -1,36 +1,74 @@
+
 import React, { useMemo } from 'react';
-import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native';
+import {
+  View,
+  ScrollView,
+  Pressable,
+  StyleSheet,
+} from 'react-native';
+
+import Text from '../components/AppText';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
 import BackHeader from '../components/BackHeader';
 import IconBox from '../components/IconBox';
+
 import { recipeData } from '../data/fridge/recipes';
 import { fridgeData } from '../data/fridge/fridge';
 import { useAppData } from '../store/AppDataContext';
-import { analyzeRecipe, badgeDueLabel, getFridgeEntries, sharedFridgeEntries, shortDueLabel } from '../utils/recipes';
+
+import {
+  analyzeRecipe,
+  badgeDueLabel,
+  getFridgeEntries,
+  shortDueLabel,
+} from '../utils/recipes';
+
 import { toDateString } from '../utils/format';
 import { colors, fonts, spacing } from '../theme';
 
-// 냉장고 > AI 레시피 추천 (목록)
+// 냉장고 > AI 레시피 추천 목록
 export default function RecipeListScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const t = recipeData.texts;
-  const { fridgeItems, sharedReceipts, visibleShared } = useAppData();
-  const baseDate = toDateString(new Date()); // 기준일 = 오늘
 
+  const {
+    fridgeItems,
+    sharedReceipts,
+  } = useAppData();
+
+  const baseDate = toDateString(new Date());
+
+  // 기존 로컬 냉장고 재료 분석
   const entries = useMemo(
-    () => getFridgeEntries(sharedReceipts ? sharedFridgeEntries(visibleShared?.inventory) : fridgeItems, baseDate, fridgeData.urgentWithinDays),
-    [fridgeItems, visibleShared?.inventory, sharedReceipts, baseDate]
+    () =>
+      getFridgeEntries(
+        fridgeItems,
+        baseDate,
+        fridgeData.urgentWithinDays
+      ),
+    [fridgeItems, baseDate]
   );
-  // 유통기한이 가장 급한 재료 3개 (배너 칩)
-  const urgentChips = entries.filter((e) => e.urgent).slice(0, 3);
-  // 추천 순서는 그대로 두고, 냉장고에 재료가 하나라도 있는 레시피만 보여줍니다.
+
+  const urgentChips = sharedReceipts
+    ? []
+    : entries.filter((entry) => entry.urgent).slice(0, 3);
+
+  // Firebase 모드는 실제 재고를 다음 화면에서 조회하므로
+  // 로컬 재고가 없어도 레시피 목록을 보여줍니다.
   const cards = useMemo(
     () =>
       recipeData.recipes
-        .map((recipe) => ({ recipe, ...analyzeRecipe(recipe, entries) }))
-        .filter((c) => c.owned.length > 0),
-    [entries]
+        .map((recipe) => ({
+          recipe,
+          ...analyzeRecipe(recipe, entries),
+        }))
+        .filter(
+          (card) =>
+            sharedReceipts || card.owned.length > 0
+        ),
+    [entries, sharedReceipts]
   );
 
   return (
@@ -43,26 +81,48 @@ export default function RecipeListScreen({ navigation }) {
           paddingHorizontal: spacing.screenX,
         }}
       >
+        {/* 화면 상단 */}
         <View style={styles.headerWrap}>
-          <BackHeader title={t.listTitle} icon="arrow-back" onBack={() => navigation.goBack()} />
+          <BackHeader
+            title={t.listTitle}
+            icon="arrow-back"
+            onBack={() => navigation.goBack()}
+          />
         </View>
-        <Text style={styles.subtitle}>{t.listSubtitle}</Text>
-        {sharedReceipts && visibleShared?.inventoryError ? <Text accessibilityRole="alert">{visibleShared.inventoryError}</Text> : null}
 
-        {/* 임박한 재료를 먼저 활용했다는 안내 */}
+        <Text style={styles.subtitle}>
+          {sharedReceipts
+            ? '레시피를 선택하고 Firebase 냉장고에 있는 재료를 확인해 보세요.'
+            : t.listSubtitle}
+        </Text>
+
+        {/* 레시피 안내 */}
         <View style={styles.banner}>
           <View style={styles.bannerHead}>
-            <MaterialCommunityIcons name="star-four-points-outline" size={22} color={colors.green} />
+            <MaterialCommunityIcons
+              name="star-four-points-outline"
+              size={22}
+              color={colors.green}
+            />
+
             <Text style={styles.bannerText}>
-              {urgentChips.length > 0 ? t.bannerUrgent : t.bannerNormal}
+              {sharedReceipts
+                ? '레시피를 선택하면 필요한 재료를 확인할 수 있어요.'
+                : urgentChips.length > 0
+                  ? t.bannerUrgent
+                  : t.bannerNormal}
             </Text>
           </View>
-          {urgentChips.length > 0 ? (
+
+          {!sharedReceipts && urgentChips.length > 0 ? (
             <View style={styles.chipRow}>
-              {urgentChips.map((e) => (
-                <View key={e.id} style={styles.urgentChip}>
+              {urgentChips.map((entry) => (
+                <View
+                  key={entry.id}
+                  style={styles.urgentChip}
+                >
                   <Text style={styles.urgentChipText}>
-                    {e.name} · {shortDueLabel(e.daysLeft)}
+                    {entry.name} · {shortDueLabel(entry.daysLeft)}
                   </Text>
                 </View>
               ))}
@@ -70,24 +130,43 @@ export default function RecipeListScreen({ navigation }) {
           ) : null}
         </View>
 
+        {/* 추천 레시피 목록 */}
         <View style={styles.sectionRow}>
-          <Text style={styles.sectionTitle}>{t.sectionTitle}</Text>
-          <Text style={styles.countText}>{t.count(cards.length)}</Text>
+          <Text style={styles.sectionTitle}>
+            {t.sectionTitle}
+          </Text>
+
+          <Text style={styles.countText}>
+            {t.count(cards.length)}
+          </Text>
         </View>
 
         {cards.length === 0 ? (
           <View style={styles.empty}>
-            <Text style={styles.emptyTitle}>{t.empty}</Text>
-            <Text style={styles.emptyHint}>{t.emptyHint}</Text>
+            <Text style={styles.emptyTitle}>
+              {t.empty}
+            </Text>
+
+            <Text style={styles.emptyHint}>
+              {t.emptyHint}
+            </Text>
           </View>
         ) : (
           cards.map(({ recipe, owned, missing, urgent }) => (
             <Pressable
               key={recipe.id}
-              onPress={() => navigation.navigate('RecipeDetail', { id: recipe.id })}
+              onPress={() =>
+                navigation.navigate('RecipeDetail', {
+                  id: recipe.id,
+                })
+              }
               accessibilityRole="button"
-              style={({ pressed }) => [styles.card, pressed && styles.pressed]}
+              style={({ pressed }) => [
+                styles.card,
+                pressed && styles.pressed,
+              ]}
             >
+              {/* 레시피 기본 정보 */}
               <View style={styles.cardTop}>
                 <IconBox
                   name={recipe.icon}
@@ -96,49 +175,110 @@ export default function RecipeListScreen({ navigation }) {
                   iconColor={colors.green}
                   backgroundColor={colors.heroBg}
                 />
+
                 <View style={styles.cardTitleBox}>
-                  <Text style={styles.cardTitle} numberOfLines={1}>
+                  <Text
+                    style={styles.cardTitle}
+                    numberOfLines={1}
+                  >
                     {recipe.title}
                   </Text>
+
                   <View style={styles.metaRow}>
-                    <MaterialCommunityIcons name="clock-outline" size={18} color={colors.textSecondary} />
+                    <MaterialCommunityIcons
+                      name="clock-outline"
+                      size={18}
+                      color={colors.textSecondary}
+                    />
+
                     <Text style={styles.metaText}>
                       {recipe.minutes}분 · {recipe.difficulty}
                     </Text>
                   </View>
                 </View>
-                {/* 임박 재료가 2개 이상이면 개수, 1개면 그 재료의 남은 기간 */}
-                {urgent.length > 0 ? (
+
+                {!sharedReceipts && urgent.length > 0 ? (
                   <View style={styles.badge}>
                     <Text style={styles.badgeText}>
                       {urgent.length >= 2
                         ? t.urgentBadge(urgent.length)
-                        : badgeDueLabel(urgent[0].fridgeItem.daysLeft)}
+                        : badgeDueLabel(
+                            urgent[0].fridgeItem.daysLeft
+                          )}
                     </Text>
                   </View>
                 ) : null}
               </View>
 
-              <View style={[styles.ingredientRow, styles.firstRow]}>
-                <Text style={styles.rowLabel}>{t.haveLabel}</Text>
-                {owned.map((ing) => (
-                  <View key={ing.name} style={styles.haveChip}>
-                    <Text style={styles.haveChipText}>{ing.name}</Text>
-                  </View>
-                ))}
-              </View>
-              <View style={styles.ingredientRow}>
-                <Text style={styles.rowLabel}>{t.needLabel}</Text>
-                {missing.length === 0 ? (
-                  <Text style={styles.allHave}>{t.allHave}</Text>
-                ) : (
-                  missing.map((ing) => (
-                    <View key={ing.name} style={styles.missingChip}>
-                      <Text style={styles.missingChipText}>{ing.name}</Text>
+              {sharedReceipts ? (
+                // Firebase 모드에서는 로컬 재고 보유 표시 대신
+                // 레시피의 전체 필요 재료만 보여줍니다.
+                <View style={styles.ingredientRow}>
+                  <Text style={styles.rowLabel}>
+                    필요 재료
+                  </Text>
+
+                  {recipe.ingredients.map((ingredient) => (
+                    <View
+                      key={ingredient.name}
+                      style={styles.missingChip}
+                    >
+                      <Text style={styles.missingChipText}>
+                        {ingredient.name}
+                      </Text>
                     </View>
-                  ))
-                )}
-              </View>
+                  ))}
+                </View>
+              ) : (
+                <>
+                  {/* 기존 로컬 모드의 보유 재료 */}
+                  <View
+                    style={[
+                      styles.ingredientRow,
+                      styles.firstRow,
+                    ]}
+                  >
+                    <Text style={styles.rowLabel}>
+                      {t.haveLabel}
+                    </Text>
+
+                    {owned.map((ingredient) => (
+                      <View
+                        key={ingredient.name}
+                        style={styles.haveChip}
+                      >
+                        <Text style={styles.haveChipText}>
+                          {ingredient.name}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+
+                  {/* 기존 로컬 모드의 부족 재료 */}
+                  <View style={styles.ingredientRow}>
+                    <Text style={styles.rowLabel}>
+                      {t.needLabel}
+                    </Text>
+
+                    {missing.length === 0 ? (
+                      <Text style={styles.allHave}>
+                        {t.allHave}
+                      </Text>
+                    ) : (
+                      missing.map((ingredient) => (
+                        <View
+                          key={ingredient.name}
+                          style={styles.missingChip}
+                        >
+                          <Text style={styles.missingChipText}>
+                            {ingredient.name}
+                          </Text>
+                        </View>
+                      ))
+                    )}
+                  </View>
+                </>
+              )}
             </Pressable>
           ))
         )}
@@ -152,14 +292,17 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
+
   headerWrap: {
-    marginBottom: -12, // BackHeader 아래 기본 여백(24)을 줄여 부제목이 제목 가까이 붙도록
+    marginBottom: -12,
   },
+
   subtitle: {
     fontFamily: fonts.regular,
     fontSize: 16,
     color: colors.textSecondary,
   },
+
   banner: {
     marginTop: 18,
     paddingHorizontal: 18,
@@ -167,10 +310,12 @@ const styles = StyleSheet.create({
     borderRadius: 28,
     backgroundColor: colors.heroBg,
   },
+
   bannerHead: {
     flexDirection: 'row',
     alignItems: 'center',
   },
+
   bannerText: {
     flex: 1,
     marginLeft: 10,
@@ -178,24 +323,28 @@ const styles = StyleSheet.create({
     fontSize: 17,
     color: colors.green,
   },
+
   chipRow: {
     marginTop: 12,
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
   },
+
   urgentChip: {
     paddingHorizontal: 12,
     paddingVertical: 5,
     borderRadius: 20,
     backgroundColor: colors.white,
   },
+
   urgentChipText: {
     fontFamily: fonts.bold,
     fontSize: 15,
     lineHeight: 18,
     color: colors.green,
   },
+
   sectionRow: {
     marginTop: 21,
     marginBottom: 12,
@@ -203,16 +352,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+
   sectionTitle: {
     fontFamily: fonts.bold,
     fontSize: 22,
     color: colors.textPrimary,
   },
+
   countText: {
     fontFamily: fonts.regular,
     fontSize: 15,
     color: colors.textSecondary,
   },
+
   card: {
     marginBottom: 13,
     padding: 16,
@@ -221,33 +373,40 @@ const styles = StyleSheet.create({
     borderColor: colors.inputBorder,
     backgroundColor: colors.white,
   },
+
   pressed: {
     opacity: 0.85,
   },
+
   cardTop: {
     flexDirection: 'row',
     alignItems: 'center',
   },
+
   cardTitleBox: {
     flex: 1,
     marginLeft: 16,
   },
+
   cardTitle: {
     fontFamily: fonts.bold,
     fontSize: 20,
     color: colors.textPrimary,
   },
+
   metaRow: {
     marginTop: 4,
     flexDirection: 'row',
     alignItems: 'center',
   },
+
   metaText: {
     marginLeft: 6,
     fontFamily: fonts.regular,
     fontSize: 16,
     color: colors.textSecondary,
   },
+
   badge: {
     marginLeft: 8,
     paddingHorizontal: 12,
@@ -255,11 +414,13 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     backgroundColor: colors.warnBg,
   },
+
   badgeText: {
     fontFamily: fonts.bold,
     fontSize: 14,
     color: colors.warnText,
   },
+
   ingredientRow: {
     marginTop: 7,
     minHeight: 25,
@@ -268,52 +429,62 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
+
   firstRow: {
     marginTop: 12,
   },
+
   rowLabel: {
     fontFamily: fonts.regular,
     fontSize: 16,
     color: colors.textSecondary,
   },
+
   haveChip: {
     paddingHorizontal: 11,
     paddingVertical: 3,
     borderRadius: 14,
     backgroundColor: colors.tabActiveBg,
   },
+
   haveChipText: {
     fontFamily: fonts.medium,
     fontSize: 15,
     lineHeight: 19,
     color: colors.green,
   },
+
   missingChip: {
     paddingHorizontal: 11,
     paddingVertical: 3,
     borderRadius: 14,
     backgroundColor: colors.cardBg,
   },
+
   missingChipText: {
     fontFamily: fonts.medium,
     fontSize: 15,
     lineHeight: 19,
     color: colors.textSecondary,
   },
+
   allHave: {
     fontFamily: fonts.bold,
     fontSize: 16,
     color: colors.green,
   },
+
   empty: {
     paddingVertical: 56,
     alignItems: 'center',
   },
+
   emptyTitle: {
     fontFamily: fonts.medium,
     fontSize: 16,
     color: colors.textPrimary,
   },
+
   emptyHint: {
     marginTop: 6,
     fontFamily: fonts.regular,

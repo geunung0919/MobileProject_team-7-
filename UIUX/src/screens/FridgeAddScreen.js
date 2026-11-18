@@ -41,6 +41,12 @@ export default function FridgeAddScreen({ navigation, route }) {
 
   const editId = route.params?.id;
   const isEdit = !!editId;
+  const shoppingItem = !isEdit ? route.params?.shoppingItem : null;
+  const shoppingUid = route.params?.shoppingUid;
+
+  const shoppingRequestId = shoppingItem?.id
+    ? `shop_${shoppingItem.id.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 70)}`
+    : null;
   const cloud = sharedReceipts;
   const originalUid = useRef(sharedUid).current;
   const cloudRow = isEdit && cloud && originalUid === sharedUid ? visibleShared?.inventory?.find((item) => item.id === editId) : null;
@@ -72,11 +78,11 @@ export default function FridgeAddScreen({ navigation, route }) {
     isEdit && !cloud ? fridgeItems.find((i) => i.id === editId) : undefined;
   const parsed = existing ? parseQuantity(existing.quantity) : null;
 
-  const [name, setName] = useState(existing?.name ?? '');
+  const [name, setName] = useState(existing?.name ?? shoppingItem?.name ?? '');
   const [quantity, setQuantity] = useState(
-    existing ? String(existing.amount ?? parsed.amount) : '', // 숫자와 소수점만 저장합니다.
+    existing ? String(existing.amount ?? parsed.amount) : shoppingItem ? String(shoppingItem.quantity) : '', // 숫자와 소수점만 저장합니다.
   );
-  const [unit, setUnit] = useState(existing ? (existing.unit ?? parsed.unit) : null);
+  const [unit, setUnit] = useState(existing ? (existing.unit ?? parsed.unit) : (shoppingItem?.unit ?? null));
   const [purchaseDate, setPurchaseDate] = useState(
     existing?.purchaseDate ? fromDateString(existing.purchaseDate) : null, // 선택 전에는 null (칸에 YYYY.MM.DD 표시)
   );
@@ -129,6 +135,22 @@ export default function FridgeAddScreen({ navigation, route }) {
       navigation.navigate('SharedLogin');
       return;
     }
+
+    if (shoppingItem && (
+      !cloud ||
+      !shoppingRequestId ||
+      shoppingUid !== sharedUid ||
+      auth.currentUser?.uid !== sharedUid
+    )) {
+      setMessage('??? ??? ??? ??? ??? ???.');
+      return;
+    }
+
+    if (shoppingItem && cloudPending &&
+        cloudPending.payload.requestId !== shoppingRequestId) {
+      setMessage('??? ?? ?? ?? ???? ???.');
+      return;
+    }
     if (cloud && (isEdit ? !cloudRow || !originalVersion : loadedKey !== pendingKey)) return;
     const needsDate = !cloud || dateType !== 'unknown';
     if (!cloudPending && (!name.trim() || !(Number(quantity) > 0) || !unit || (needsDate && !expiryDate))) {
@@ -153,7 +175,7 @@ export default function FridgeAddScreen({ navigation, route }) {
     }
     if (cloud) {
       const payload = cloudPending?.payload ?? {
-        requestId: `fridge-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        requestId: shoppingRequestId || `fridge-${Date.now()}-${Math.random().toString(36).slice(2)}`,
         name: values.name,
         quantity: values.quantity,
         unit: values.unit,
@@ -167,7 +189,57 @@ export default function FridgeAddScreen({ navigation, route }) {
       try {
         await AsyncStorage.setItem(pendingKey, JSON.stringify(payload));
         setPending({ uid: sharedUid, payload });
-        await createFridgeItem(payload, sharedUid);
+        const created = await createFridgeItem(payload, sharedUid);
+
+        if (shoppingItem) {
+          if (!created?.id) {
+            throw new Error(
+              '?? ?? ID? ???? ????. ?? ???? ?? ??? ???.'
+            );
+          }
+
+          if (auth.currentUser?.uid !== shoppingUid) {
+            throw new Error('??? ??? ?????.');
+          }
+
+          const shoppingKey =
+            `solo-living-ai:shopping:v1:${shoppingUid}`;
+
+          const raw = await AsyncStorage.getItem(shoppingKey);
+          const rows = raw ? JSON.parse(raw) : [];
+
+          if (!Array.isArray(rows)) {
+            throw new Error('??? ?? ?? ??? ?????.');
+          }
+
+          const index = rows.findIndex(
+            row => row.id === shoppingItem.id
+          );
+
+          if (index < 0 || !rows[index].done) {
+            throw new Error(
+              '?? ??? ??? ??? ?? ? ???.'
+            );
+          }
+
+          if (rows[index].inventoryId &&
+              rows[index].inventoryId !== created.id) {
+            throw new Error(
+              '?? ?? ??? ??? ??? ?????.'
+            );
+          }
+
+          rows[index] = {
+            ...rows[index],
+            inventoryId: created.id,
+          };
+
+          await AsyncStorage.setItem(
+            shoppingKey,
+            JSON.stringify(rows)
+          );
+        }
+
         void refreshShared(sharedUid);
         try {
           await AsyncStorage.removeItem(pendingKey);
