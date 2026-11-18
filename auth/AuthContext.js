@@ -16,7 +16,7 @@ import { diagnose, EMPTY_PROFILE } from './onboardingRules';
 //
 //   const auth = useAuth();
 //   auth.stage                     'loading' | 'login' | 'onboarding' | 'app' | 'error'  ← 어떤 화면을 보여 줄지
-//   auth.signIn({email, password})                        → 실패 시 throw (error.field, error.message 포함)
+//   auth.signIn({email, password})                        → {onboarded} 반환, 실패 시 throw (error.field, error.message 포함)
 //   auth.signUp({email, password, confirm, birthDate?})   → 실패 시 throw (birthDate 는 받는 경우에만)
 //   auth.completeOnboarding({nickname, profile})          → 저장 후 {nickname, profile, diagnosis} 반환
 //   auth.finishOnboarding()        결과 화면에서 [시작하기]를 누를 때 → stage 가 'app' 으로
@@ -92,8 +92,13 @@ export function AuthProvider({ children }) {
         const mail = normalizeEmail(email);
         if (mail.message) throw fail('email', mail.message);
         if (!password) throw fail('password', '비밀번호를 입력해 주세요.');
-        try { await signInWithEmail({ email: mail.email, password }); } catch (e) { throw asFieldError(e); }
+        let user;
+        try { user = await signInWithEmail({ email: mail.email, password }); } catch (e) { throw asFieldError(e); }
         await rememberLogin(mail.email);
+        // 화면이 다음에 어디로 갈지 정할 수 있게 온보딩 완료 여부를 돌려줍니다(못 읽으면 null).
+        let onboarded = null;
+        try { onboarded = (await loadAccount(user.uid)).onboarded; } catch { /* stage 로 다시 확인 */ }
+        return { onboarded };
       },
 
       async signUp({ email, password, confirm, birthDate }) {

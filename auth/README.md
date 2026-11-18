@@ -16,11 +16,13 @@
 - `screens.Login` 이 없으면 지금처럼 로그인 없이 앱 화면이 바로 나옵니다.
 - 단계는 `useAuth().stage` 로도 알 수 있습니다: `'loading' | 'login' | 'onboarding' | 'app' | 'error'`
 
+**UIUX-Edit 화면에 붙이는 방법은 `UI_CONNECT.md` 에 파일별로 정리했습니다.** 화면 값 변환은 `uiMapping.js`(`toProfile`, `fromProfile`).
+
 ## 화면에서 쓰는 함수 (`import { useAuth } from '../auth/AuthContext'`)
 
 | 함수 / 값 | 설명 |
 |---|---|
-| `signIn({ email, password })` | 로그인. 성공하면 stage 가 바뀝니다 |
+| `signIn({ email, password })` | 로그인. `{ onboarded }` 반환(프로필 설정을 끝낸 계정인지). 성공하면 stage 가 바뀝니다 |
 | `signUp({ email, password, confirm, birthDate? })` | 회원가입. 성공하면 stage='onboarding'. birthDate('YYYY-MM-DD')는 화면에서 받을 때만 넘기면 만 14세 확인 |
 | `completeOnboarding({ nickname, profile })` | 온보딩 저장. `{ nickname, profile, diagnosis }` 반환. stage 는 결과 화면을 위해 'onboarding' 유지 |
 | `finishOnboarding()` | 결과 화면의 [시작하기] → stage='app' |
@@ -174,4 +176,4 @@ useEffect(() => onAccountEvent('regionChanged', ({ from, to }) => {
 2. `firestore.rules` 배포 (`nicknames` 규칙 추가됨): `firebase deploy --only firestore:rules`
 3. Cloud Functions 배포 (닉네임 규칙·탈퇴 정리): `firebase deploy --only functions`
 
-테스트: `node --test auth/authRules.test.mjs auth/onboardingRules.test.mjs auth/regions.test.mjs auth/session.test.mjs`
+테스트: `node --test auth/authRules.test.mjs auth/onboardingRules.test.mjs auth/regions.test.mjs auth/session.test.mjs auth/uiMapping.test.mjs`
