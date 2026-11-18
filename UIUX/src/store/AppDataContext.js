@@ -10,7 +10,7 @@ import React, {
 import { AppState } from 'react-native';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../../../firebase/firebaseConfig';
-import { listTransactions, listFridgeItems } from '../../../api/receiptApi';
+import { listTransactions, listFridgeItems, changeFridgeItem } from '../../../api/receiptApi';
 import { spendingData } from '../data/spending/spending';
 import { fridgeData } from '../data/fridge/fridge';
 import { todoData } from '../data/lifeInfo/todos';
@@ -195,6 +195,23 @@ export function AppDataProvider({ children, sharedReceipts = false }) {
     setFridgeItems((prev) => prev.filter((it) => it.id !== id));
   }, []);
 
+  // 서버(Firestore) 모드의 식재료 삭제. 서버가 버전을 확인하므로 목록의 version 을 함께 보냅니다.
+  // 이미 없는 항목(404)은 삭제된 것으로 보고 목록만 새로 고칩니다. 실패하면 throw 합니다.
+  const removeSharedFridgeItem = useCallback(async (id) => {
+    const uid = sharedUid;
+    const row = visibleShared?.inventory?.find((it) => it.id === id);
+    if (!uid || !row) throw new Error('식재료를 찾지 못했어요. 목록을 새로 고쳐 주세요.');
+    try {
+      await changeFridgeItem({ action: 'delete', id, version: row.version }, uid);
+    } catch (e) {
+      if (e.status !== 404) {
+        if (e.status === 409) void refreshShared(uid);
+        throw e;
+      }
+    }
+    await refreshShared(uid);
+  }, [sharedUid, visibleShared, refreshShared]);
+
   // 할 일 추가: { title, due: 'YYYY-MM-DD'|null }
   const addTodo = useCallback(({ title, due }) => {
     setTodos((prev) => [...prev, { id: makeId('td'), title, due, done: false }]);
@@ -239,7 +256,7 @@ export function AppDataProvider({ children, sharedReceipts = false }) {
 
   const value = useMemo(
     () => ({
-      sharedReceipts, sharedUid, visibleShared, refreshShared,
+      sharedReceipts, sharedUid, visibleShared, refreshShared, removeSharedFridgeItem,
       transactions,
       addTransaction,
       updateTransaction,
@@ -266,7 +283,7 @@ export function AppDataProvider({ children, sharedReceipts = false }) {
       updateSetting,
     }),
     [
-      sharedReceipts, sharedUid, visibleShared, refreshShared,
+      sharedReceipts, sharedUid, visibleShared, refreshShared, removeSharedFridgeItem,
       transactions,
       addTransaction,
       updateTransaction,

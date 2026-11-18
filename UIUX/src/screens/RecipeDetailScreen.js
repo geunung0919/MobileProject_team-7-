@@ -16,7 +16,7 @@ import { colors, fonts, spacing } from '../theme';
 export default function RecipeDetailScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
   const t = recipeData.texts;
-  const { fridgeItems, removeFridgeItem, sharedReceipts, visibleShared } = useAppData();
+  const { fridgeItems, removeFridgeItem, sharedReceipts, visibleShared, removeSharedFridgeItem } = useAppData();
   const baseDate = toDateString(new Date());
 
   const recipe = recipeData.recipes.find((r) => r.id === route.params?.id);
@@ -39,8 +39,14 @@ export default function RecipeDetailScreen({ navigation, route }) {
       {
         text: t.confirmAction,
         onPress: () => {
-          targets.forEach((it) => removeFridgeItem(it.id));
-          navigation.goBack();
+          if (!sharedReceipts) {
+            targets.forEach((it) => removeFridgeItem(it.id));
+            navigation.goBack();
+            return;
+          }
+          Promise.all(targets.map((it) => removeSharedFridgeItem(it.id)))
+            .then(() => navigation.goBack())
+            .catch((e) => Alert.alert('재료를 빼지 못했어요', e.message || '잠시 후 다시 시도해 주세요.'));
         },
       },
     ]);
