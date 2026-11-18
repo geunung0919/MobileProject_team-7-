@@ -102,9 +102,10 @@ export default function HomeScreen({ navigation }) {
 
           <SummaryCard title={fridge.title} onPress={() => navigation.navigate('Fridge')}>
             <Text style={summaryStyles.label}>보관 중인 식재료 {sharedReceipts && !visibleShared?.inventory ? '—' : `${fridgeSummary.total}개`}</Text>
+            {/* 좁은 화면(아이폰·소형 안드로이드)에서 "기한 임 / 박" 처럼 줄바꿈되지 않게 제목은 작게, 개수는 크게 한 줄로 */}
             <View style={summaryStyles.bigRow}>
-              <Text style={summaryStyles.bigText}>{fridge.headline} </Text>
-              <Text style={[summaryStyles.bigText, styles.greenText]}>{sharedReceipts && !visibleShared?.inventory ? '—' : `${fridgeSummary.urgentCount}개`}</Text>
+              <Text style={styles.fridgeHeadline} numberOfLines={1}>{fridge.headline}</Text>
+              <Text style={[summaryStyles.bigText, styles.greenText]} numberOfLines={1}>{sharedReceipts && !visibleShared?.inventory ? '—' : `${fridgeSummary.urgentCount}개`}</Text>
             </View>
             <View style={styles.fridgeSub}>
               {first ? (
@@ -165,6 +166,12 @@ const styles = StyleSheet.create({
   },
   greenText: {
     color: colors.green,
+  },
+  fridgeHeadline: {
+    fontFamily: fonts.bold,
+    fontSize: 17,
+    color: colors.textPrimary,
+    marginRight: 4,
   },
   fridgeName: {
     flex: 1,

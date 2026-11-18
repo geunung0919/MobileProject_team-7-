@@ -11,7 +11,7 @@ import { colors, spacing } from '../theme';
 import { auth } from '../../../firebase/firebaseConfig';
 import { confirmReceipt, createTransaction } from '../../../api/receiptApi';
 import { receiptOcrBase, receiptUsesDevelopmentToken, receiptDefaultDevelopmentToken, recognizeReceipt, previewPayment } from '../../../api/receiptRecognition';
-import { draftFromRecognition, draftFromPayment, emptyLine, reviewedPayload } from '../utils/sharedReceipt.mjs';
+import { draftFromRecognition, draftFromPayment, emptyLine, inventoryDefaults, reviewedPayload } from '../utils/sharedReceipt.mjs';
 import { getPendingNotifications, isPaymentNotificationModuleAvailable, isNotificationAccessEnabled,
   markProcessedNotifications, openNotificationAccessSettings } from '../../../modules/payment-notifications';
 import { useAppData } from '../store/AppDataContext';
@@ -207,7 +207,8 @@ export default function SharedReceiptScreen({ navigation, route }) {
         <Choices choices={types} value={item.itemType} onChange={(itemType) => update(item.key, { itemType, inventorySelected: false })} />
         {item.printedAmount != null ? <Text>인식된 줄 금액: {item.printedAmount.toLocaleString()}원 · 할인 반영 여부를 확인해 주세요.</Text> : null}
         <FormField label="품목 실제 결제 금액 (원)" placeholder="모르면 비워 두세요" keyboardType="number-pad" value={item.paid} onChangeText={(paid) => update(item.key, { paid })} marginTop={8} />
-        {item.itemType === 'ingredient' ? <Choices choices={[[false, '소비만 저장'], [true, '냉장고에도 등록']]} value={item.inventorySelected} onChange={(inventorySelected) => update(item.key, { inventorySelected })} /> : null}
+        {item.itemType === 'ingredient' ? <Choices choices={[[false, '소비만 저장'], [true, '냉장고에도 등록']]} value={item.inventorySelected}
+          onChange={(inventorySelected) => update(item.key, { inventorySelected, ...(inventorySelected ? inventoryDefaults(item) : {}) })} /> : null}
         {item.inventorySelected ? <>
           <FormField label="실제 재고 수량" value={item.quantity} keyboardType="decimal-pad" onChangeText={(quantity) => update(item.key, { quantity })} marginTop={8} />
           <Choices choices={['개', '팩', 'g', 'ml'].map((v) => [v, v])} value={item.unit} onChange={(unit) => update(item.key, { unit })} />

@@ -27,7 +27,6 @@ function developmentPcBase() {
       return hostname ? `${protocol === 'https:' ? 'https' : 'http'}://${hostname}:${ocrPort}` : '';
     }
     if (environment.devHost) return `http://${environment.devHost}:${ocrPort}`;
-    // eslint-disable-next-line global-require
     const getDevServer = require('react-native/Libraries/Core/Devtools/getDevServer').default;
     const { hostname } = new URL(getDevServer().url);
     return hostname ? `http://${hostname}:${ocrPort}` : '';
