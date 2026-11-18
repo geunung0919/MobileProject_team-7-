@@ -65,6 +65,19 @@ export const spacing = {
   gap: 12,
 };
 
+// 비상매뉴얼 / 자취생존맵 화면용 색상. Figma PNG 에서 픽셀 값을 직접 읽어 온 값입니다.
+// (colors 와 팔레트가 달라서 따로 둡니다. UIUX-Edit 정리 때 빠졌던 것을 복원)
+export const emergencyColors = {
+  text: '#203346',
+  textSecondary: '#74818B',
+  danger: '#C34242',
+  dangerBg: '#FFF5F4',
+  dangerBorder: '#F2DAD7',
+  surface: '#F7F9F9',
+  border: '#E5EAEA',
+  accent: '#087F79',
+};
+
 export const radius = {
   card: 24,
   icon: 14,
