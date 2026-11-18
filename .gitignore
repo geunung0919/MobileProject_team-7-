@@ -84,3 +84,6 @@ serviceAccountKey.json
 .env.local
 
 *.js.bak
+npm-debug.log*
+
+.expo/

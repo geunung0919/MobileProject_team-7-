@@ -1,0 +1,9 @@
+import {colors,fonts,spacing} from '../../src/theme';
+import React from 'react';
+import {ScrollView,Text,View,Pressable,TextInput,StyleSheet} from 'react-native';
+import {useApp} from '../state/AppProvider';
+export function Page({title,subtitle,children}){const {error}=useApp();return <ScrollView style={styles.page} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled"><Text style={styles.title}>{title}</Text>{subtitle&&<Text style={styles.muted}>{subtitle}</Text>}{error&&<Text style={styles.error}>{error}</Text>}{children}</ScrollView>;}
+export function Card({children}){return <View style={styles.card}>{children}</View>;}
+export function Button({title,onPress,secondary=false,disabled=false}){return <Pressable accessibilityRole="button" disabled={disabled} onPress={onPress} style={[styles.button,secondary&&styles.secondary,disabled&&{opacity:0.4}]}><Text style={{color:secondary?'#17664b':'white',fontWeight:'700'}}>{title}</Text></Pressable>;}
+export function Field({label,...props}){return <View style={{gap:6}}><Text style={styles.label}>{label}</Text><TextInput accessibilityLabel={label} style={styles.input} placeholderTextColor="#87928c" {...props}/></View>;}
+export const styles=StyleSheet.create({page:{flex:1,backgroundColor:colors.background},content:{padding:spacing.screenX,gap:16,paddingBottom:40},title:{fontSize:28,fontWeight:'700',color:colors.textPrimary},label:{fontSize:17,fontWeight:'700',color:'#19382c'},muted:{color:'#617269',lineHeight:22},card:{backgroundColor:'white',borderRadius:24,padding:18,gap:10,borderWidth:1,borderColor:'#e0e8df'},button:{backgroundColor:colors.green,padding:17,borderRadius:28,alignItems:'center'},secondary:{backgroundColor:colors.heroBg},input:{backgroundColor:colors.cardBg,padding:17,borderRadius:20,fontSize:17,color:colors.textPrimary},error:{color:'#b93838',lineHeight:22}});
