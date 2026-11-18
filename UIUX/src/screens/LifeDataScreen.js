@@ -12,6 +12,8 @@ import {
   RegionField,
 } from '../components/LifeFields';
 import { useAppData } from '../store/AppDataContext';
+import { useAuth } from '../../../auth/AuthContext';
+import { toProfile } from '../../../auth/uiMapping';
 import { lifeDataForm } from '../data/more/lifeData';
 import { showNotice } from '../utils/confirm';
 import { colors, spacing } from '../theme';
@@ -20,7 +22,8 @@ import { colors, spacing } from '../theme';
 // (닉네임은 "개인정보 관리"에서 고칩니다.)
 export default function LifeDataScreen({ navigation }) {
   const insets = useSafeAreaInsets();
-  const { lifeData, updateLifeData, budget, setBudget, profile, updateProfile } = useAppData();
+  const { lifeData, updateLifeData, budget, setBudget, profile, updateProfile, sharedReceipts } = useAppData();
+  const auth = useAuth();
   const d = lifeDataForm;
 
   const [period, setPeriod] = useState(lifeData.period);
@@ -38,6 +41,10 @@ export default function LifeDataScreen({ navigation }) {
     if (!budgetInput) {
       showNotice('입력을 확인해 주세요', d.budgetEmptyNotice);
       return;
+    }
+    if (sharedReceipts && auth?.stage === 'app') {
+      auth.updateProfile(toProfile({ period, goal, tools, cookDays, budget: budgetInput }))
+        .catch((e) => showNotice('저장하지 못했어요', e.message));
     }
     updateLifeData({ period, goal, tools, cookDays });
     setBudget(budgetInput);

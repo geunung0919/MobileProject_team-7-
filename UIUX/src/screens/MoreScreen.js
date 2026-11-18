@@ -9,6 +9,7 @@ import SectionTitle from '../components/SectionTitle';
 import MenuRow from '../components/MenuRow';
 import { signOut } from 'firebase/auth';
 import { auth } from '../../../firebase/firebaseConfig';
+import { useAuth } from '../../../auth/AuthContext';
 import { useAppData } from '../store/AppDataContext';
 import SoftButton from '../components/SoftButton';
 import IconBox from '../components/IconBox';
@@ -34,14 +35,18 @@ export default function MoreScreen({ navigation }) {
   const [confirmUid, setConfirmUid] = useState(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const authCtx = useAuth();
   // 서버(Firebase) 연결 모드의 로그아웃
   const handleSharedLogout = async () => {
     if (!sharedUid || auth.currentUser?.uid !== sharedUid || busy) return;
     setBusy(true);
     setError('');
     try {
-      await signOut(auth);
+      if (authCtx?.logout) await authCtx.logout(); else await signOut(auth);
       setConfirmUid(null);
+      (navigation.getParent() ?? navigation).dispatch(
+        CommonActions.reset({ index: 0, routes: [{ name: 'Welcome' }] }),
+      );
     } catch (err) {
       setError(err.message || '로그아웃하지 못했어요.');
     } finally {

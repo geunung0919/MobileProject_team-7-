@@ -7,6 +7,7 @@ import BackHeader from '../components/BackHeader';
 import FormField from '../components/FormField';
 import PrimaryButton from '../components/PrimaryButton';
 import { useAppData } from '../store/AppDataContext';
+import { useAuth } from '../../../auth/AuthContext';
 import { authData } from '../data/auth/auth';
 import { showNotice } from '../utils/confirm';
 import { colors, fonts, spacing } from '../theme';
@@ -16,13 +17,14 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // 회원가입. 지금은 형식만 확인하고 통과합니다. (실제 가입은 handleSubmit 에서 연결)
 export default function SignUpScreen({ navigation }) {
   const insets = useSafeAreaInsets();
-  const { updateProfile } = useAppData();
+  const { updateProfile, sharedReceipts } = useAppData();
+  const auth = useAuth();
   const d = authData.signUp;
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     const problem = !EMAIL_PATTERN.test(email.trim())
       ? authData.invalidEmailNotice
       : password.length < authData.minPasswordLength
@@ -34,7 +36,15 @@ export default function SignUpScreen({ navigation }) {
       showNotice('입력을 확인해 주세요', problem);
       return;
     }
-    // TODO: 여기서 서버 회원가입을 호출하세요. 성공하면 아래 줄이 실행되면 됩니다.
+    if (sharedReceipts && auth) {
+      try {
+        await auth.signUp({ email: email.trim(), password, confirm });
+        navigation.dispatch(CommonActions.reset({ index: 0, routes: [{ name: 'ProfileSetup' }] }));
+      } catch (e) {
+        showNotice('입력을 확인해 주세요', e.message);
+      }
+      return;
+    }
     updateProfile({ email: email.trim() });
     // 가입이 끝나면 프로필 설정으로. 이전 화면들을 비워서 뒤로 가기로 첫 화면에 돌아오지 않게 함
     navigation.dispatch(CommonActions.reset({ index: 0, routes: [{ name: 'ProfileSetup' }] }));

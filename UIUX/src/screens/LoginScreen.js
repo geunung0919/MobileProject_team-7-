@@ -7,6 +7,7 @@ import BackHeader from '../components/BackHeader';
 import FormField from '../components/FormField';
 import PrimaryButton from '../components/PrimaryButton';
 import { useAppData } from '../store/AppDataContext';
+import { useAuth } from '../../../auth/AuthContext';
 import { authData } from '../data/auth/auth';
 import { showNotice } from '../utils/confirm';
 import { colors, fonts, spacing } from '../theme';
@@ -16,12 +17,13 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // 로그인. 지금은 형식만 확인하고 통과합니다. (실제 인증은 handleSubmit 에서 연결)
 export default function LoginScreen({ navigation }) {
   const insets = useSafeAreaInsets();
-  const { updateProfile } = useAppData();
+  const { updateProfile, sharedReceipts } = useAppData();
+  const auth = useAuth(); // 공유(Firebase) 모드에서만 실제 로그인
   const d = authData.login;
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!EMAIL_PATTERN.test(email.trim())) {
       showNotice('입력을 확인해 주세요', authData.invalidEmailNotice);
       return;
@@ -30,7 +32,16 @@ export default function LoginScreen({ navigation }) {
       showNotice('입력을 확인해 주세요', authData.emptyPasswordNotice);
       return;
     }
-    // TODO: 여기서 서버 로그인을 호출하세요. 성공하면 아래 두 줄이 실행되면 됩니다.
+    if (sharedReceipts && auth) {
+      try {
+        const { onboarded } = await auth.signIn({ email: email.trim(), password });
+        const to = onboarded === false ? 'ProfileSetup' : 'Tabs';
+        navigation.dispatch(CommonActions.reset({ index: 0, routes: [{ name: to }] }));
+      } catch (e) {
+        showNotice('입력을 확인해 주세요', e.message);
+      }
+      return;
+    }
     updateProfile({ email: email.trim() });
     navigation.dispatch(CommonActions.reset({ index: 0, routes: [{ name: 'Tabs' }] })); // 이전 화면들을 비워서 뒤로 가기로 첫 화면에 돌아오지 않게 함
   };

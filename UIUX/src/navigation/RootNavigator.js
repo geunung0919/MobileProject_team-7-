@@ -33,9 +33,9 @@ import HelpScreen from '../screens/HelpScreen';
 const Stack = createNativeStackNavigator();
 
 // 탭 바가 없는 화면(상세, 입력 등)은 여기에 등록합니다.
-export default function RootNavigator() {
+export default function RootNavigator({ initialRouteName = 'Welcome' }) {
   return (
-    <Stack.Navigator initialRouteName="Welcome" screenOptions={{ headerShown: false }}>
+    <Stack.Navigator initialRouteName={initialRouteName} screenOptions={{ headerShown: false }}>
       {/* 앱을 켜면 처음 나오는 화면들 (로그인하면 replace 로 Tabs 로 들어감) */}
       <Stack.Screen name="Welcome" component={WelcomeScreen} />
       <Stack.Screen name="Login" component={LoginScreen} />

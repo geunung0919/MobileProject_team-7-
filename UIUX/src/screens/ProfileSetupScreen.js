@@ -17,6 +17,8 @@ import {
   RegionField,
 } from '../components/LifeFields';
 import { useAppData } from '../store/AppDataContext';
+import { useAuth } from '../../../auth/AuthContext';
+import { toProfile } from '../../../auth/uiMapping';
 import { profileSetupData as setup } from '../data/auth/profileSetup';
 import { lifeDataForm } from '../data/more/lifeData';
 import { getDiagnosis, formatBudget, periodLabel, goalTitle, toolsLabel } from '../utils/diagnosis';
@@ -32,7 +34,8 @@ const STEP_OF_SECTION = { nickname: 1, status: 2, cooking: 3, budgetRegion: 4 };
 // 더보기 > 생활 데이터 수정 / 개인정보 관리 / 소비 예산에 같은 값이 보입니다.
 export default function ProfileSetupScreen({ navigation }) {
   const insets = useSafeAreaInsets();
-  const { profile, updateProfile, lifeData, updateLifeData, budget: savedBudget, setBudget } = useAppData();
+  const { profile, updateProfile, lifeData, updateLifeData, budget: savedBudget, setBudget, sharedReceipts } = useAppData();
+  const auth = useAuth();
 
   const [step, setStep] = useState(1);
   const [editing, setEditing] = useState(false); // 확인 화면에서 "수정"을 눌러 들어온 상태
@@ -71,7 +74,7 @@ export default function ProfileSetupScreen({ navigation }) {
     return null;
   };
 
-  const next = () => {
+  const next = async () => {
     const msg = problem();
     if (msg) {
       showNotice('입력을 확인해 주세요', msg);
@@ -82,6 +85,18 @@ export default function ProfileSetupScreen({ navigation }) {
       setStep(REVIEW);
     } else if (step === REVIEW) {
       // 진단 결과를 보여주기 전에 입력값을 저장합니다.
+      if (sharedReceipts && auth) {
+        try {
+          await auth.completeOnboarding({
+            nickname: nickname.trim(),
+            profile: toProfile({ period, goal, tools, cookDays, budget, region: region.trim() }),
+          });
+        } catch (e) {
+          if (e.field === 'nickname') setStep(1);
+          showNotice('입력을 확인해 주세요', e.message);
+          return;
+        }
+      }
       updateProfile({ nickname: nickname.trim(), region: region.trim() });
       updateLifeData({ period, goal, tools, cookDays });
       setBudget(budget);
@@ -97,7 +112,10 @@ export default function ProfileSetupScreen({ navigation }) {
   };
 
   // 설정을 끝내고 앱으로 들어갑니다. to 가 있으면 그 화면을 바로 열어요.
-  const finish = (to) => {
+  const finish = async (to) => {
+    if (sharedReceipts && auth) {
+      try { await auth.finishOnboarding(); } catch (e) { /* 이동은 계속 */ }
+    }
     const routes = [{ name: 'Tabs', params: to?.tab ? { screen: to.tab } : undefined }];
     if (to?.screen) routes.push({ name: to.screen });
     navigation.dispatch(CommonActions.reset({ index: routes.length - 1, routes }));
