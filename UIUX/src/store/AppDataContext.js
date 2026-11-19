@@ -89,7 +89,9 @@ export function AppDataProvider({ children, sharedReceipts = false }) {
   });
 
   // 더미 할 일의 daysFromToday 를 실제 마감일(due)로 바꿔서 시작합니다.
+  // 서버(공유) 모드에서는 예시 데이터 없이 빈 목록으로 시작합니다.
   const [todos, setTodos] = useState(() => {
+    if (sharedReceipts) return [];
     const today = toDateString(new Date());
     return todoData.items.map(({ daysFromToday, ...t }) => ({
       ...t,
