@@ -51,14 +51,40 @@ function toDraft(tx) {
 }
 
 // 소비 > 지출 상세 (구매한 품목). params: { id }. [수정] 으로 이름 / 구매일 / 총 지출 / 품목을 고치고, 휴지통으로 삭제합니다.
+// 서버 지출 기록(users/{uid}/transactions) → 이 화면의 지출 형식
+function fromServerTransaction(row) {
+  const items = Array.isArray(row.items) ? row.items : [];
+  return {
+    id: row.id,
+    title: row.title || '지출',
+    category: row.category || '기타',
+    amount: Number(row.amount) || 0,
+    date: String(row.date || '').slice(0, 10),
+    source: row.source === 'ocr' || row.source === 'receipt' ? 'receipt' : row.source,
+    items: items.map((item, index) => ({
+      id: item.receiptItemId || item.id || `item-${index}`,
+      name: item.name || item.rawName || '품목',
+      unitPrice: Number(item.linePaidAmount ?? item.paid ?? item.price ?? 0) || 0,
+      quantity: 1,
+      inFridge: Boolean(item.inventorySelected),
+    })),
+  };
+}
+
 export default function SpendingDetailScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
   const { transactions, updateTransaction, removeTransaction } = useAppData();
   const scrollRef = useRef(null);
   const nextKey = useRef(1);
 
+  // Firebase 모드의 서버 지출 기록은 목록에서 통째로 넘겨받아 보기 전용으로 보여 줍니다.
+  // (서버에 지출 수정·삭제 API 가 아직 없어서 수정·삭제 버튼은 숨깁니다.)
+  const serverRow = route.params?.serverTransaction ?? null;
+  const readOnly = Boolean(serverRow);
   // 삭제 직후 화면이 닫히는 동안에도 내용이 사라져 보이지 않도록 마지막 값을 기억해 둡니다.
-  const found = transactions.find((x) => x.id === route.params?.id);
+  const found = serverRow
+    ? fromServerTransaction(serverRow)
+    : transactions.find((x) => x.id === route.params?.id);
   const lastTransaction = useRef(found);
   if (found) lastTransaction.current = found;
   const transaction = found ?? lastTransaction.current;
@@ -182,7 +208,7 @@ export default function SpendingDetailScreen({ navigation, route }) {
       title={editing ? t.editTitle : t.title}
       icon="arrow-back"
       onBack={editing ? cancelEdit : () => navigation.goBack()}
-      right={editing ? null : headerActions}
+      right={editing || readOnly ? null : headerActions}
     />
   );
 
@@ -212,6 +238,11 @@ export default function SpendingDetailScreen({ navigation, route }) {
         }}
       >
         {header}
+        {readOnly ? (
+          <Text style={styles.readOnlyNote}>
+            서버에 저장된 기록이라 여기서는 보기만 할 수 있어요.
+          </Text>
+        ) : null}
 
         {editing ? (
           <View>
@@ -369,6 +400,13 @@ export default function SpendingDetailScreen({ navigation, route }) {
 }
 
 const styles = StyleSheet.create({
+  readOnlyNote: {
+    marginTop: -12,
+    marginBottom: 12,
+    fontFamily: fonts.regular,
+    fontSize: 13,
+    color: colors.textSecondary,
+  },
   container: {
     flex: 1,
     backgroundColor: colors.background,

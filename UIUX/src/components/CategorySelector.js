@@ -17,13 +17,14 @@ export default function CategorySelector({
   onChange,
   onAddCategory,
   hint = "선택하지 않으면 냉장고에 담는 식품이 있을 때는 '식품', 없으면 '기타'로 저장돼요.",
+  baseOptions, // 맨 앞 기본 선택지 (없으면 '식품' 하나)
   style,
 }) {
   const [adding, setAdding] = useState(false);
   const [name, setName] = useState('');
   const [error, setError] = useState(null);
 
-  const options = getCategoryOptions(customCategories);
+  const options = getCategoryOptions(customCategories, baseOptions);
 
   const toggleAdding = () => {
     setAdding((open) => !open);
@@ -32,7 +33,7 @@ export default function CategorySelector({
   };
 
   const handleAdd = () => {
-    const problem = validateCategoryName(name, customCategories);
+    const problem = validateCategoryName(name, customCategories, options);
     if (problem) {
       setError(problem);
       return;

@@ -34,7 +34,8 @@ EXPO_PUBLIC_FIREBASE_TARGET=cloud
 EXPO_PUBLIC_PLACE_API_MODE=firebase
 EXPO_PUBLIC_CLOUD_API_BASE_URL=https://asia-northeast3-solo-living-ai.cloudfunctions.net/api
 
-# OCR 서버가 별도로 배포되어 있고 접근 권한이 있을 때만 설정
+# 영수증 OCR 은 주소를 넣지 않아도 됩니다. 같은 PC 에서 jachwi-core(8000번)를 켜 두면
+# 앱 개발 서버가 /__ocr 로 중계합니다 (같은 Wi-Fi·핫스팟·--tunnel 모두). 아래 줄은 별도 OCR 서버를 쓸 때만:
 # EXPO_PUBLIC_RECEIPT_OCR_BASE_URL=https://<승인된-OCR-서버-도메인>
 # EXPO_PUBLIC_RECEIPT_AUTH_MODE=firebase
 ```
@@ -125,7 +126,7 @@ npx.cmd expo start --clear --lan
 | `EXPO_PUBLIC_PLACE_API_MODE` | 지도 장소 API 방식 | `firebase`(권장), 레거시 `node` 모드 존재 |
 | `EXPO_PUBLIC_CLOUD_API_BASE_URL` | 클라우드 공통 HTTP API 기본 URL | Cloud 모드에 필요; HTTPS |
 | `EXPO_PUBLIC_DEV_HOST` | 로컬 에뮬레이터에 접근할 PC IP | Emulator 모드에서 필요 |
-| `EXPO_PUBLIC_RECEIPT_OCR_BASE_URL` | 별도 OCR/결제 문자 분석 서버 URL | 미설정 시 관련 분석 기능 이용 불가 |
+| `EXPO_PUBLIC_RECEIPT_OCR_BASE_URL` | 별도 OCR/결제 문자 분석 서버 URL | 미설정 시 개발 서버가 같은 PC 의 jachwi-core(8000번)로 중계 |
 | `EXPO_PUBLIC_RECEIPT_AUTH_MODE` | OCR 서버 인증 방식 | `firebase` 또는 개발 전용 `development`(기본값) |
 
 OCR을 클라우드 Firebase 인증으로 사용할 경우 `EXPO_PUBLIC_RECEIPT_AUTH_MODE=firebase`와 **HTTPS OCR 서버**가 필요합니다. `development` 모드는 개발 토큰을 사용하는 별도 테스트 방식으로, 실제 배포에 사용하지 마세요.
@@ -163,7 +164,21 @@ AI 서비스가 배포되어 있지 않거나 인증이 되지 않으면 일부 
 
 ### 영수증 OCR: `jachwi-core/`
 
-`api/receiptRecognition.js`는 지정된 OCR 서버에 HTTPS 요청을 보내 영수증 사진과 결제 문자를 분석합니다. 이는 Firebase의 일반 `/api` 서버와 **별도로 구성되는 서비스**입니다. Python 서버의 설치·실행·배포 세부 사항은 `jachwi-core/README.md` 및 해당 폴더의 요구사항 파일을 확인하세요. OCR 서버를 운영하지 않는 경우 수동 소비 입력 등 다른 기능과 구분하여 테스트해야 합니다.
+**시연·개발 실행 (주소 설정 불필요):**
+
+```bash
+# 창 1: OCR 서버 (jachwi-core/.env 는 .env.example 복사 후 Firebase 키 경로 설정, Tesseract 한국어 설치 필요)
+cd jachwi-core
+./.venv/Scripts/python.exe -m uvicorn app.main:create_app --factory --port 8000
+
+# 창 2: 앱 (아이폰 Safari·안드로이드·PC 모두, 다른 네트워크면 --tunnel)
+npm run receipt:web            # 같은 Wi-Fi
+npm run receipt:web -- --tunnel
+```
+
+휴대폰의 "사진 촬영 후 분석"은 앱 개발 서버의 `/__ocr` 경로로 보내지고, 개발 서버가 같은 PC 의 `127.0.0.1:8000` 으로 넘깁니다. 방화벽·IP 설정이 필요 없습니다. 자세한 내용은 `docs/RECEIPT_SHARED_DB.md`.
+
+`api/receiptRecognition.js`는 OCR 서버에 요청을 보내 영수증 사진과 결제 문자를 분석합니다. 이는 Firebase의 일반 `/api` 서버와 **별도로 구성되는 서비스**입니다. Python 서버의 설치·실행·배포 세부 사항은 `jachwi-core/README.md` 및 해당 폴더의 요구사항 파일을 확인하세요. OCR 서버를 운영하지 않는 경우 수동 소비 입력 등 다른 기능과 구분하여 테스트해야 합니다.
 
 ## 6. 플랫폼별 차이
 
@@ -210,7 +225,7 @@ Firebase 로그인 상태 및 AI Functions 배포, `asia-northeast3`, 사용량 
 
 **OCR 촬영·문자 분석에 실패함**
 
-`EXPO_PUBLIC_RECEIPT_OCR_BASE_URL`, 인증 모드, OCR 서버 가동 여부 및 HTTPS 연결을 확인합니다. OCR 서버가 없으면 분석 기능을 사용할 수 없습니다.
+같은 PC 에서 jachwi-core 가 8000번으로 켜져 있는지(`curl http://127.0.0.1:8000/health`), Tesseract 한국어(kor) 설치, `.env.local` 에 예전 `EXPO_PUBLIC_RECEIPT_OCR_BASE_URL` 이 남아 있지 않은지 확인합니다. OCR 서버가 꺼져 있으면 화면에 안내가 뜨고 직접 입력으로 저장할 수 있습니다.
 
 **Android에서 결제 알림 수집을 사용할 수 없음**
 

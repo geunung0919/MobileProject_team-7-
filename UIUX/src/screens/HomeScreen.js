@@ -91,19 +91,26 @@ export default function HomeScreen({ navigation }) {
           <SummaryCard title={spending.title} onPress={() => navigation.navigate('Spending')}>
             <Text style={summaryStyles.label}>{spendingSummary.month}월 남은 예산</Text>
             <View style={summaryStyles.bigRow}>
-              <Text style={summaryStyles.bigText}>{spendingSummary.remaining == null ? '—' : formatNumber(spendingSummary.remaining)}</Text>
-              <Text style={summaryStyles.unit}>원</Text>
+              {spendingSummary.remaining == null ? (
+                <Text style={styles.fridgeHeadline}>예산 미설정</Text>
+              ) : (
+                <>
+                  <Text style={summaryStyles.bigText}>{formatNumber(spendingSummary.remaining)}</Text>
+                  <Text style={summaryStyles.unit}>원</Text>
+                </>
+              )}
             </View>
             <View style={styles.spendingSub}>
               <Text style={summaryStyles.sub}>지출 {spendingSummary.spent == null ? '—' : `${formatNumber(spendingSummary.spent)}원`}</Text>
-              <Text style={summaryStyles.sub}>예산 {spendingSummary.budget == null ? '—' : `${formatNumber(spendingSummary.budget)}원`}</Text>
+              <Text style={summaryStyles.sub}>예산 {spendingSummary.budget == null ? '미설정' : `${formatNumber(spendingSummary.budget)}원`}</Text>
             </View>
           </SummaryCard>
 
           <SummaryCard title={fridge.title} onPress={() => navigation.navigate('Fridge')}>
             <Text style={summaryStyles.label}>보관 중인 식재료 {sharedReceipts && !visibleShared?.inventory ? '—' : `${fridgeSummary.total}개`}</Text>
             <View style={summaryStyles.bigRow}>
-              <Text style={summaryStyles.bigText}>{fridge.headline} </Text>
+              {/* 카드 폭이 좁아 큰 글씨면 "기한 임 / 박" 처럼 줄이 바뀌어서, 문구는 작게 + 개수만 크게 */}
+              <Text style={styles.fridgeHeadline} numberOfLines={1}>{fridge.headline}</Text>
               <Text style={[summaryStyles.bigText, styles.greenText]}>{sharedReceipts && !visibleShared?.inventory ? '—' : `${fridgeSummary.urgentCount}개`}</Text>
             </View>
             <View style={styles.fridgeSub}>
@@ -161,17 +168,28 @@ const styles = StyleSheet.create({
   fridgeSub: {
     marginTop: 12,
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     justifyContent: 'space-between',
+    rowGap: 6,
+  },
+  fridgeHeadline: {
+    fontFamily: fonts.bold,
+    fontSize: 17,
+    color: colors.textPrimary,
+    marginRight: 4,
   },
   greenText: {
     color: colors.green,
   },
   fridgeName: {
-    flex: 1,
+    flexGrow: 1,
+    flexShrink: 1,
+    minWidth: 48,
     marginRight: 6,
   },
   tag: {
+    flexShrink: 0,
     borderRadius: 12,
     paddingHorizontal: 9,
     paddingVertical: 4,

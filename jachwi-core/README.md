@@ -1,6 +1,7 @@
 # 자취 가이드 — 1번 중앙 코어 v0.1
 
 처음 실행하는 팀원은 [사용설명서](docs/USER_GUIDE.md)를 먼저 읽어 주세요.
+Firebase(Firestore)에 저장하려면 [Firestore 설정](docs/FIRESTORE.md)을 따라 `.env` 의 `DATABASE_URL` 을 바꾸세요.
 
 친구의 6모듈 분담 기준으로 만든 **로컬 개발용 첫 구현**입니다.
 1번은 온보딩 분류와 데이터 규격·통합을 담당합니다. OCR, 실제 재고 차감,

@@ -8,7 +8,6 @@ import React, {
 
 import {
   View,
-  Text,
   ScrollView,
   Pressable,
   ActivityIndicator,
@@ -16,12 +15,15 @@ import {
   StyleSheet,
 } from 'react-native';
 
+import Text from '../components/AppText';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { auth } from '../../../firebase/firebaseConfig';
 import { listFridgeItems } from '../../../api/receiptApi';
 import { useAppData } from '../store/AppDataContext';
+import BackHeader from '../components/BackHeader';
+import { colors, fonts, spacing } from '../theme';
 
 // 한국 날짜 기준 YYYY-MM-DD
 function getKoreanToday() {
@@ -148,14 +150,14 @@ const STATUS = {
   expired: {
     title: '소비기한 만료',
     description: '소비기한이 지난 식재료예요.',
-    color: '#DC2626',
-    background: '#FEF2F2',
+    color: colors.expired,
+    background: colors.dangerBg,
   },
   today: {
     title: '오늘까지',
     description: '오늘이 소비기한인 식재료예요.',
-    color: '#EA580C',
-    background: '#FFF7ED',
+    color: colors.warnText,
+    background: colors.warnBg,
   },
   soon: {
     title: '소비기한 임박',
@@ -166,14 +168,14 @@ const STATUS = {
   normal: {
     title: '정상',
     description: '소비기한이 4일 이상 남았어요.',
-    color: '#16A34A',
-    background: '#F0FDF4',
+    color: colors.green,
+    background: colors.heroBg,
   },
   unknown: {
     title: '기한 미입력',
     description: '소비기한을 등록하지 않은 식재료예요.',
-    color: '#64748B',
-    background: '#F1F5F9',
+    color: colors.textSecondary,
+    background: colors.calmBg,
   },
 };
 
@@ -292,7 +294,7 @@ export default function FridgeExpiryAlertScreen({
 
         if (!sharedReceipts) {
           throw new Error(
-            'Firebase 공유 냉장고가 활성화되지 않았어요.'
+            '공유 냉장고가 활성화되지 않았어요.'
           );
         }
 
@@ -419,31 +421,19 @@ export default function FridgeExpiryAlertScreen({
 
   return (
     <View style={styles.container}>
-      <View
-        style={[
-          styles.header,
-          { paddingTop: Math.max(insets.top, 12) },
-        ]}
-      >
-        <Pressable
-          onPress={() => navigation.goBack()}
-          style={styles.backButton}
-        >
-          <Text style={styles.backText}>‹ 뒤로</Text>
-        </Pressable>
-
-        <Text style={styles.headerTitle}>
-          소비기한 알림
-        </Text>
-
-        <View style={styles.headerRight} />
+      <View style={[styles.header, { paddingTop: Math.max(insets.top, 12) + 14 }]}>
+        <BackHeader
+          title="소비기한 알림"
+          subtitle="기한이 가까운 식재료부터 챙겨요."
+          onBack={() => navigation.goBack()}
+        />
       </View>
 
       {loading && !refreshing ? (
         <View style={styles.center}>
           <ActivityIndicator
             size="large"
-            color="#16A34A"
+            color={colors.green}
           />
           <Text style={styles.loadingText}>
             냉장고 재고를 확인하고 있어요.
@@ -507,25 +497,25 @@ export default function FridgeExpiryAlertScreen({
                 <SummaryCard
                   title="전체"
                   count={counts.total}
-                  color="#334155"
+                  color={colors.textPrimary}
                 />
 
                 <SummaryCard
                   title="관리 필요"
                   count={counts.attention}
-                  color="#DC2626"
+                  color={colors.expired}
                 />
 
                 <SummaryCard
                   title="정상"
                   count={counts.normal}
-                  color="#16A34A"
+                  color={colors.green}
                 />
 
                 <SummaryCard
                   title="기한 미입력"
                   count={counts.unknown}
-                  color="#64748B"
+                  color={colors.textSecondary}
                 />
               </View>
 
@@ -610,7 +600,7 @@ export default function FridgeExpiryAlertScreen({
                 </Text>
 
                 <Text style={styles.noticeText}>
-                  이 화면은 Firebase에 저장된 소비기한을
+                  이 화면은 서버에 저장된 소비기한을
                   기준으로 표시합니다.
                 </Text>
 
@@ -640,40 +630,17 @@ export default function FridgeExpiryAlertScreen({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: colors.background,
   },
 
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 18,
-    paddingBottom: 16,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
+    paddingHorizontal: spacing.screenX,
+    backgroundColor: colors.background,
   },
 
-  backButton: {
-    minWidth: 65,
-    paddingVertical: 5,
-  },
 
-  backText: {
-    fontSize: 16,
-    color: '#334155',
-    fontWeight: '600',
-  },
 
-  headerTitle: {
-    fontSize: 19,
-    fontWeight: '700',
-    color: '#0F172A',
-  },
 
-  headerRight: {
-    width: 65,
-  },
 
   scroll: {
     flex: 1,
@@ -693,34 +660,34 @@ const styles = StyleSheet.create({
 
   loadingText: {
     fontSize: 14,
-    color: '#64748B',
+    color: colors.textSecondary,
   },
 
   introCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.white,
     borderRadius: 16,
     padding: 20,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: colors.divider,
   },
 
   introTitle: {
     fontSize: 21,
-    fontWeight: '800',
-    color: '#0F172A',
+    fontFamily: fonts.bold,
+    color: colors.textPrimary,
     marginBottom: 10,
   },
 
   introDescription: {
     fontSize: 14,
     lineHeight: 22,
-    color: '#475569',
+    color: colors.textSecondary,
   },
 
   todayLabel: {
     fontSize: 13,
-    color: '#64748B',
+    color: colors.textSecondary,
     marginTop: 12,
   },
 
@@ -733,61 +700,61 @@ const styles = StyleSheet.create({
 
   summaryCard: {
     width: '48%',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.white,
     borderRadius: 14,
     paddingVertical: 20,
     alignItems: 'center',
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: colors.divider,
   },
 
   summaryCount: {
     fontSize: 28,
-    fontWeight: '800',
+    fontFamily: fonts.bold,
     marginBottom: 7,
   },
 
   summaryTitle: {
     fontSize: 13,
-    color: '#475569',
-    fontWeight: '600',
+    color: colors.textSecondary,
+    fontFamily: fonts.medium,
   },
 
   attentionCard: {
-    backgroundColor: '#FFF7ED',
+    backgroundColor: colors.warnBg,
     padding: 17,
     borderRadius: 14,
     marginBottom: 22,
     borderWidth: 1,
-    borderColor: '#FED7AA',
+    borderColor: colors.overdueBorder,
   },
 
   attentionTitle: {
     fontSize: 15,
-    fontWeight: '700',
-    color: '#9A3412',
+    fontFamily: fonts.bold,
+    color: colors.warnText,
     marginBottom: 7,
   },
 
   attentionDescription: {
     fontSize: 13,
-    color: '#9A3412',
+    color: colors.warnText,
     lineHeight: 20,
   },
 
   safeCard: {
-    backgroundColor: '#F0FDF4',
+    backgroundColor: colors.heroBg,
     padding: 17,
     borderRadius: 14,
     marginBottom: 22,
   },
 
   safeText: {
-    color: '#166534',
+    color: colors.green,
     fontSize: 14,
     lineHeight: 21,
-    fontWeight: '600',
+    fontFamily: fonts.medium,
   },
 
   section: {
@@ -809,29 +776,29 @@ const styles = StyleSheet.create({
 
   sectionTitle: {
     fontSize: 17,
-    fontWeight: '800',
-    color: '#1E293B',
+    fontFamily: fonts.bold,
+    color: colors.textPrimary,
   },
 
   sectionCount: {
     fontSize: 13,
-    color: '#64748B',
+    color: colors.textSecondary,
     marginLeft: 8,
   },
 
   sectionDescription: {
     fontSize: 13,
-    color: '#64748B',
+    color: colors.textSecondary,
     marginBottom: 12,
   },
 
   itemCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.white,
     borderRadius: 14,
     padding: 16,
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: colors.divider,
   },
 
   itemTop: {
@@ -845,8 +812,8 @@ const styles = StyleSheet.create({
   itemName: {
     flex: 1,
     fontSize: 16,
-    fontWeight: '700',
-    color: '#0F172A',
+    fontFamily: fonts.bold,
+    color: colors.textPrimary,
   },
 
   ddayBadge: {
@@ -857,31 +824,31 @@ const styles = StyleSheet.create({
 
   ddayText: {
     fontSize: 13,
-    fontWeight: '800',
+    fontFamily: fonts.bold,
   },
 
   itemDetail: {
     fontSize: 13,
-    color: '#475569',
+    color: colors.textSecondary,
     marginBottom: 5,
   },
 
   warningText: {
     fontSize: 12,
-    color: '#DC2626',
+    color: colors.expired,
     marginTop: 8,
-    fontWeight: '600',
+    fontFamily: fonts.medium,
   },
 
   todayText: {
     fontSize: 12,
-    color: '#EA580C',
+    color: colors.warnText,
     marginTop: 8,
-    fontWeight: '600',
+    fontFamily: fonts.medium,
   },
 
   emptyCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.white,
     borderRadius: 14,
     padding: 24,
     alignItems: 'center',
@@ -890,20 +857,20 @@ const styles = StyleSheet.create({
 
   emptyTitle: {
     fontSize: 15,
-    fontWeight: '700',
-    color: '#334155',
+    fontFamily: fonts.bold,
+    color: colors.textPrimary,
     marginBottom: 9,
   },
 
   emptyText: {
     fontSize: 13,
-    color: '#64748B',
+    color: colors.textSecondary,
     lineHeight: 21,
     textAlign: 'center',
   },
 
   noticeCard: {
-    backgroundColor: '#F1F5F9',
+    backgroundColor: colors.calmBg,
     borderRadius: 14,
     padding: 18,
     marginTop: 4,
@@ -911,40 +878,40 @@ const styles = StyleSheet.create({
 
   noticeTitle: {
     fontSize: 14,
-    fontWeight: '700',
-    color: '#334155',
+    fontFamily: fonts.bold,
+    color: colors.textPrimary,
     marginBottom: 12,
   },
 
   noticeText: {
     fontSize: 12,
-    color: '#64748B',
+    color: colors.textSecondary,
     lineHeight: 19,
     marginBottom: 7,
   },
 
   errorCard: {
-    backgroundColor: '#FEF2F2',
+    backgroundColor: colors.dangerBg,
     borderRadius: 14,
     padding: 18,
     marginBottom: 18,
   },
 
   errorTitle: {
-    color: '#991B1B',
+    color: colors.expired,
     fontSize: 15,
-    fontWeight: '700',
+    fontFamily: fonts.bold,
     marginBottom: 8,
   },
 
   errorText: {
-    color: '#B91C1C',
+    color: colors.expired,
     fontSize: 13,
     lineHeight: 20,
   },
 
   retryButton: {
-    backgroundColor: '#DC2626',
+    backgroundColor: colors.expired,
     padding: 12,
     borderRadius: 10,
     alignItems: 'center',
@@ -952,8 +919,8 @@ const styles = StyleSheet.create({
   },
 
   retryText: {
-    color: '#FFFFFF',
-    fontWeight: '700',
+    color: colors.white,
+    fontFamily: fonts.bold,
     fontSize: 14,
   },
 });

@@ -116,17 +116,17 @@ export default function SignUpScreen({ navigation }) {
 
         case 'auth/weak-password':
           message =
-            '비밀번호가 Firebase 보안 기준을 충족하지 않습니다.';
+            '비밀번호가 보안 기준을 충족하지 않습니다.';
           break;
 
         case 'auth/operation-not-allowed':
           message =
-            'Firebase에서 이메일 회원가입이 활성화되지 않았습니다.';
+            '지금은 이메일 회원가입을 할 수 없습니다. 관리자에게 문의해 주세요.';
           break;
 
         case 'auth/network-request-failed':
           message =
-            'Firebase 서버에 연결하지 못했습니다.';
+            '서버에 연결하지 못했습니다.';
           break;
 
         case 'auth/too-many-requests':
@@ -164,7 +164,8 @@ export default function SignUpScreen({ navigation }) {
         <BackHeader
           title={d.title}
           subtitle={d.subtitle}
-          onBack={() => navigation.goBack()}
+          // 로그인 화면에서 화면 교체(replace)로 들어오므로 돌아갈 화면이 없으면 로그인으로 보냅니다
+          onBack={() => (navigation.canGoBack() ? navigation.goBack() : navigation.replace('Login'))}
         />
 
         <FormField

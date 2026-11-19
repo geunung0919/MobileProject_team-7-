@@ -43,6 +43,16 @@ _SKIP_LINE = re.compile(
     re.I,
 )
 _HEADER_LINE = re.compile(r"(?:상품명|품목명|단가\s*수량|수량\s*금액|단가|수량|금액)", re.I)
+# 품목 표 머리글 (이 줄 위는 상호·주소·일시라서 품목으로 읽지 않음)
+_TABLE_HEADER = re.compile(r"(?:[상싱]\s*[품풀]\s*[명영멍]|품\s*목\s*명|품\s*명)")
+# 품목이 아닌 정보 줄: 날짜·시각·POS·대표자·전화번호·주소(○○구 ○○동 / ○○로 12)
+_META_LINE = re.compile(
+    r"(?:\d{4}\s*[-./년]\s*\d{1,2}\s*[-./월]\s*\d{1,2}"
+    r"|(?<!\d)\d{1,2}:\d{2}(?::\d{2})?(?!\d)"
+    r"|POS\s*[:#]?|대\s*표|TEL|☎|(?<!\d)0\d{1,2}-\d{3,4}-\d{4}(?!\d)"
+    r"|[가-힣]{1,6}(?:시|군|구)\s+[가-힣0-9]{1,10}(?:동|로|길|읍|면|리)(?:\s|\d|$))",
+    re.I,
+)
 
 _MULTI_DOCUMENT_HINTS = re.compile(r"(?:CASH\s*RECEIPT|영수증\s*상세|영수증|매출전표)", re.I)
 _PAYMENT_DETAIL_HINTS = re.compile(
@@ -367,6 +377,10 @@ def parse_receipt_item_line(raw_line: str) -> dict | None:
     line = re.sub(r"\s+", " ", line)
     if len(line) < 3 or _SKIP_LINE.search(line) or _HEADER_LINE.fullmatch(line.replace(" ", "")):
         return None
+    if _META_LINE.search(line):
+        return None
+    # OCR 이 머리글과 첫 품목을 한 줄로 붙인 경우 머리글 단어를 떼어 냄
+    line = re.sub(r"^(?:상\s*품\s*명|품\s*목\s*명|품\s*명)(?:\s*(?:단가|수량|금액|\S{1,3}))*\s+(?=[가-힣])", "", line)
 
     amount_match = _AMOUNT_AT_END.search(line)
     if not amount_match:
@@ -400,6 +414,15 @@ def parse_receipt_item_line(raw_line: str) -> dict | None:
                 unit_price = _money(detail_match.group("unit_price"))
                 prefix = prefix[:detail_match.start()].strip()
                 row_consistent = bool(unit_price and unit_price * quantity == amount)
+
+    # "상품명  수량  금액" 표에서 수량 칸이 이름 끝에 붙어 읽힌 경우: "삼각김밥 참치마요 2" → 수량 2
+    if not detail_match:
+        trailing_qty = re.search(r"(?<=[가-힣A-Za-z)\]%])\s+(\d{1,2})$|(?<=\d[A-Za-z가-힣])\s+(\d{1,2})$", prefix)
+        if trailing_qty and re.search(r"[가-힣A-Za-z]{2}", prefix[:trailing_qty.start()]):
+            count = int(trailing_qty.group(1) or trailing_qty.group(2))
+            if 1 <= count <= 30:
+                quantity = count
+                prefix = prefix[:trailing_qty.start()].strip()
 
     product_code_match = _BARCODE_OR_CODE.search(prefix)
     product_code = product_code_match.group(0).lstrip("*") if product_code_match else None
@@ -501,6 +524,12 @@ def extract_receipt_items(raw_text: str, limit: int = 50) -> list[dict]:
         if line.strip()
     ]
     index = 0
+    # "상품명 수량 금액" 머리글이 앞부분에 있으면 그 아래부터 품목으로 읽음
+    for header_index, header_line in enumerate(lines[:25]):
+        if _TABLE_HEADER.search(header_line):
+            # 머리글과 첫 품목이 한 줄로 읽혔으면(끝에 금액) 그 줄부터 읽음
+            index = header_index if _AMOUNT_AT_END.search(header_line) else header_index + 1
+            break
     while index < len(lines):
         line = lines[index]
         item = parse_receipt_item_line(line)
@@ -514,6 +543,9 @@ def extract_receipt_items(raw_text: str, limit: int = 50) -> list[dict]:
             item is None
             and index + 1 < len(lines)
             and re.search(r"[가-힣A-Za-z]", line)
+            and not _META_LINE.search(line)
+            and not _SKIP_LINE.search(line)
+            and not _TABLE_HEADER.search(line)
             and _AMOUNT_AT_END.search(lines[index + 1])
         ):
             joined = f"{line} {lines[index + 1]}"

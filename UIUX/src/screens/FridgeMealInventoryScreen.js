@@ -48,7 +48,7 @@ export default function FridgeMealInventoryScreen({
       setInventory([]);
       setLoading(false);
       setError(
-        'Firebase 냉장고를 사용하려면 로그인해 주세요.'
+        '냉장고를 사용하려면 로그인해 주세요.'
       );
       return;
     }
@@ -105,7 +105,7 @@ export default function FridgeMealInventoryScreen({
       setInventory([]);
       setError(
         err?.message ||
-        'Firebase 냉장고 재고를 불러오지 못했어요.'
+        '냉장고 재고를 불러오지 못했어요.'
       );
     } finally {
       setLoading(false);
@@ -227,7 +227,7 @@ export default function FridgeMealInventoryScreen({
 
           <Text style={styles.noticeText}>
             한 번에 하나의 식재료를 차감하며,
-            저장 성공 후 Firebase 재고에 반영됩니다.
+            저장 성공 후 냉장고 재고에 반영됩니다.
           </Text>
 
           <Text style={styles.noticeText}>
@@ -261,7 +261,7 @@ export default function FridgeMealInventoryScreen({
             />
 
             <Text style={styles.loadingText}>
-              Firebase 재고를 불러오는 중...
+              냉장고 재고를 불러오는 중...
             </Text>
           </View>
         ) : (
@@ -339,7 +339,7 @@ export default function FridgeMealInventoryScreen({
         )}
 
         <Text style={styles.footerNotice}>
-          사용량 차감은 기존 Firebase API를 사용합니다.
+          사용한 양은 저장하면 냉장고 재고에서 빠져요.
           식사 기록만 저장하거나 삭제해도 냉장고 재고가
           자동 변경되지는 않습니다.
         </Text>

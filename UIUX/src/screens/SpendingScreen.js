@@ -161,8 +161,18 @@ export default function SpendingScreen({ navigation }) {
           {visibleShared?.spendingError ? <Text accessibilityRole="alert">{visibleShared.spendingError}</Text> : null}
           {visibleShared?.spendingTruncated ? <Text>서버 지출 목록은 최근 500건까지만 표시돼요.</Text> : null}
           {sharedUid ? <SoftButton label="소비 분석 보기" onPress={() => navigation.navigate('SpendingAnalysis', { year: period.year, month: period.month })} /> : null}
+          {sharedUid && visibleShared?.spending && !visibleShared.spending.some((row) => row.date?.startsWith(monthKey)) ?
+            <Text style={styles.empty}>이 달에는 서버에 저장된 지출이 없어요.</Text> : null}
           {visibleShared?.spending?.filter((row) => row.date?.startsWith(monthKey)).sort(compareDateDesc).map((row) => (
-            <Text key={row.id}>{row.date} · {row.title} · [{String(row.category ?? '없음')}] · {Number(row.amount).toLocaleString()}원</Text>
+            <TransactionRow
+              key={row.id}
+              title={row.title || '지출'}
+              category={row.source === 'ocr' ? `영수증 · ${row.category ?? '기타'}` : String(row.category ?? '기타')}
+              amount={Number(row.amount) || 0}
+              icon={row.source === 'ocr' ? 'receipt' : spendingData.defaultIcon}
+              date={formatMonthDay(row.date)}
+              onPress={() => navigation.navigate('SpendingDetail', { id: row.id, serverTransaction: row })}
+            />
           ))}
         </View> : null}
 

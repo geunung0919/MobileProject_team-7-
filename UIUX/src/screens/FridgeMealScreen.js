@@ -574,7 +574,7 @@ export default function FridgeMealScreen({
 
                 <Text style={styles.notice}>
                   식사 기록은 현재 기기에 로그인 UID별로
-                  저장됩니다. Firebase 냉장고 재고는 변경되지
+                  저장됩니다. 냉장고 재고는 변경되지
                   않으며 다른 기기와 자동 동기화되지 않습니다.
                 </Text>
               </>

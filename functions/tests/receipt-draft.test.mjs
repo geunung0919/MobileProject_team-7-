@@ -30,3 +30,24 @@ test('expiry selected for the fridge cannot be earlier than purchase date', () =
   };
   assert.throws(() => reviewedPayload(draft), /구매일보다 빠를 수 없어요/);
 });
+
+test('냉장고 등록을 고르면 단위(개)·보관(냉장)만 미리 채우고, 수량은 사용자가 입력해야 저장된다', async () => {
+  const { draftFromRecognition, inventoryDefaults } = await import('../../UIUX/src/utils/sharedReceipt.mjs');
+  const draft = draftFromRecognition({ candidate: { title: '마트', amount_krw: 3000, spent_on: '2026-11-18' },
+    receipt_items: [{ raw_name: '우유', normalized_name: '우유', quantity: 2, item_type: 'ingredient', item_amount_krw: 3000 }] });
+  const [milk] = draft.items;
+  assert.deepEqual(inventoryDefaults(milk), { unit: '개', storageMethod: 'refrigerated' });
+  assert.deepEqual(inventoryDefaults({ ...milk, unit: 'ml', storageMethod: 'frozen' }), { unit: 'ml', storageMethod: 'frozen' });
+  const selected = { ...milk, inventorySelected: true, ...inventoryDefaults(milk) };
+  assert.throws(() => reviewedPayload({ ...draft, receiptId: 'r1', items: [selected] }), /실제 재고 수량/);
+  const payload = reviewedPayload({ ...draft, receiptId: 'r1', items: [{ ...selected, quantity: '1' }] });
+  assert.deepEqual([payload.items[0].quantity, payload.items[0].unit, payload.items[0].storageMethod], [1, '개', 'refrigerated']);
+});
+
+test('OCR 요청은 앱이 연결된 개발 서버의 /__ocr 로 보낸다 (같은 Wi-Fi·터널 어디서든)', async () => {
+  const { ocrBaseFromDevServer } = await import('../../api/ocrHost.mjs');
+  assert.equal(ocrBaseFromDevServer('http://192.168.0.15:8081/'), 'http://192.168.0.15:8081/__ocr');
+  assert.equal(ocrBaseFromDevServer('https://mwwt9cy-anonymous-8081.exp.direct/'), 'https://mwwt9cy-anonymous-8081.exp.direct/__ocr');
+  assert.equal(ocrBaseFromDevServer('http://localhost:8081/index.bundle?platform=web'), 'http://localhost:8081/__ocr');
+  for (const bad of ['', undefined, 'exp://192.168.0.15:8081', 'not a url']) assert.equal(ocrBaseFromDevServer(bad), '', String(bad));
+});

@@ -139,9 +139,10 @@ export default function RecipeShoppingBridgeScreen({
   const insets = useSafeAreaInsets();
   const { sharedReceipts, sharedUid } = useAppData();
 
-  const recipe = recipeData.recipes.find(
-    (r) => r.id === route.params?.id
-  );
+  // AI 추천 레시피는 화면 이동 시 레시피를 통째로 넘겨받고, 기본 레시피는 id 로 찾습니다.
+  const recipe =
+    route.params?.recipe ??
+    recipeData.recipes.find((r) => r.id === route.params?.id);
 
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -151,7 +152,7 @@ export default function RecipeShoppingBridgeScreen({
   const load = useCallback(async () => {
     if (!recipe || !sharedReceipts || !sharedUid) {
       setLoading(false);
-      setError('Firebase 냉장고 로그인 상태를 확인해 주세요.');
+      setError('로그인 상태를 확인해 주세요.');
       return;
     }
 
@@ -298,7 +299,7 @@ export default function RecipeShoppingBridgeScreen({
         </Text>
 
         <Text style={styles.description}>
-          Firebase 냉장고에 등록된 재고와
+          내 냉장고에 등록된 재고와
           레시피의 필요 수량을 비교했어요.
         </Text>
 
@@ -394,7 +395,7 @@ export default function RecipeShoppingBridgeScreen({
                   style={styles.refresh}
                 >
                   <Text style={styles.refreshText}>
-                    Firebase 재고 다시 확인
+                    냉장고 재고 다시 확인
                   </Text>
                 </Pressable>
               </>
