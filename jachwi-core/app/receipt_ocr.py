@@ -9,6 +9,7 @@ from pathlib import Path
 import subprocess
 import tempfile
 import threading
+import time
 import warnings
 
 from fastapi import Depends, HTTPException, Request
@@ -17,6 +18,7 @@ from starlette.concurrency import run_in_threadpool
 from .fintech import LedgerRow, apply_learned_receipt_items, parse_import_candidate
 from .receipt_ai import apply_ai_receipt_items
 from .receipt_paddle import paddle_available, recognize_paddle
+from . import receipt_preprocess
 
 MAX_IMAGE_BYTES = 8 * 1024 * 1024
 MAX_REQUEST_BYTES = 12 * 1024 * 1024
@@ -55,6 +57,7 @@ def decode_image(payload):
                 source.load()
                 image = ImageOps.exif_transpose(source).convert('RGB')
                 image.thumbnail((2600, 3600))
+                color = image.copy()  # 영수증 종이 찾기(색)용 — receipt_preprocess 에서 사용
                 prepared = ImageOps.grayscale(image)
                 if prepared.width < 1600:
                     scale = min(2.5, 1600 / max(prepared.width, 1))
@@ -65,6 +68,7 @@ def decode_image(payload):
                 prepared = ImageOps.autocontrast(prepared, cutoff=1)
                 prepared = prepared.filter(ImageFilter.SHARPEN)
                 prepared.info.clear()
+                prepared.receipt_color = color
                 return prepared
     except (UnidentifiedImageError, OSError, ValueError, Image.DecompressionBombError, Image.DecompressionBombWarning):
         raise HTTPException(422, '손상되었거나 지원하지 않는 사진이에요. 다시 선택해 주세요.') from None
@@ -103,15 +107,25 @@ def _otsu_binarize(image):
 
 
 def _ocr_variants(image):
-    """Create a small ensemble for thermal receipts, shadows and low contrast."""
+    """Create a small ensemble for thermal receipts, shadows and low contrast.
+
+    휴대폰 사진용 전처리(receipt_preprocess: 영수증만 잘라 펴기 + 그림자 제거)가 가능하면
+    그 후보를 먼저 넣고, 기존 Pillow 후보도 함께 돌려 점수가 가장 좋은 결과를 씁니다.
+    """
+    variants = []
+    try:
+        variants.extend(receipt_preprocess.prepare(image))
+    except Exception:  # 전처리 실패는 기존 방식으로 계속
+        variants = []
     contrast = ImageOps.autocontrast(image, cutoff=1)
     strong = contrast.filter(ImageFilter.UnsharpMask(radius=1.2, percent=190, threshold=3))
     binary = _otsu_binarize(contrast)
-    return (
+    variants.extend((
         ('contrast', contrast),
         ('unsharp', strong),
         ('binary', binary),
-    )
+    ))
+    return tuple(variants)
 
 
 def _receipt_text_score(text):
@@ -147,19 +161,49 @@ def _receipt_text_score(text):
 
     # Select the OCR pass that helps our actual downstream task, not merely the
     # pass that returns the most characters.
+    # 의미 없는 짧은 영문 조각("eo", "Bo", "cee nr")이 많으면 잘못 읽은 결과
+    junk_tokens = len(re.findall(r'(?<![A-Za-z0-9])[A-Za-z]{1,3}(?![A-Za-z0-9])', text)) - len(
+        re.findall(r'(?<![A-Za-z])(?:CU|GS|POS|TEL|NO|ml|ML|kg|KG|L|g|ea|EA|pcs)(?![A-Za-z])', text)
+    )
+    score -= max(0, junk_tokens) * 2
+
     try:
         parsed = parse_import_candidate(text[:5000], source='ocr')
-        score += len(parsed.get('receipt_items') or []) * 12
+        items = parsed.get('receipt_items') or []
+        good_items = [
+            item for item in items
+            if len(re.findall(r'[가-힣]', item.get('raw_name') or '')) >= 2
+        ]
+        score += len(good_items) * 12 + (len(items) - len(good_items)) * 3
         candidate = parsed.get('candidate') or {}
-        if candidate.get('amount_krw') is not None:
+        total = candidate.get('amount_krw')
+        if total is not None:
             score += 18
+            # 품목 금액 합계가 영수증 합계와 맞으면 글자를 제대로 읽은 것 (가장 강한 신호)
+            item_sum = sum(item.get('item_amount_krw') or 0 for item in items)
+            if item_sum and abs(item_sum - total) <= max(10, total * 0.01):
+                score += 60
         if candidate.get('title') not in (None, '', '사용처 확인 필요'):
             score += 8
+        if candidate.get('spent_on'):
+            score += 6
         if parsed.get('receipt_document', {}).get('document_type') == 'multiple_receipts':
             score -= 20
     except Exception:
         score -= 10
     return score
+
+
+def _receipt_consistent(text):
+    """품목 금액 합계가 영수증 합계와 맞고 품목이 2개 이상이면 True (더 시도할 필요 없음)."""
+    try:
+        parsed = parse_import_candidate(text[:5000], source='ocr')
+    except Exception:
+        return False
+    items = parsed.get('receipt_items') or []
+    total = (parsed.get('candidate') or {}).get('amount_krw')
+    item_sum = sum(item.get('item_amount_krw') or 0 for item in items)
+    return bool(total and len(items) >= 2 and abs(item_sum - total) <= max(10, total * 0.01))
 
 
 def _image_quality(image):
@@ -188,20 +232,34 @@ def recognize_tesseract(image):
     best_psm = None
     engine_started = False
     engine_success = False
+    timed_out = False
+    per_call = float(os.getenv('OCR_CALL_TIMEOUT', '15'))
+    deadline = time.monotonic() + float(os.getenv('OCR_TOTAL_TIMEOUT', '50'))
+    done = False
 
     try:
         with tempfile.TemporaryDirectory(prefix='receipt-ocr-') as directory:
             psm_plan = {
+                'paper_flat': ('4', '6'),
+                'paper_binary': ('6',),
+                'flat_flat': ('4', '6'),
+                'flat_binary': ('6',),
                 'contrast': ('4', '6'),
                 'unsharp': ('6',),
                 'binary': ('4', '6', '11'),
             }
             for variant_name, variant in _ocr_variants(image):
+                if done or time.monotonic() > deadline:
+                    variant.close()
+                    continue
                 path = Path(directory) / f'{variant_name}.png'
                 variant.save(path, format='PNG')
                 try:
                     for psm in psm_plan[variant_name]:
-                        result = subprocess.run(
+                        if done or time.monotonic() > deadline:
+                            break
+                        try:
+                            result = subprocess.run(
                             [
                                 executable, str(path), 'stdout',
                                 '-l', languages,
@@ -210,10 +268,15 @@ def recognize_tesseract(image):
                                 '-c', 'preserve_interword_spaces=1',
                             ],
                             capture_output=True,
-                            timeout=6,
+                            timeout=per_call,
                             check=False,
                             env={**os.environ, 'OMP_THREAD_LIMIT': '1'},
-                        )
+                            )
+                        except subprocess.TimeoutExpired:
+                            # 느린 PC 에서 한 번이 오래 걸려도 나머지 후보로 계속 (전체 실패 X)
+                            engine_started = True
+                            timed_out = True
+                            continue
                         engine_started = True
                         if result.returncode:
                             continue
@@ -225,6 +288,9 @@ def recognize_tesseract(image):
                             best_score = score
                             best_variant = variant_name
                             best_psm = psm
+                            # 품목 합계가 영수증 합계와 맞으면 충분히 읽은 것 → 시간 절약
+                            if _receipt_consistent(text):
+                                done = True
                 finally:
                     variant.close()
     except FileNotFoundError:
@@ -232,12 +298,11 @@ def recognize_tesseract(image):
             503,
             '서버에 Tesseract OCR이 설치되지 않았어요. 서버 설정 후 재시도하거나 직접 입력해 주세요.',
         ) from None
-    except subprocess.TimeoutExpired:
+    if timed_out and not engine_success:
         raise HTTPException(
             504,
             '사진 인식 시간이 초과됐어요. 영수증 부분만 잘라 다시 시도해 주세요.',
-        ) from None
-
+        )
     if not engine_started:
         raise HTTPException(503, '서버 OCR 엔진을 시작하지 못했어요. 직접 입력도 가능해요.')
     if not engine_success:
