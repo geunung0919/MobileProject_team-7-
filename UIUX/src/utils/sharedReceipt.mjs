@@ -25,6 +25,15 @@ export const emptyLine = (key) => ({
   paid: '',
 });
 
+// "냉장고에도 등록"을 고르면 비어 있는 단위·보관 방법만 흔한 값(개·냉장)으로 채워 둡니다 (화면에서 바로 고칠 수 있음).
+// 재고 수량은 영수증 숫자(팩 수일 수 있음)를 쓰지 않고 사용자가 실제 개수를 입력합니다.
+export function inventoryDefaults(item) {
+  return {
+    unit: item.unit || '개',
+    storageMethod: item.storageMethod || 'refrigerated',
+  };
+}
+
 export function reviewedPayload(draft) {
   const validDate = (value) =>
     /^\d{4}-\d{2}-\d{2}$/.test(value) &&

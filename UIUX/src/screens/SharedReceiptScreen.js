@@ -33,7 +33,9 @@ import {
 
 import {
   receiptOcrBase,
+  receiptOcrMissingReason,
   receiptUsesDevelopmentToken,
+  receiptDefaultDevelopmentToken,
   recognizeReceipt,
   previewPayment,
 } from '../../../api/receiptRecognition';
@@ -42,6 +44,7 @@ import {
   draftFromRecognition,
   draftFromPayment,
   emptyLine,
+  inventoryDefaults,
   reviewedPayload,
   SPENDING_CATEGORIES,
 } from '../utils/sharedReceipt.mjs';
@@ -157,7 +160,7 @@ export default function SharedReceiptScreen({
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
 
-  const [ocrToken, setOcrToken] = useState('');
+  const [ocrToken, setOcrToken] = useState(receiptDefaultDevelopmentToken);
   const [ocrBusy, setOcrBusy] = useState(false);
 
   const lock = useRef(false);
@@ -178,7 +181,7 @@ export default function SharedReceiptScreen({
 
     setReady(false);
     setPending(null);
-    setOcrToken('');
+    setOcrToken(receiptDefaultDevelopmentToken);
     setRawText('');
     setInbox(null);
     setSelectedNotification(null);
@@ -271,7 +274,8 @@ export default function SharedReceiptScreen({
         quality: 0.85,
       };
 
-      if (camera) {
+      // 웹(아이폰 사파리)은 버튼을 누른 직후에 바로 카메라/사진 선택창을 열어야 막히지 않아요. 웹은 권한을 따로 묻지 않습니다.
+      if (camera && Platform.OS !== 'web') {
         const permission =
           await ImagePicker.requestCameraPermissionsAsync();
 
@@ -519,6 +523,12 @@ export default function SharedReceiptScreen({
       {ready && !pending && !busy ? (
         <>
           {/* 영수증 OCR */}
+          {!manual && !payment && !receiptOcrBase ? (
+            <Text style={{ color: colors.warnText }}>
+              {receiptOcrMissingReason} 직접 입력으로는 저장할 수 있어요.
+            </Text>
+          ) : null}
+
           {!manual &&
           !payment &&
           receiptOcrBase ? (
@@ -533,20 +543,18 @@ export default function SharedReceiptScreen({
               ) : null}
 
               <Text>
-                사진은 설정한 OCR 서버로 보내요.
-                영수증 한 장씩 선택해 주세요.
+                사진은 OCR 서버({receiptOcrBase})로 보내요.
+                영수증 한 장씩 밝은 곳에서 크게 찍어 주세요.
               </Text>
 
               {ocrBusy ? (
                 <Text>사진 분석 중…</Text>
               ) : (
                 <>
-                  {Platform.OS !== 'web' ? (
-                    <Chip
-                      label="사진 촬영 후 분석"
-                      onPress={() => pick(true)}
-                    />
-                  ) : null}
+                  <Chip
+                    label="사진 촬영 후 분석"
+                    onPress={() => pick(true)}
+                  />
 
                   <Chip
                     label="사진첩에서 선택 후 분석"
@@ -820,6 +828,9 @@ export default function SharedReceiptScreen({
                       onChange={(inventorySelected) =>
                         update(item.key, {
                           inventorySelected,
+                          ...(inventorySelected
+                            ? inventoryDefaults(item)
+                            : {}),
                         })
                       }
                     />

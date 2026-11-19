@@ -1,6 +1,7 @@
 fastapi==0.141.1
 pydantic==2.13.5
 SQLAlchemy==2.0.54
+google-cloud-firestore==2.34.1
 uvicorn==0.53.0
 PyMySQL[rsa]==1.2.3
 python-dotenv==1.2.3
