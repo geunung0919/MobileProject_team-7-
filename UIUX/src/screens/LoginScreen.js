@@ -121,7 +121,7 @@ export default function LoginScreen({ navigation }) {
 
         case 'auth/network-request-failed':
           message =
-            'Firebase 서버에 연결할 수 없습니다.';
+            '서버에 연결할 수 없습니다.';
           break;
 
         case 'auth/too-many-requests':
@@ -164,7 +164,7 @@ export default function LoginScreen({ navigation }) {
         <BackHeader
           title={d.title}
           subtitle={d.subtitle}
-          onBack={() => navigation.goBack()}
+          onBack={navigation.canGoBack() ? () => navigation.goBack() : null}
         />
 
         <FormField

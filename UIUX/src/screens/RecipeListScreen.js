@@ -1,9 +1,10 @@
 
-import React, { useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   ScrollView,
   Pressable,
+  ActivityIndicator,
   StyleSheet,
 } from 'react-native';
 
@@ -17,6 +18,8 @@ import IconBox from '../components/IconBox';
 import { recipeData } from '../data/fridge/recipes';
 import { fridgeData } from '../data/fridge/fridge';
 import { useAppData } from '../store/AppDataContext';
+import { fetchRecipes } from '../api/aiManager';
+import { recipeErrorText } from '../api/aiFormat';
 
 import {
   analyzeRecipe,
@@ -36,7 +39,45 @@ export default function RecipeListScreen({ navigation }) {
   const {
     fridgeItems,
     sharedReceipts,
+    sharedUid,
   } = useAppData();
+
+  // Firebase 모드: 서버 AI(recommendRecipes)가 실제 냉장고 재고로 레시피를 추천합니다.
+  // 실패하거나 추천이 없으면 아래 기본 레시피를 보여 주고 이유를 안내합니다.
+  const useAi = sharedReceipts && Boolean(sharedUid);
+  const [ai, setAi] = useState({ status: 'loading', recipes: [], note: '' });
+  const aiRequest = useRef(0);
+
+  // 요청을 보내고, 가장 마지막 요청의 결과만 화면에 반영합니다.
+  const requestAi = useCallback((force) => {
+    const id = ++aiRequest.current;
+    fetchRecipes(force ? { force: true } : {})
+      .then((res) => {
+        if (id !== aiRequest.current) return;
+        setAi(res.recipes.length > 0
+          ? { status: 'ok', recipes: res.recipes, note: res.message || '' }
+          : { status: 'fallback', recipes: [], note: recipeErrorText(res) });
+      })
+      .catch((error) => {
+        if (id !== aiRequest.current) return;
+        setAi({ status: 'fallback', recipes: [], note: error?.message || recipeErrorText(null) });
+      });
+  }, []);
+
+  // "AI 로 다시 추천받기"
+  const loadAi = (force) => {
+    setAi((prev) => ({ ...prev, status: 'loading' }));
+    requestAi(force);
+  };
+
+  useEffect(() => {
+    if (!useAi) return undefined;
+    requestAi(false);
+    return () => {
+      aiRequest.current += 1; // 화면을 떠나면 늦게 온 응답은 무시
+    };
+  }, [useAi, requestAi]);
+  const aiRecipes = useAi && ai.status === 'ok' ? ai.recipes : null;
 
   const baseDate = toDateString(new Date());
 
@@ -59,7 +100,7 @@ export default function RecipeListScreen({ navigation }) {
   // 로컬 재고가 없어도 레시피 목록을 보여줍니다.
   const cards = useMemo(
     () =>
-      recipeData.recipes
+      (aiRecipes ?? recipeData.recipes)
         .map((recipe) => ({
           recipe,
           ...analyzeRecipe(recipe, entries),
@@ -68,7 +109,7 @@ export default function RecipeListScreen({ navigation }) {
           (card) =>
             sharedReceipts || card.owned.length > 0
         ),
-    [entries, sharedReceipts]
+    [entries, sharedReceipts, aiRecipes]
   );
 
   return (
@@ -92,7 +133,9 @@ export default function RecipeListScreen({ navigation }) {
 
         <Text style={styles.subtitle}>
           {sharedReceipts
-            ? '레시피를 선택하고 Firebase 냉장고에 있는 재료를 확인해 보세요.'
+            ? aiRecipes
+              ? t.listSubtitle
+              : '레시피를 선택하고 내 냉장고에 있는 재료를 확인해 보세요.'
             : t.listSubtitle}
         </Text>
 
@@ -107,7 +150,9 @@ export default function RecipeListScreen({ navigation }) {
 
             <Text style={styles.bannerText}>
               {sharedReceipts
-                ? '레시피를 선택하면 필요한 재료를 확인할 수 있어요.'
+                ? aiRecipes
+                  ? '내 냉장고 재료로 AI 가 고른 요리예요. 기한이 가까운 재료를 먼저 썼어요.'
+                  : '레시피를 선택하면 필요한 재료를 확인할 수 있어요.'
                 : urgentChips.length > 0
                   ? t.bannerUrgent
                   : t.bannerNormal}
@@ -127,6 +172,30 @@ export default function RecipeListScreen({ navigation }) {
                 </View>
               ))}
             </View>
+          ) : null}
+
+          {useAi && ai.status === 'loading' ? (
+            <View style={styles.aiRow}>
+              <ActivityIndicator size="small" color={colors.green} />
+              <Text style={styles.aiNote}>AI 가 냉장고 재료로 레시피를 고르는 중…</Text>
+            </View>
+          ) : null}
+
+          {useAi && ai.status === 'fallback' ? (
+            <Text style={styles.aiNote}>
+              {ai.note} 기본 레시피를 보여 드려요.
+            </Text>
+          ) : null}
+
+          {useAi && ai.status !== 'loading' ? (
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => loadAi(true)}
+              style={({ pressed }) => [styles.aiButton, pressed && styles.pressed]}
+            >
+              <MaterialCommunityIcons name="refresh" size={16} color={colors.green} />
+              <Text style={styles.aiButtonText}>AI 로 다시 추천받기</Text>
+            </Pressable>
           ) : null}
         </View>
 
@@ -158,6 +227,7 @@ export default function RecipeListScreen({ navigation }) {
               onPress={() =>
                 navigation.navigate('RecipeDetail', {
                   id: recipe.id,
+                  ...(aiRecipes ? { recipe } : {}),
                 })
               }
               accessibilityRole="button"
@@ -221,10 +291,10 @@ export default function RecipeListScreen({ navigation }) {
                   {recipe.ingredients.map((ingredient) => (
                     <View
                       key={ingredient.name}
-                      style={styles.missingChip}
+                      style={ingredient.kind === 'fridge' ? styles.haveChip : styles.missingChip}
                     >
-                      <Text style={styles.missingChipText}>
-                        {ingredient.name}
+                      <Text style={ingredient.kind === 'fridge' ? styles.haveChipText : styles.missingChipText}>
+                        {ingredient.kind === 'fridge' ? '✓ ' : ''}{ingredient.name}
                       </Text>
                     </View>
                   ))}
@@ -288,6 +358,34 @@ export default function RecipeListScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
+  aiRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 10,
+  },
+  aiNote: {
+    marginTop: 8,
+    fontFamily: fonts.regular,
+    fontSize: 13,
+    color: colors.textSecondary,
+  },
+  aiButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 4,
+    marginTop: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    backgroundColor: colors.white,
+  },
+  aiButtonText: {
+    fontFamily: fonts.bold,
+    fontSize: 13,
+    color: colors.green,
+  },
   container: {
     flex: 1,
     backgroundColor: colors.background,

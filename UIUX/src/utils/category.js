@@ -7,10 +7,9 @@ import { spendingData } from '../data/spending/spending';
 
 export const MAX_CATEGORY_LENGTH = 10;
 
-// 화면에 보여줄 선택지: [식품, ...사용자가 추가한 카테고리]
-export const getCategoryOptions = (customCategories) => [
-  spendingData.foodCategory,
-  ...customCategories,
+// 화면에 보여줄 선택지: [기본 선택지(기본값: 식품), ...사용자가 추가한 카테고리] — 같은 이름은 한 번만
+export const getCategoryOptions = (customCategories, baseOptions = [spendingData.foodCategory]) => [
+  ...new Set([...baseOptions, ...customCategories]),
 ];
 
 // 고르지 않았을 때 저장할 카테고리: 냉장고에 담는 식품이 있으면 '식품', 없으면 '기타'
@@ -18,11 +17,11 @@ export const resolveCategory = (selected, fridgeCount = 0) =>
   selected || (fridgeCount > 0 ? spendingData.foodCategory : spendingData.defaultCategory);
 
 // 새 카테고리 이름 확인. 문제가 있으면 안내 글을, 괜찮으면 null 을 돌려줍니다.
-export function validateCategoryName(name, existing) {
+export function validateCategoryName(name, existing, baseOptions = []) {
   const trimmed = name.trim();
   if (!trimmed) return '카테고리 이름을 입력해 주세요.';
   if (trimmed.length > MAX_CATEGORY_LENGTH) return `이름은 ${MAX_CATEGORY_LENGTH}자까지 입력할 수 있어요.`;
-  const reserved = [spendingData.foodCategory, spendingData.defaultCategory, '영수증'];
+  const reserved = [spendingData.foodCategory, spendingData.defaultCategory, '영수증', ...baseOptions];
   const taken = [...reserved, ...existing].some((c) => c.toLowerCase() === trimmed.toLowerCase());
   if (taken) return '이미 있는 카테고리예요.';
   return null;

@@ -750,21 +750,19 @@ export default function SharedReceiptScreen({
                 keyboardType="number-pad"
               />
 
-              {/* 기존 소비 카테고리 + 사용자 지정 카테고리 */}
+              {/* 기본 소비 카테고리 9개 + 사용자 지정 카테고리 ('식품'·'식비' 중복 방지) */}
               <CategorySelector
                 style={{ marginTop: 12 }}
-                customCategories={[
-                  ...new Set([
-                    ...SPENDING_CATEGORIES,
-                    ...customCategories,
-                  ]),
-                ]}
+                baseOptions={SPENDING_CATEGORIES}
+                customCategories={customCategories.filter(
+                  (c) => c !== '식품'
+                )}
                 value={draft.category ?? '기타'}
                 onChange={(category) =>
                   patch('category', category ?? '기타')
                 }
                 onAddCategory={addCategory}
-                hint="선택한 카테고리로 소비 내역을 저장해요."
+                hint="선택한 카테고리로 저장돼요. 고르지 않으면 '기타'로 저장해요."
               />
 
 

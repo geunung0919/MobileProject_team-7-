@@ -547,7 +547,7 @@ export default function FridgeShoppingScreen({ navigation }) {
 
               {item.inventoryId && (
                 <Text style={styles.muted}>
-                  Firebase 냉장고 재고 등록 완료
+                  냉장고 재고 등록 완료
                 </Text>
             )}
             </View>
@@ -556,7 +556,7 @@ export default function FridgeShoppingScreen({ navigation }) {
 
         <Text style={styles.notice}>
           이 장보기 목록은 현재 기기에 로그인 UID별로 저장됩니다.
-          Firebase 재고 목록과는 별도이며, 구매 체크만으로 재고가
+          냉장고 재고 목록과는 별도이며, 구매 체크만으로 재고가
           자동 추가되지 않습니다.
         </Text>
       </ScrollView>

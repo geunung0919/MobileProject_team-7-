@@ -16,14 +16,17 @@ export default function BackHeader({
   return (
     <View style={styles.wrapper}>
       <View style={styles.row}>
-        <Pressable
-          onPress={onBack}
-          hitSlop={12}
-          accessibilityRole="button"
-          accessibilityLabel="뒤로 가기"
-        >
-          <Ionicons name={icon} size={28} color={color} />
-        </Pressable>
+        {/* 돌아갈 화면이 없으면(예: 앱 첫 화면인 로그인) 화살표를 숨깁니다 */}
+        {onBack ? (
+          <Pressable
+            onPress={onBack}
+            hitSlop={12}
+            accessibilityRole="button"
+            accessibilityLabel="뒤로 가기"
+          >
+            <Ionicons name={icon} size={28} color={color} />
+          </Pressable>
+        ) : null}
         <Text style={[styles.title, { color }]} numberOfLines={1}>
           {title}
         </Text>

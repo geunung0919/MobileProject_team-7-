@@ -29,9 +29,10 @@ export default function RecipeDetailScreen({ navigation, route }) {
 
   const baseDate = toDateString(new Date());
 
-  const recipe = recipeData.recipes.find(
-    (r) => r.id === route.params?.id
-  );
+  // AI 추천 레시피는 화면 이동 시 레시피를 통째로 넘겨받고, 기본 레시피는 id 로 찾습니다.
+  const recipe =
+    route.params?.recipe ??
+    recipeData.recipes.find((r) => r.id === route.params?.id);
 
   const entries = useMemo(
     () =>
@@ -116,6 +117,7 @@ export default function RecipeDetailScreen({ navigation, route }) {
   const handleShopping = () => {
     navigation.navigate('RecipeShoppingBridge', {
       id: recipe.id,
+      recipe: route.params?.recipe,
     });
   };
 
@@ -177,14 +179,17 @@ export default function RecipeDetailScreen({ navigation, route }) {
 
         {sharedReceipts ? (
           <Text style={styles.cloudNotice}>
-            실제 Firebase 냉장고 보유 여부와 부족 수량은
+            실제 냉장고 보유 여부와 부족 수량은
             아래 '부족한 재료 장보기 목록에 추가'에서 확인해 주세요.
           </Text>
         ) : null}
 
         {ingredients.map((ing) => {
-          // Firebase 모드에서는 기존 로컬 재고 판정을 표시하지 않습니다.
-          const has = !sharedReceipts && Boolean(ing.fridgeItem);
+          // Firebase 모드: AI 레시피는 서버가 알려 준 냉장고 보유 여부(kind)를 쓰고,
+          // 기본 레시피는 보유 판정을 표시하지 않습니다.
+          const aiKind = sharedReceipts ? ing.kind : null;
+          const has = aiKind ? aiKind === 'fridge' : !sharedReceipts && Boolean(ing.fridgeItem);
+          const lacking = aiKind ? aiKind === 'missing' : !sharedReceipts && !has;
 
           return (
             <View
@@ -211,13 +216,13 @@ export default function RecipeDetailScreen({ navigation, route }) {
               <Text
                 style={[
                   styles.ingredientName,
-                  !has && !sharedReceipts && styles.ingredientMissing,
+                  lacking && styles.ingredientMissing,
                 ]}
               >
                 {ing.name}
               </Text>
 
-              {!sharedReceipts && !has ? (
+              {lacking ? (
                 <View style={styles.missingBadge}>
                   <Text style={styles.missingBadgeText}>
                     {t.missingBadge}

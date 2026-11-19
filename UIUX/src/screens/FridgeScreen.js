@@ -287,7 +287,7 @@ export default function FridgeScreen({ navigation }) {
                   <Text style={styles.itemHint}>
                     식재료 정보를 누르면 수정할 수 있어요.
                     사용하거나 폐기한 수량은
-                    Firebase 재고에 반영됩니다.
+                    냉장고 재고에 반영됩니다.
                   </Text>
                 </View>
               );
