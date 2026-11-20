@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {draftFromRecognition, emptyLine, reviewedPayload} from '../../UIUX/src/utils/sharedReceipt.mjs';
 
-test('OCR prices and pack count are not promoted to paid amount or stock', () => {
+test('OCR prices and pack count are not promoted to paid amount or stock (ingredients default to fridge with quantity 1)', () => {
   const draft = draftFromRecognition({
     candidate: {title: '마트', spent_on: '2026-01-01', amount_krw: 5000},
     receipt_document: {allow_inventory: true}, fingerprint: '1234567890abcdef',
@@ -10,9 +10,11 @@ test('OCR prices and pack count are not promoted to paid amount or stock', () =>
   });
   assert.equal(draft.items[0].printedAmount, 3000);
   assert.equal(reviewedPayload(draft).items[0].linePaidAmount, null);
-  assert.equal(reviewedPayload(draft).items[0].inventorySelected, false);
+  // 식재료는 냉장고 등록이 기본(수량 1개·냉장). OCR의 팩 수(quantity: 2)는 재고 수량으로 쓰지 않는다.
+  assert.equal(reviewedPayload(draft).items[0].inventorySelected, true);
+  assert.equal(reviewedPayload(draft).items[0].quantity, 1);
   assert.equal(draft.receiptId, 'ocr-1234567890abcdef');
-  draft.items[0].inventorySelected = true;
+  draft.items[0].quantity = '';
   assert.throws(() => reviewedPayload(draft), /실제 재고 수량/);
 });
 
