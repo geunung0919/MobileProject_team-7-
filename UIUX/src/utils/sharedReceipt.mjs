@@ -1,6 +1,10 @@
 export const emptyLine = (key) => ({ key, name: '', rawName: '', itemType: 'unknown', inventorySelected: false,
   quantity: '', unit: '', storageMethod: '', dateType: 'unknown', expiresAt: '', paid: '' });
 
+// 식재료로 분류한 품목은 냉장고에 넣는 것이 기본입니다. 수량·단위·보관 방법은 흔한 값으로 채워 두고 사용자가 고칩니다.
+export const INGREDIENT_DEFAULTS = { inventorySelected: true, quantity: '1', unit: '개', storageMethod: 'refrigerated' };
+export const NOT_INGREDIENT_DEFAULTS = { inventorySelected: false, quantity: '', unit: '', storageMethod: '', dateType: 'unknown', expiresAt: '' };
+
 export function reviewedPayload(draft) {
   const validDate = (value) => /^\d{4}-\d{2}-\d{2}$/.test(value) && Number.isFinite(Date.parse(value)) &&
     new Date(value).toISOString().slice(0, 10) === value;
@@ -52,6 +56,7 @@ export function draftFromRecognition(result) {
       rawName: String(line.raw_name || '').slice(0, 100),
       itemType: line.item_type === 'ingredient' && document?.allow_inventory === false ? 'unknown' :
         ['ingredient', 'prepared_food', 'household', 'other'].includes(line.item_type) ? line.item_type : 'unknown',
+      ...(line.item_type === 'ingredient' && document?.allow_inventory !== false ? INGREDIENT_DEFAULTS : {}),
       printedAmount: Number.isSafeInteger(line.item_amount_krw) ? line.item_amount_krw : null,
     })),
     receiptId: typeof result.fingerprint === 'string' && /^[a-f0-9]{16,64}$/.test(result.fingerprint) ? `ocr-${result.fingerprint}` : '',

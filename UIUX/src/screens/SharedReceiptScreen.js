@@ -11,7 +11,7 @@ import { colors, spacing } from '../theme';
 import { auth } from '../../../firebase/firebaseConfig';
 import { confirmReceipt, createTransaction } from '../../../api/receiptApi';
 import { receiptOcrBase, receiptUsesDevelopmentToken, recognizeReceipt, previewPayment } from '../../../api/receiptRecognition';
-import { draftFromRecognition, draftFromPayment, emptyLine, reviewedPayload } from '../utils/sharedReceipt.mjs';
+import { draftFromRecognition, draftFromPayment, emptyLine, reviewedPayload, INGREDIENT_DEFAULTS, NOT_INGREDIENT_DEFAULTS } from '../utils/sharedReceipt.mjs';
 import { getPendingNotifications, isPaymentNotificationModuleAvailable, isNotificationAccessEnabled,
   markProcessedNotifications, openNotificationAccessSettings } from '../../../modules/payment-notifications';
 import { useAppData } from '../store/AppDataContext';
@@ -202,7 +202,7 @@ export default function SharedReceiptScreen({ navigation, route }) {
       <FormField label="총 결제 금액 (원)" value={draft.total} onChangeText={(v) => patch('total', v)} keyboardType="number-pad" />
       {draft.items.map((item) => <View key={item.key} style={{ padding: 12, borderRadius: 16, backgroundColor: colors.cardBg }}>
         <FormField label="품목명" value={item.name} onChangeText={(name) => update(item.key, { name })} maxLength={100} marginTop={0} />
-        <Choices choices={types} value={item.itemType} onChange={(itemType) => update(item.key, { itemType, inventorySelected: false })} />
+        <Choices choices={types} value={item.itemType} onChange={(itemType) => update(item.key, { itemType, ...(itemType === 'ingredient' ? INGREDIENT_DEFAULTS : NOT_INGREDIENT_DEFAULTS) })} />
         {item.printedAmount != null ? <Text>인식된 줄 금액: {item.printedAmount.toLocaleString()}원 · 할인 반영 여부를 확인해 주세요.</Text> : null}
         <FormField label="품목 실제 결제 금액 (원)" placeholder="모르면 비워 두세요" keyboardType="number-pad" value={item.paid} onChangeText={(paid) => update(item.key, { paid })} marginTop={8} />
         {item.itemType === 'ingredient' ? <Choices choices={[[false, '소비만 저장'], [true, '냉장고에도 등록']]} value={item.inventorySelected} onChange={(inventorySelected) => update(item.key, { inventorySelected })} /> : null}
