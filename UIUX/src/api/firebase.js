@@ -15,7 +15,8 @@ import { functions } from '../../../api/aiApi';
 export const isAiServerEnabled = true;
 
 // 진혁이의 AI Functions 공통 호출
-export async function callAi(name, data = {}) {
+// options.quiet: 없어도 되는 보조 호출(예: 소비 분석 한마디)은 실패해도 화면에 빨간 오류창을 띄우지 않고 로그만 남깁니다.
+export async function callAi(name, data = {}, options = {}) {
   if (!name || typeof name !== 'string') {
     throw new Error('AI 함수 이름이 올바르지 않습니다.');
   }
@@ -45,7 +46,7 @@ export async function callAi(name, data = {}) {
 
     return result.data;
   } catch (error) {
-    console.error(
+    (options.quiet ? console.log : console.error)(
       '[AI Firebase] 호출 실패:',
       name,
       error?.code || error?.message
