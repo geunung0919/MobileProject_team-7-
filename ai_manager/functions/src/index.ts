@@ -107,7 +107,8 @@ export const askEmergencyManual = onCall(OPTIONS, async (request) => {
   // 1) 위급 키워드: LLM 없이 즉시 안내 (비로그인도 가능, 횟수 차감 없음)
   if (kind === "self_harm") return { reply: safetyReply(message), safety: true, faq_ids: [], ai: false };
   if (kind === "emergency") {
-    const top = faqs[0];
+    // 맞는 FAQ가 없어도(예: 가스) 일반 위급 안내(general)라도 붙여서 119 한 줄로 끝나지 않게 한다
+    const top = faqs[0] ?? allFaqs.find((f) => f.faq_id === "general");
     const reply = top ? `${CALL_119_LINE}\n\n${renderFaq(top)}` : `${CALL_119_LINE} 안전한 곳으로 이동하는 게 가장 중요해요.`;
     return { reply, safety: true, faq_ids: top ? [top.faq_id] : [], ai: false };
   }
