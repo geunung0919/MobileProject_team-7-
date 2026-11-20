@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { View, ScrollView, StyleSheet } from 'react-native';
+import { View, ScrollView, Pressable, StyleSheet } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import Text from '../components/AppText';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ScreenHeader from '../components/ScreenHeader';
@@ -11,6 +12,8 @@ import Fab from '../components/Fab';
 import { TAB_BAR_HEIGHT } from '../components/TabBar';
 import { fridgeData } from '../data/fridge/fridge';
 import { useAppData } from '../store/AppDataContext';
+import { changeFridgeItem } from '../../../api/receiptApi';
+import { confirmAction } from '../utils/confirm';
 import {
   daysBetween,
   formatDotDate,
@@ -27,6 +30,22 @@ export default function FridgeScreen({ navigation }) {
   const now = new Date();
   const baseDate = toDateString(now); // 기준일 = 오늘
   const [filter, setFilter] = useState('all'); // 'all' | 'urgent' | 'expired'
+
+  // 서버에 등록한 식재료 삭제 (잘못 등록한 것 지우기). 이미 없거나 다른 곳에서 바뀐 경우에도 목록만 새로 고칩니다.
+  const deleteServerItem = (row) => confirmAction({
+    title: '식재료를 삭제할까요?',
+    message: `'${row.name}'이(가) 냉장고에서 삭제돼요.`,
+    confirmLabel: '삭제',
+    destructive: true,
+    onConfirm: async () => {
+      try {
+        await changeFridgeItem({ action: 'delete', id: row.id, version: row.version }, sharedUid);
+      } catch {
+        /* 404/409: 아래 새로고침으로 최신 목록을 보여 줍니다 */
+      }
+      await refreshShared(sharedUid).catch(() => {});
+    },
+  });
 
   // 유통기한 빠른 순으로 정렬하고, 남은 일수/임박 여부를 계산합니다.
   const enriched = useMemo(
@@ -80,8 +99,16 @@ export default function FridgeScreen({ navigation }) {
           {sharedUid ? null : <SoftButton label="로그인" onPress={() => navigation.navigate('SharedLogin')} />}
           {visibleShared?.inventoryError ? <Text accessibilityRole="alert">{visibleShared.inventoryError}</Text> : null}
           {visibleShared?.inventoryTruncated ? <Text>서버 식재료 목록 일부만 표시돼요.</Text> : null}
-          {visibleShared?.inventory?.map((row) => <SoftButton key={row.id} label={`${row.name} · ${row.quantity}${row.unit} · ${row.expiresAt || '기한 미입력'}`}
-            onPress={() => navigation.navigate('FridgeAdd', { id: row.id })} />)}
+          {visibleShared?.inventory?.map((row) => <View key={row.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <View style={{ flex: 1 }}>
+              <SoftButton label={`${row.name} · ${row.quantity}${row.unit} · ${row.expiresAt || '기한 미입력'}`}
+                onPress={() => navigation.navigate('FridgeAdd', { id: row.id })} />
+            </View>
+            <Pressable onPress={() => deleteServerItem(row)} hitSlop={8} accessibilityRole="button" accessibilityLabel={`${row.name} 삭제`}
+              style={{ padding: 10, borderRadius: 14, borderWidth: 1, borderColor: colors.checkboxBorder, backgroundColor: colors.white }}>
+              <Ionicons name="trash-outline" size={20} color={colors.textSecondary} />
+            </Pressable>
+          </View>)}
         </View> : null}
         {!sharedReceipts ? <>
         <Text style={styles.sectionTitle}>보관 중인 식재료</Text>
