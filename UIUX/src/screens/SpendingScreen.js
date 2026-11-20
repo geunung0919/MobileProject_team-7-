@@ -160,11 +160,13 @@ export default function SpendingScreen({ navigation }) {
           {budgetNotice?.key === budgetKey ? <Text accessibilityRole="alert">{budgetNotice.text}</Text> : null}
         </View> : <Text>로그인하면 월 예산과 지출 합계를 볼 수 있어요.</Text>) : <BudgetCard budget={budget} spent={spent} />}
         {sharedReceipts ? <View style={{ gap: 8, marginVertical: 16 }}>
-          <Text style={styles.sectionTitle}>서버 소비 기록</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Text style={styles.sectionTitle}>서버 소비 기록</Text>
+            {sharedUid ? <RefreshButton style={{ alignSelf: 'center' }} onPress={() => refreshShared(sharedUid).catch(() => {})} /> : null}
+          </View>
           {sharedUid ? <SoftButton label="소비 직접 입력" onPress={() => navigation.navigate('SharedReceipt', { source: 'manual' })} /> : null}
           {sharedUid ? <SoftButton label="결제 내역 가져오기" onPress={() => navigation.navigate('SharedReceipt', { source: 'payment' })} /> : null}
           <SoftButton label={sharedUid ? '영수증 저장' : '로그인'} onPress={() => navigation.navigate(sharedUid ? 'SharedReceipt' : 'SharedLogin')} />
-          {sharedUid ? <RefreshButton onPress={() => refreshShared(sharedUid).catch(() => {})} /> : null}
           {visibleShared?.spendingError ? <Text accessibilityRole="alert">{visibleShared.spendingError}</Text> : null}
           {visibleShared?.spendingTruncated ? <Text>서버 지출 목록은 최근 500건까지만 표시돼요.</Text> : null}
           {sharedUid ? <SoftButton label="소비 분석 보기" onPress={() => navigation.navigate('SpendingAnalysis', { year: period.year, month: period.month })} /> : null}

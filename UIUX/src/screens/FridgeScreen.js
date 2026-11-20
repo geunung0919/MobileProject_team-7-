@@ -73,10 +73,11 @@ export default function FridgeScreen({ navigation }) {
         />
 
         {sharedReceipts ? <View style={{ gap: 8, marginVertical: 16 }}>
-          <Text style={styles.sectionTitle}>서버에 등록한 식재료</Text>
-          {sharedUid
-            ? <RefreshButton onPress={() => refreshShared(sharedUid).catch(() => {})} />
-            : <SoftButton label="로그인" onPress={() => navigation.navigate('SharedLogin')} />}
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Text style={styles.sectionTitle}>서버에 등록한 식재료</Text>
+            {sharedUid ? <RefreshButton style={{ alignSelf: 'center' }} onPress={() => refreshShared(sharedUid).catch(() => {})} /> : null}
+          </View>
+          {sharedUid ? null : <SoftButton label="로그인" onPress={() => navigation.navigate('SharedLogin')} />}
           {visibleShared?.inventoryError ? <Text accessibilityRole="alert">{visibleShared.inventoryError}</Text> : null}
           {visibleShared?.inventoryTruncated ? <Text>서버 식재료 목록 일부만 표시돼요.</Text> : null}
           {visibleShared?.inventory?.map((row) => <SoftButton key={row.id} label={`${row.name} · ${row.quantity}${row.unit} · ${row.expiresAt || '기한 미입력'}`}

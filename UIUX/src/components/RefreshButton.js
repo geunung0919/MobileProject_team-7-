@@ -6,7 +6,7 @@ import { colors, fonts } from '../theme';
 
 // 작은 "새로고침" 버튼. 초록색 큰 버튼(SoftButton)과 구분되도록 회색 테두리의 작은 알약 모양이고,
 // 오른쪽 끝에 붙습니다. label 로 글자를 바꿀 수 있어요. 사용: <RefreshButton onPress={...} />
-export default function RefreshButton({ onPress, label = '새로고침', disabled = false }) {
+export default function RefreshButton({ onPress, label = '새로고침', disabled = false, style }) {
   return (
     <Pressable
       onPress={onPress}
@@ -14,7 +14,7 @@ export default function RefreshButton({ onPress, label = '새로고침', disable
       hitSlop={8}
       accessibilityRole="button"
       accessibilityLabel={label}
-      style={({ pressed }) => [styles.button, pressed && styles.pressed, disabled && styles.disabled]}
+      style={({ pressed }) => [styles.button, style, pressed && styles.pressed, disabled && styles.disabled]}
     >
       <MaterialCommunityIcons name="refresh" size={15} color={colors.textSecondary} />
       <Text style={styles.label}>{label}</Text>
