@@ -453,3 +453,16 @@ def test_confirm_persists_user_reviewed_receipt_items(client):
     assert saved["receipt_items"][0]["normalized_name"] == "우유"
     assert saved["receipt_items"][0]["is_ingredient"] is True
     assert saved["receipt_items"][1]["is_ingredient"] is False
+
+
+def test_table_header_is_not_glued_to_first_item():
+    from app.receipt_items import extract_receipt_items
+    items = extract_receipt_items("마트\n상품명 단가 수량 금액\n우유 1L 2,800 1 2,800\n계란 10구 4,500 1 4,500")
+    assert [i["raw_name"] for i in items][0].startswith("우유")
+    assert "상품명" not in items[0]["raw_name"]
+
+
+def test_total_label_and_amount_on_separate_lines():
+    from app.fintech import parse_import_candidate
+    text = "테스트마트\n2026-11-20 13:05\n우유 2,800 1 2,800\n합계\n2,800원\n결제금액\n2,800원"
+    assert parse_import_candidate(text, source="ocr")["candidate"]["amount_krw"] == 2800

@@ -294,7 +294,26 @@ _OCR_TOTALS = (
 )
 
 
+def _join_split_total_lines(text):
+    """OCR이 "결제금액"과 "20,900원"을 두 줄로 나눈 경우 한 줄로 합친다 (영수증은 글자와 금액이 멀리 떨어져 있는 경우가 많음)."""
+    lines = text.splitlines()
+    label = re.compile(r'^(?:' + '|'.join(r'\s*'.join(w) for w in (
+        '결제대상금액', '결제금액', '총결제금액', '승인금액', '받을금액', '총합계', '합계', '총액')) + r')\s*[:：]?$')
+    amount_only = re.compile(r'^[0-9][0-9,]*\s*원?$')
+    out = []
+    i = 0
+    while i < len(lines):
+        if label.fullmatch(lines[i].strip()) and i + 1 < len(lines) and amount_only.fullmatch(lines[i + 1].strip()):
+            out.append(f'{lines[i].strip()} {lines[i + 1].strip()}')
+            i += 2
+            continue
+        out.append(lines[i])
+        i += 1
+    return '\n'.join(out)
+
+
 def extract_receipt_amount(text):
+    text = _join_split_total_lines(text)
     for labels in _OCR_TOTALS:
         spaced = '|'.join(r'\s*'.join(label) for label in labels.split('|'))
         pattern = re.compile(r'^(?:' + spaced + r')\s*[:：]?\s*([0-9][0-9,]*)\s*원?$')

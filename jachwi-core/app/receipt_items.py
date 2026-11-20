@@ -491,6 +491,14 @@ def parse_barcode_item_line(raw_line: str) -> dict | None:
     }
 
 
+_HEADER_WORDS = {"상품명", "품목명", "품명", "상품", "품목", "단가", "수량", "금액", "가격", "코드", "상품코드", "단위", "과세"}
+
+
+def _is_table_header(line: str) -> bool:
+    tokens = re.sub(r"[\s:|/]+", " ", line).split()
+    return bool(tokens) and all(token in _HEADER_WORDS for token in tokens)
+
+
 def extract_receipt_items(raw_text: str, limit: int = 50) -> list[dict]:
     document = classify_receipt_document(raw_text)
     items: list[dict] = []
@@ -503,6 +511,10 @@ def extract_receipt_items(raw_text: str, limit: int = 50) -> list[dict]:
     index = 0
     while index < len(lines):
         line = lines[index]
+        # "상품명 단가 수량 금액" 같은 표 머리글은 품목이 아니므로 건너뛴다 (다음 줄과 합쳐져 첫 품목 이름이 깨지는 것을 막음)
+        if _is_table_header(line):
+            index += 1
+            continue
         item = parse_receipt_item_line(line)
         consumed = 1
 
