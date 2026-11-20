@@ -343,6 +343,13 @@ def process_image(payload):
     truncated = len(text) > 5000
     raw_text = text[:5000]
     result = parse_import_candidate(raw_text, source='ocr')
+    # 금액·날짜·사용처를 하나도 못 읽었다면 의미 없는 글자 조각(화면 촬영, 초점 불량 등)이므로 쓰레기 품목을 만들지 않고 다시 찍게 안내한다.
+    warned = ' '.join(result.get('warnings', []))
+    if '금액을 자동 추출하지 못했어요' in warned and '날짜가 없어' in warned and '사용처를 자동 추출하지 못했어요' in warned:
+        raise HTTPException(
+            422,
+            '영수증 글자를 읽지 못했어요. 모니터 화면이 아닌 종이 영수증을 밝은 곳에서 가까이 찍거나, 사진첩의 원본 이미지를 선택해 주세요.',
+        )
     result['needs_review'] = True
     if image_quality['low_contrast']:
         result['warnings'].append(
