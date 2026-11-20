@@ -21,6 +21,7 @@ from .receipt_paddle import paddle_available, recognize_paddle
 MAX_IMAGE_BYTES = 8 * 1024 * 1024
 MAX_REQUEST_BYTES = 12 * 1024 * 1024
 MAX_PIXELS = 20_000_000
+OCR_RUN_TIMEOUT = float(os.getenv('OCR_RUN_TIMEOUT_SECONDS', '20'))  # Tesseract 한 번 실행 제한(초)
 SLOTS = threading.BoundedSemaphore(2)
 FORMATS = {'image/jpeg': 'JPEG', 'image/png': 'PNG', 'image/webp': 'WEBP'}
 
@@ -54,7 +55,7 @@ def decode_image(payload):
                     raise HTTPException(413, '사진 크기가 너무 크거나 여러 프레임이에요. 한 장의 영수증으로 잘라 주세요.')
                 source.load()
                 image = ImageOps.exif_transpose(source).convert('RGB')
-                image.thumbnail((2600, 3600))
+                image.thumbnail((1800, 2600))  # 폰 카메라 원본(12MP급)은 Tesseract가 너무 오래 걸려 줄여서 읽는다
                 prepared = ImageOps.grayscale(image)
                 if prepared.width < 1600:
                     scale = min(2.5, 1600 / max(prepared.width, 1))
@@ -188,6 +189,7 @@ def recognize_tesseract(image):
     best_psm = None
     engine_started = False
     engine_success = False
+    timed_out = False
 
     try:
         with tempfile.TemporaryDirectory(prefix='receipt-ocr-') as directory:
@@ -201,19 +203,24 @@ def recognize_tesseract(image):
                 variant.save(path, format='PNG')
                 try:
                     for psm in psm_plan[variant_name]:
-                        result = subprocess.run(
-                            [
-                                executable, str(path), 'stdout',
-                                '-l', languages,
-                                '--oem', '1',
-                                '--psm', psm,
-                                '-c', 'preserve_interword_spaces=1',
-                            ],
-                            capture_output=True,
-                            timeout=6,
-                            check=False,
-                            env={**os.environ, 'OMP_THREAD_LIMIT': '1'},
-                        )
+                        try:
+                            result = subprocess.run(
+
+                                [
+                                    executable, str(path), 'stdout',
+                                    '-l', languages,
+                                    '--oem', '1',
+                                    '--psm', psm,
+                                    '-c', 'preserve_interword_spaces=1',
+                                ],
+                                capture_output=True,
+                                timeout=OCR_RUN_TIMEOUT,
+                                check=False,
+                                env={**os.environ, 'OMP_THREAD_LIMIT': '1'},
+                            )
+                        except subprocess.TimeoutExpired:
+                            timed_out = True  # 이 방식만 건너뛰고 다른 방식 결과를 쓴다
+                            continue
                         engine_started = True
                         if result.returncode:
                             continue
@@ -232,12 +239,14 @@ def recognize_tesseract(image):
             503,
             '서버에 Tesseract OCR이 설치되지 않았어요. 서버 설정 후 재시도하거나 직접 입력해 주세요.',
         ) from None
-    except subprocess.TimeoutExpired:
+    except subprocess.TimeoutExpired:  # (위에서 처리하므로 보통 도달하지 않음)
         raise HTTPException(
             504,
             '사진 인식 시간이 초과됐어요. 영수증 부분만 잘라 다시 시도해 주세요.',
         ) from None
 
+    if timed_out and not engine_success:
+        raise HTTPException(504, '사진 인식 시간이 초과됐어요. 영수증 부분만 잘라 다시 시도해 주세요.')
     if not engine_started:
         raise HTTPException(503, '서버 OCR 엔진을 시작하지 못했어요. 직접 입력도 가능해요.')
     if not engine_success:

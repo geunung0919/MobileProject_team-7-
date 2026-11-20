@@ -466,3 +466,10 @@ def test_total_label_and_amount_on_separate_lines():
     from app.fintech import parse_import_candidate
     text = "테스트마트\n2026-11-20 13:05\n우유 2,800 1 2,800\n합계\n2,800원\n결제금액\n2,800원"
     assert parse_import_candidate(text, source="ocr")["candidate"]["amount_krw"] == 2800
+
+
+def test_won_sign_misread_as_digit_does_not_change_amount():
+    from app.fintech import parse_import_candidate
+    for glued in ("20,9007", "20,9002!", "20,900원"):
+        text = f"테스트마트\n2026-11-20\n우유 2,800 1 2,800\n결제금액\n{glued}"
+        assert parse_import_candidate(text, source="ocr")["candidate"]["amount_krw"] == 20900, glued

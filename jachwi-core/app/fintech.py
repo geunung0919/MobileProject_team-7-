@@ -110,6 +110,9 @@ _OCR_NUMERIC_TOKEN_RE = re.compile(
 )
 
 
+_OCR_WON_GLUE_RE = re.compile(r'(?<![\d,.])(\d{1,3}(?:,\d{3})+)[0-9Oo]?[!|]?(?=\s|원|$)', re.M)
+
+
 def normalize_ocr_numeric_text(value):
     """Fix common OCR substitutions only inside isolated numeric-looking tokens."""
     translations = str.maketrans({'O': '0', 'I': '1', 'l': '1'})
@@ -126,7 +129,9 @@ def normalize_ocr_numeric_text(value):
         fixed = re.sub(r'(?<=\d)\.(?=\d{3}(?:[.,]|$))', ',', fixed)
         return fixed
 
-    return _OCR_NUMERIC_TOKEN_RE.sub(replace, value or '')
+    fixed_text = _OCR_NUMERIC_TOKEN_RE.sub(replace, value or '')
+    # "20,900원"의 '원'이 숫자나 기호로 읽혀 "20,9007", "20,9002!"처럼 붙는 경우: 천 단위 쉼표 뒤 3자리까지만 금액으로 본다.
+    return _OCR_WON_GLUE_RE.sub(r'\1', fixed_text)
 
 
 def normalize_import_text(value):
