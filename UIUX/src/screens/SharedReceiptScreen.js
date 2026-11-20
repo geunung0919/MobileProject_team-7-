@@ -41,6 +41,7 @@ export default function SharedReceiptScreen({ navigation, route }) {
   const [ready, setReady] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
+  const [idConflict, setIdConflict] = useState(false);
   const [ocrToken, setOcrToken] = useState('');
   const [ocrBusy, setOcrBusy] = useState(false);
   const lock = useRef(false);
@@ -149,7 +150,8 @@ export default function SharedReceiptScreen({ navigation, route }) {
       setPending(null);
       if (auth.currentUser?.uid === sharedUid && navigation.isFocused()) navigation.goBack();
     } catch (error) {
-      setMessage(error.status === 405 ? '팀 서버에 소비 저장 기능을 먼저 배포해 주세요.' : (error.message || '저장 상태를 확인하지 못했어요. 같은 요청으로 다시 시도해 주세요.'));
+      setIdConflict(error.status === 409);
+      setMessage(error.status === 409 ? '이 영수증은 이미 저장돼 있고, 지금 내용이 달라요. 중복 저장을 막기 위한 안내예요. 내용을 바꿔 새로 저장하려면 아래 "새 영수증으로 저장"을 눌러 주세요.' : error.status === 405 ? '팀 서버에 소비 저장 기능을 먼저 배포해 주세요.' : (error.message || '저장 상태를 확인하지 못했어요. 같은 요청으로 다시 시도해 주세요.'));
     } finally {
       lock.current = false;
       setBusy(false);
@@ -159,6 +161,7 @@ export default function SharedReceiptScreen({ navigation, route }) {
     <BackHeader title={payment ? '결제 내역 가져오기' : manual ? '소비 직접 입력' : '영수증 저장'} onBack={() => navigation.goBack()} />
     {!sharedUid ? <Text>로그인 후 소비를 저장할 수 있어요.</Text> : null}
     {message ? <Text accessibilityRole="alert" style={{ color: colors.warnText }}>{message}</Text> : null}
+    {idConflict ? <Chip label="새 영수증으로 저장" onPress={() => { patch('receiptId', ''); setPending(null); setIdConflict(false); setMessage('새 영수증으로 저장할 준비가 됐어요. 내용을 확인하고 다시 저장해 주세요.'); }} /> : null}
     {ready && !pending && !busy ? <>
       {!manual && !payment && receiptOcrBase ? <>
         {receiptUsesDevelopmentToken ? <FormField label="OCR 개발용 토큰" value={ocrToken} onChangeText={setOcrToken} secureTextEntry /> : null}
