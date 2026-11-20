@@ -9,6 +9,7 @@ import FormField from '../components/FormField';
 import { loadBudget, saveBudget } from '../../../api/receiptApi';
 import BudgetCard from '../components/BudgetCard';
 import SoftButton from '../components/SoftButton';
+import RefreshButton from '../components/RefreshButton';
 import TransactionRow from '../components/TransactionRow';
 import Fab from '../components/Fab';
 import AddSpendingSheet from '../components/AddSpendingSheet';
@@ -163,7 +164,7 @@ export default function SpendingScreen({ navigation }) {
           {sharedUid ? <SoftButton label="소비 직접 입력" onPress={() => navigation.navigate('SharedReceipt', { source: 'manual' })} /> : null}
           {sharedUid ? <SoftButton label="결제 내역 가져오기" onPress={() => navigation.navigate('SharedReceipt', { source: 'payment' })} /> : null}
           <SoftButton label={sharedUid ? '영수증 저장' : '로그인'} onPress={() => navigation.navigate(sharedUid ? 'SharedReceipt' : 'SharedLogin')} />
-          {sharedUid ? <SoftButton label="서버 목록 새로고침" onPress={() => refreshShared(sharedUid).catch(() => {})} /> : null}
+          {sharedUid ? <RefreshButton onPress={() => refreshShared(sharedUid).catch(() => {})} /> : null}
           {visibleShared?.spendingError ? <Text accessibilityRole="alert">{visibleShared.spendingError}</Text> : null}
           {visibleShared?.spendingTruncated ? <Text>서버 지출 목록은 최근 500건까지만 표시돼요.</Text> : null}
           {sharedUid ? <SoftButton label="소비 분석 보기" onPress={() => navigation.navigate('SpendingAnalysis', { year: period.year, month: period.month })} /> : null}

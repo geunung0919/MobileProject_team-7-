@@ -4,6 +4,7 @@ import Text from '../components/AppText';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ScreenHeader from '../components/ScreenHeader';
 import SoftButton from '../components/SoftButton';
+import RefreshButton from '../components/RefreshButton';
 import Chip from '../components/Chip';
 import FridgeItemRow from '../components/FridgeItemRow';
 import Fab from '../components/Fab';
@@ -73,7 +74,9 @@ export default function FridgeScreen({ navigation }) {
 
         {sharedReceipts ? <View style={{ gap: 8, marginVertical: 16 }}>
           <Text style={styles.sectionTitle}>서버에 등록한 식재료</Text>
-          <SoftButton label={sharedUid ? '서버 목록 새로고침' : '로그인'} onPress={() => sharedUid ? refreshShared(sharedUid).catch(() => {}) : navigation.navigate('SharedLogin')} />
+          {sharedUid
+            ? <RefreshButton onPress={() => refreshShared(sharedUid).catch(() => {})} />
+            : <SoftButton label="로그인" onPress={() => navigation.navigate('SharedLogin')} />}
           {visibleShared?.inventoryError ? <Text accessibilityRole="alert">{visibleShared.inventoryError}</Text> : null}
           {visibleShared?.inventoryTruncated ? <Text>서버 식재료 목록 일부만 표시돼요.</Text> : null}
           {visibleShared?.inventory?.map((row) => <SoftButton key={row.id} label={`${row.name} · ${row.quantity}${row.unit} · ${row.expiresAt || '기한 미입력'}`}

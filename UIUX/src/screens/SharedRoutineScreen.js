@@ -7,6 +7,7 @@ import Chip from '../components/Chip';
 import FormField from '../components/FormField';
 import PrimaryButton from '../components/PrimaryButton';
 import SoftButton from '../components/SoftButton';
+import RefreshButton from '../components/RefreshButton';
 import TodoRow from '../components/TodoRow';
 import { listRoutines, writeRoutine } from '../../../api/receiptApi';
 import { useAppData } from '../store/AppDataContext';
@@ -84,7 +85,7 @@ function RoutineList({ uid }) {
       <SoftButton label={alerts.busy ? '알림 설정 중…' : alerts.enabled === null ? '알림 설정 불러오는 중…' : alerts.enabled ? '이 기기 루틴 알림 끄기' : '이 기기 루틴 알림 켜기'} onPress={alerts.toggle} />
       {alerts.status ? <Text>{alerts.status}</Text> : null}
     </> : <Text>루틴 알림은 모바일 앱에서 켤 수 있어요.</Text>}
-    <SoftButton label="새로고침" onPress={() => setReload((n) => n + 1)} />
+    <RefreshButton onPress={() => setReload((n) => n + 1)} />
     {list?.items.length === 0 ? <Text>서버에 등록한 루틴이 없어요.</Text> : null}
     {[...(list?.items ?? [])].sort((a, b) => String(a.time).localeCompare(String(b.time))).map((item) => <View key={item.id}>
       <TodoRow title={item.title} subText={`${item.time || '시간 미설정'} · ${item.repeat_days?.join('·') || '매일'}`}

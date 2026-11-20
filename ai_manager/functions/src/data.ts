@@ -6,6 +6,7 @@ import {
   compact, DATA_SOURCE, FIELDS, toBudget, toExpense, toInventoryItem, toRoutine, toRoutineLog, todayLogsFromRoutines, toUsageLog,
 } from "./adapters";
 import { EmergencyFaq, InventoryItem, Profile, ReportInput, WeeklyInput } from "./types";
+import { bundledFaqs } from "./faqSeed";
 
 if (getApps().length === 0) initializeApp();
 export let db = getFirestore();
@@ -119,7 +120,9 @@ let faqCache: { at: number; items: EmergencyFaq[] } | null = null;
 export async function loadVerifiedFaqs(): Promise<EmergencyFaq[]> {
   if (faqCache && Date.now() - faqCache.at < 5 * 60_000) return faqCache.items;
   const snap = await db.collection(PATHS.emergencyFaq).where("status", "==", "verified").get();
-  const items = snap.docs.map((d) => d.data() as EmergencyFaq);
+  const stored = snap.docs.map((d) => d.data() as EmergencyFaq);
+  // 컬렉션에 verified 문서가 없으면 앱 가이드에서 옮겨 둔 기본 세트를 씁니다.
+  const items = stored.length > 0 ? stored : bundledFaqs;
   faqCache = { at: Date.now(), items };
   return items;
 }

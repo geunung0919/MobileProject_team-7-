@@ -3,6 +3,7 @@ import { ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import BackHeader from '../components/BackHeader';
 import SoftButton from '../components/SoftButton';
+import RefreshButton from '../components/RefreshButton';
 import { readDailyReports, generateDailyReport } from '../../../api/aiApi';
 import { useAppData } from '../store/AppDataContext';
 import { colors, spacing } from '../theme';
@@ -54,7 +55,7 @@ function Reports({ uid }) {
     [preview, ...(reports ?? [])] : reports ?? [];
   return <>
     <SoftButton label={busy ? '서버 확인 중…' : '오늘 리포트 불러오기'} onPress={() => run(true)} />
-    <SoftButton label="저장된 리포트 새로고침" onPress={() => run(false)} />
+    <RefreshButton label="리포트 새로고침" onPress={() => run(false)} />
     {message ? <Text accessibilityRole="alert">{message}</Text> : null}
     {reports && items.length === 0 ? <Text>아직 저장된 리포트가 없어요.</Text> : null}
     {items.map((row) => <View key={row.report_date} style={{ backgroundColor: colors.cardBg, borderRadius: 12, padding: 14, gap: 6 }}>

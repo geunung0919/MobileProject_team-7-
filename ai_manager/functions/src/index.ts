@@ -95,7 +95,12 @@ export const askEmergencyManual = onCall(OPTIONS, async (request) => {
   if (!message) throw new HttpsError("invalid-argument", "질문을 입력해 주세요.");
   if (message.length > MAX_MESSAGE_LEN) throw new HttpsError("invalid-argument", `질문은 ${MAX_MESSAGE_LEN}자 이내로 입력해 주세요.`);
 
-  const faqs = rankFaqs(await loadVerifiedFaqs(), message);
+  const allFaqs = await loadVerifiedFaqs();
+  const history = normalizeHistory(request.data?.history);
+  // 이어지는 질문("그다음엔?")도 맞는 FAQ를 찾도록 직전 사용자 질문까지 함께 검색한다
+  const searchText = [...history.filter((h) => h.role === "user").slice(-2).map((h) => h.content), message].join(" ");
+  // 안전 안내는 검증된 FAQ만 근거로 하므로, 관련 FAQ를 키워드로 먼저 고른다(없으면 지어내지 않고 고정 문구)
+  const faqs = rankFaqs(allFaqs, searchText);
   const kind = safetyKind(message);
 
   // 1) 위급 키워드: LLM 없이 즉시 안내 (비로그인도 가능, 횟수 차감 없음)
@@ -116,7 +121,7 @@ export const askEmergencyManual = onCall(OPTIONS, async (request) => {
   if (!(await consumeQuota(uid, "emergency", DAILY_EMERGENCY_LIMIT, todayKST()))) return faqOnly("limited");
 
   // 4) FAQ 안에서만 답하도록 AI 호출 → 검증 → 출처는 코드가 붙임
-  const result = await answerEmergency(LLM_API_KEY.value(), faqs, normalizeHistory(request.data?.history), message);
+  const result = await answerEmergency(LLM_API_KEY.value(), faqs, history, message);
   if (!result) return faqOnly("failed");
   if (result.faq_ids.length === 0) return { reply: NO_FAQ_REPLY, faq_ids: [], ai: true, reason: "no_faq" };
   return { reply: composeReply(result.answer, result.faq_ids, faqs), faq_ids: result.faq_ids, ai: true };
