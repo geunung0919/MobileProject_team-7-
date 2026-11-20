@@ -1,15 +1,18 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { View, ScrollView, Pressable, StyleSheet } from 'react-native';
 import Text from '../components/AppText';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AnalysisSummaryCard from '../components/AnalysisSummaryCard';
 import SegmentedControl from '../components/SegmentedControl';
+import AiSayCard from '../components/AiSayCard';
 import DonutChart from '../components/DonutChart';
 import MonthlyBarChart from '../components/MonthlyBarChart';
 import { analysisConfig, analysisTexts } from '../data/spending/spendingAnalysis';
 import { useAppData } from '../store/AppDataContext';
 import { getCategoryTotals, getMonthlyTotals, getTickStep } from '../utils/spendingAnalysis';
+import { fetchSpendingInsight, isAiServerEnabled } from '../api/aiManager';
+import { buildLocalInsight, previousMonth, toInsightRows } from '../utils/spendingInsight';
 import { formatNumber } from '../utils/format';
 import { colors, fonts, spacing } from '../theme';
 
@@ -57,6 +60,31 @@ export default function SpendingAnalysisScreen({ navigation, route }) {
     };
   }, [transactions, year, month]);
 
+  // AI 한마디: 먼저 코드로 만든 문장을 보여 주고, 서버 AI가 답하면 바꿔 끼웁니다 (지난달과 비교).
+  const insightRows = useMemo(() => {
+    const prevMonth = previousMonth(year, month);
+    return {
+      current: toInsightRows(transactions, year, month, analysisConfig),
+      prev: toInsightRows(transactions, prevMonth.year, prevMonth.month, analysisConfig),
+    };
+  }, [transactions, year, month]);
+  const localInsight = useMemo(() => buildLocalInsight(insightRows.current, insightRows.prev), [insightRows]);
+  const [aiInsight, setAiInsight] = useState(null);
+  useEffect(() => {
+    setAiInsight(null);
+    if (!available || !isAiServerEnabled || !insightRows.current.length) return undefined;
+    let cancelled = false;
+    fetchSpendingInsight({ year, month, categories: insightRows.current, prev: insightRows.prev })
+      .then((res) => {
+        if (!cancelled && typeof res?.comment === 'string' && res.comment) setAiInsight(res.comment);
+      })
+      .catch(() => {}); // 실패하면 기본 문장 그대로
+    return () => {
+      cancelled = true;
+    };
+  }, [available, year, month, insightRows]);
+  const insightText = aiInsight ?? localInsight;
+
   return (
     <View style={styles.container}>
       <ScrollView
@@ -96,6 +124,8 @@ export default function SpendingAnalysisScreen({ navigation, route }) {
         <View style={styles.tabs}>
           <SegmentedControl options={t.tabs} value={tab} onChange={setTab} showCheck={false} />
         </View>
+
+        {insightText ? <AiSayCard label="AI 한마디" text={insightText} style={styles.insight} /> : null}
 
         {tab === 'category' ? (
           <CategoryTab categories={categories} word={word} />
@@ -249,6 +279,9 @@ const styles = StyleSheet.create({
   },
   tabs: {
     marginTop: 22,
+  },
+  insight: {
+    marginTop: 16,
   },
 
   sectionHeader: {

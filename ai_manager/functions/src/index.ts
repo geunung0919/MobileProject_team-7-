@@ -11,6 +11,7 @@ import { generateRecipes } from "./recipe";
 import { buildRecipeContext, DAILY_RECIPE_LIMIT, normalizeRecipeOptions } from "./recipeRules";
 import { answerEmergency } from "./emergency";
 import { composeReply, DAILY_EMERGENCY_LIMIT, NO_FAQ_REPLY, rankFaqs, renderFaq } from "./emergencyRules";
+import { buildFacts, DAILY_SPENDING_INSIGHT_LIMIT, fallbackComment, generateInsight, normalizeInsightInput } from "./spendingInsight";
 import { fallbackReport, generateReport } from "./generate";
 import { AiReport } from "./types";
 
@@ -215,4 +216,20 @@ export const generateWeeklyReport = onCall(OPTIONS, async (request) => {
   }
   // AI 실패: 템플릿 문장으로 보여주고 저장하지 않음 (다음 호출에서 재시도)
   return { week_start: weekStart, stats: analysis.stats, text: fallbackWeekly(analysis), ai: false, cached: false };
+});
+
+// 클라이언트: httpsCallable("generateSpendingInsight")({ year, month, categories:[{name,amount}], prev:[{name,amount}] })
+// → { comment, ai, limited? }   증감은 코드가 계산하고 AI는 문장만 쓴다. 실패·한도 초과면 기본 문장(ai:false).
+export const generateSpendingInsight = onCall(OPTIONS, async (request) => {
+  const uid = request.auth?.uid;
+  if (!uid) throw new HttpsError("unauthenticated", "로그인이 필요해요.");
+  const input = normalizeInsightInput(request.data);
+  if (!input) throw new HttpsError("invalid-argument", "year/month 가 올바르지 않아요.");
+  const facts = buildFacts(input);
+  if (!facts) return { comment: fallbackComment({ period: "", total: 0, prev_total: 0, total_diff: 0, top_up: null, top_down: null, top_category: null }), ai: false };
+  if (!(await consumeQuota(uid, "spending_insight", DAILY_SPENDING_INSIGHT_LIMIT, todayKST()))) {
+    return { comment: fallbackComment(facts), ai: false, limited: true };
+  }
+  const text = await generateInsight(LLM_API_KEY.value(), facts);
+  return text ? { comment: text, ai: true } : { comment: fallbackComment(facts), ai: false };
 });

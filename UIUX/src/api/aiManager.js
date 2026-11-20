@@ -48,3 +48,7 @@ export async function fetchRecipes(options = {}) {
     excludedExpired: res.excluded_expired ?? [],
   };
 }
+
+// 소비 분석 'AI 한마디' → { comment, ai, limited? }  (categories/prev = [{ name, amount }])
+export const fetchSpendingInsight = ({ year, month, categories, prev }) =>
+  callAi('generateSpendingInsight', { year, month, categories, prev });
