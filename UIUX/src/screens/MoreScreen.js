@@ -3,6 +3,7 @@ import { View, ScrollView, Pressable, StyleSheet } from 'react-native';
 import Text from '../components/AppText';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { CommonActions } from '@react-navigation/native';
 import ScreenHeader from '../components/ScreenHeader';
 import SectionTitle from '../components/SectionTitle';
 import MenuRow from '../components/MenuRow';
@@ -39,6 +40,8 @@ export default function MoreScreen({ navigation }) {
     try {
       await signOut(auth);
       setConfirmUid(null);
+      // 로그아웃하면 앱 화면에 남지 않고 로그인 화면으로 돌아가요. (뒤로 가기로 다시 못 들어오게 기록도 비움)
+      (navigation.getParent() ?? navigation).dispatch(CommonActions.reset({ index: 0, routes: [{ name: 'Login' }] }));
     } catch (err) {
       setError(err.message || '로그아웃하지 못했어요.');
     } finally {
