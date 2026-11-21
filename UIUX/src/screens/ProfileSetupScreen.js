@@ -17,6 +17,7 @@ import {
   RegionField,
 } from '../components/LifeFields';
 import { useAppData } from '../store/AppDataContext';
+import { saveProfile, saveOnboarding } from '../../../api/receiptApi';
 import { profileSetupData as setup } from '../data/auth/profileSetup';
 import { lifeDataForm } from '../data/more/lifeData';
 import { getDiagnosis, formatBudget, periodLabel, goalTitle, toolsLabel } from '../utils/diagnosis';
@@ -28,11 +29,25 @@ const REVIEW = 5;
 const RESULT = 6;
 const STEP_OF_SECTION = { nickname: 1, status: 2, cooking: 3, budgetRegion: 4 };
 
+// 서버(생활 설정 API)가 받는 값으로 바꿉니다. 더보기 > 내 생활 설정 화면과 같은 저장소예요.
+const SERVER_MONTHS = { under1m: 0, '1m': 1, '6m': 6, '1y': 12 };
+const SERVER_GOAL = { saving: 'save_money', food: 'reduce_waste', habit: 'build_routine' };
+const SERVER_TOOL = { microwave: 'microwave', gas: 'stove', cooker: 'rice_cooker', airfryer: 'air_fryer' };
+const toServerOnboarding = ({ period, goal, tools, cookDays, budget }) => ({
+  living_months: SERVER_MONTHS[period] ?? null,
+  cooking_days_per_week: Number.isInteger(cookDays) ? cookDays : null,
+  monthly_budget_krw: budget > 0 ? Math.round(budget) : null,
+  priority: SERVER_GOAL[goal] ?? null,
+  cooking_tools: [...new Set(tools.map((t) => SERVER_TOOL[t]).filter(Boolean))],
+  initial_inventory_state: 'not_entered',
+});
+
 // 회원가입 후 나오는 프로필 설정. 끝에서 입력값을 저장소에 넣으면,
 // 더보기 > 생활 데이터 수정 / 개인정보 관리 / 소비 예산에 같은 값이 보입니다.
 export default function ProfileSetupScreen({ navigation }) {
   const insets = useSafeAreaInsets();
-  const { profile, updateProfile, lifeData, updateLifeData, budget: savedBudget, setBudget } = useAppData();
+  const { profile, updateProfile, lifeData, updateLifeData, budget: savedBudget, setBudget, sharedReceipts, sharedUid } = useAppData();
+  const [saving, setSaving] = useState(false);
 
   const [step, setStep] = useState(1);
   const [editing, setEditing] = useState(false); // 확인 화면에서 "수정"을 눌러 들어온 상태
@@ -71,7 +86,8 @@ export default function ProfileSetupScreen({ navigation }) {
     return null;
   };
 
-  const next = () => {
+  const next = async () => {
+    if (saving) return;
     const msg = problem();
     if (msg) {
       showNotice('입력을 확인해 주세요', msg);
@@ -81,7 +97,20 @@ export default function ProfileSetupScreen({ navigation }) {
       setEditing(false);
       setStep(REVIEW);
     } else if (step === REVIEW) {
-      // 진단 결과를 보여주기 전에 입력값을 저장합니다.
+      // 진단 결과를 보여주기 전에 입력값을 저장합니다. 로그인한 계정이면 서버에도 저장해
+      // 새로고침하거나 다른 기기에서 들어와도 닉네임·예산·생활 설정이 남아 있게 해요.
+      if (sharedReceipts && sharedUid) {
+        setSaving(true);
+        try {
+          await saveProfile({ nickname: nickname.trim(), region: region.trim() }, sharedUid);
+          await saveOnboarding(toServerOnboarding({ period, goal, tools, cookDays, budget }), sharedUid);
+        } catch (error) {
+          showNotice('저장하지 못했어요', `${error?.message || '네트워크를 확인해 주세요.'}\n다시 "진단 결과 보기"를 눌러 주세요.`);
+          return;
+        } finally {
+          setSaving(false);
+        }
+      }
       updateProfile({ nickname: nickname.trim(), region: region.trim() });
       updateLifeData({ period, goal, tools, cookDays });
       setBudget(budget);
@@ -194,7 +223,7 @@ export default function ProfileSetupScreen({ navigation }) {
       </ScrollView>
 
       <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 16) }]}>
-        <PrimaryButton label={buttonLabel} onPress={next} />
+        <PrimaryButton label={saving ? '저장 중…' : buttonLabel} onPress={next} />
       </View>
     </KeyboardAvoidingView>
   );
