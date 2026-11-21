@@ -1,36 +1,35 @@
 $ErrorActionPreference = "Stop"
 Set-Location $PSScriptRoot
 
-Write-Host "=== 자취생존 AI 팀 공용 실행 ===" -ForegroundColor Cyan
+Write-Host "=== Solo Living AI: Team App ===" -ForegroundColor Cyan
 
-# 최초 실행 시 공용 환경 설정 적용
-if (-not (Test-Path ".env.local")) {
-    Copy-Item ".env.team.example" ".env.local"
-    Write-Host "공용 환경 설정 생성 완료"
+if (-not (Test-Path ".env.team.example")) {
+    throw "Missing .env.team.example"
 }
 
-# 패키지가 설치되지 않았다면 설치
-if (-not (Test-Path "node_modules")) {
-    Write-Host "패키지 설치 중..."
-    npm.cmd ci
+if (-not (Test-Path ".env.local")) {
+    Copy-Item ".env.team.example" ".env.local"
+    Write-Host "Created .env.local"
+}
 
+if (-not (Test-Path "node_modules")) {
+    Write-Host "Installing packages..."
+    npm.cmd ci
     if ($LASTEXITCODE -ne 0) {
-        throw "패키지 설치 실패"
+        throw "npm ci failed"
     }
 }
 
-# 이전 터미널에서 설정한 환경변수 초기화
-@(
-    "EXPO_PUBLIC_FIREBASE_TARGET",
-    "EXPO_PUBLIC_PLACE_API_MODE",
-    "EXPO_PUBLIC_CLOUD_API_BASE_URL",
-    "EXPO_PUBLIC_RECEIPT_AUTH_MODE",
-    "EXPO_PUBLIC_RECEIPT_OCR_BASE_URL"
-) | ForEach-Object {
-    Remove-Item "Env:$_" -ErrorAction SilentlyContinue
-}
-
+# Force shared cloud settings even when a teammate has an older .env.local.
+$env:EXPO_PUBLIC_FIREBASE_TARGET = "cloud"
+$env:EXPO_PUBLIC_PLACE_API_MODE = "firebase"
+$env:EXPO_PUBLIC_CLOUD_API_BASE_URL = "https://asia-northeast3-solo-living-ai.cloudfunctions.net/api"
+$env:EXPO_PUBLIC_RECEIPT_AUTH_MODE = "firebase"
+$env:EXPO_PUBLIC_RECEIPT_OCR_BASE_URL = "https://jachwi-receipt-ocr-634501862696.asia-northeast3.run.app"
 $env:EXPO_PUBLIC_SHARED_RECEIPTS = "true"
-Write-Host "Expo 실행 중..." -ForegroundColor Green
 
+Write-Host "Starting Expo team app..." -ForegroundColor Green
 npm.cmd run receipt:web -- --lan --clear
+if ($LASTEXITCODE -ne 0) {
+    throw "Expo startup failed"
+}
