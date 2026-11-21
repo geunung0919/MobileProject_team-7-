@@ -27,6 +27,11 @@ export const fetchReports = ({ limit = 7, before } = {}) => callAi('listReports'
 // 주간 리포트 (지난주 월~일) → { week_start, stats{...}, text{ weekly_summary, good_point, improve_point, next_week_goal }, ai }
 export const fetchWeeklyReport = ({ force = false } = {}) => callAi('generateWeeklyReport', { force });
 
+// 소비 분석 화면 전용 AI 코멘트 (PR #26의 Functions 구현 사용)
+// { comment: string, ai: boolean, limited?: boolean }
+export const fetchSpendingInsight = ({ year, month, categories, prev }) =>
+  callAi('generateSpendingInsight', { year, month, categories, prev });
+
 // AI 채팅. messages = 채팅 화면의 메시지 배열 (새 질문 전까지)
 // → { text, action }  action 은 화면의 바로가기 버튼 형식 그대로 ({ label, screen, params } | { label, tab } | null)
 export async function sendChat(question, messages) {

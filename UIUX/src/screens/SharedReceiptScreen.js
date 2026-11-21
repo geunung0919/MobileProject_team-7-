@@ -34,6 +34,7 @@ import {
 import {
   receiptOcrBase,
   receiptUsesDevelopmentToken,
+  receiptDefaultDevelopmentToken,
   recognizeReceipt,
   previewPayment,
 } from '../../../api/receiptRecognition';
@@ -157,7 +158,7 @@ export default function SharedReceiptScreen({
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
 
-  const [ocrToken, setOcrToken] = useState('');
+  const [ocrToken, setOcrToken] = useState(receiptDefaultDevelopmentToken);
   const [ocrBusy, setOcrBusy] = useState(false);
 
   const lock = useRef(false);
@@ -178,7 +179,7 @@ export default function SharedReceiptScreen({
 
     setReady(false);
     setPending(null);
-    setOcrToken('');
+    setOcrToken(receiptDefaultDevelopmentToken);
     setRawText('');
     setInbox(null);
     setSelectedNotification(null);

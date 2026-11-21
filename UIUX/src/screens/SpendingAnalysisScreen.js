@@ -33,6 +33,7 @@ import {
 
 import { useAppData } from '../store/AppDataContext';
 import { loadBudget } from '../../../api/receiptApi';
+import { fetchSpendingInsight, isAiServerEnabled } from '../api/aiManager';
 import { formatNumber } from '../utils/format';
 import { colors, fonts, spacing } from '../theme';
 
@@ -116,7 +117,7 @@ function getCategory(row) {
     !category ||
     LEGACY_CATEGORIES.includes(category)
   ) {
-    return '미분류(이전 기록)';
+    return '기존 기록';
   }
 
   return category;
@@ -207,7 +208,10 @@ export default function SpendingAnalysisScreen({
   // Firebase 소비 데이터 분석
   const live = useMemo(() => {
     const byCategory = new Map();
+    const byPrevCategory = new Map();
     const byMonth = new Map();
+    const previousYear = month === 1 ? year - 1 : year;
+    const previousKey = monthKey(previousYear, month === 1 ? 12 : month - 1);
 
     const records = sameUser &&
       Array.isArray(visibleShared?.spending)
@@ -235,13 +239,10 @@ export default function SpendingAnalysisScreen({
         (byMonth.get(key) ?? 0) + amount
       );
 
-      if (key === targetMonth) {
+      if (key === targetMonth || key === previousKey) {
         const category = getCategory(row);
-
-        byCategory.set(
-          category,
-          (byCategory.get(category) ?? 0) + amount
-        );
+        const bucket = key === targetMonth ? byCategory : byPrevCategory;
+        bucket.set(category, (bucket.get(category) ?? 0) + amount);
       }
     }
 
@@ -267,6 +268,7 @@ export default function SpendingAnalysisScreen({
       spent: byMonth.get(targetMonth) ?? 0,
       budget: null,
       categories,
+      prevCategories: [...byPrevCategory].map(([name, amount]) => ({ name, amount })),
       months,
     };
   }, [
@@ -317,6 +319,44 @@ export default function SpendingAnalysisScreen({
       !visibleShared?.spendingTruncated &&
       !visibleShared?.spendingError
     );
+
+  const [insight, setInsight] = useState({ status: 'idle', comment: '' });
+  const insightData = useMemo(() => ({
+    year,
+    month,
+    categories: live.categories.map(({ name, amount }) => ({ name, amount })),
+    prev: live.prevCategories,
+  }), [year, month, live.categories, live.prevCategories]);
+  const insightKey = JSON.stringify(insightData);
+  useEffect(() => {
+    let active = true;
+    setInsight({ status: 'idle', comment: '' });
+    if (!focused || !sharedReceipts || !available || !sameUser) return () => { active = false; };
+    if (!isAiServerEnabled) {
+      setInsight({ status: 'error', comment: 'AI 서버 연결 설정을 확인해 주세요.' });
+      return () => { active = false; };
+    }
+    if (insightData.categories.length === 0) {
+      setInsight({ status: 'empty', comment: '소비 기록을 추가하면 AI가 지출을 분석해 줘요.' });
+      return () => { active = false; };
+    }
+    setInsight({ status: 'loading', comment: '' });
+    fetchSpendingInsight(insightData).then((result) => {
+      if (!active) return;
+      if (result?.ai === true && typeof result.comment === 'string' && result.comment.trim()) {
+        setInsight({ status: 'success', comment: result.comment.trim() });
+      } else if (result?.limited) {
+        setInsight({ status: 'error', comment: '오늘 AI 분석 횟수를 모두 사용했어요.' });
+      } else {
+        setInsight({ status: 'error', comment: 'AI가 소비 코멘트를 생성하지 못했어요. 잠시 후 다시 시도해 주세요.' });
+      }
+    }).catch((error) => {
+      if (!active) return;
+      console.warn('[소비 AI] generateSpendingInsight 호출 실패:', error?.code || error?.message);
+      setInsight({ status: 'error', comment: '소비 분석 AI 서버에 연결하지 못했어요. 함수 배포 및 로그인 상태를 확인해 주세요.' });
+    });
+    return () => { active = false; };
+  }, [focused, sharedReceipts, available, sameUser, sharedUid, insightKey]);
 
   const t = analysisTexts;
 
@@ -389,6 +429,21 @@ export default function SpendingAnalysisScreen({
               <Text style={styles.helperText}>
                 월 예산을 확인하고 있어요.
               </Text>
+            ) : null}
+
+
+            {sharedReceipts ? (
+              <View style={styles.aiInsightCard}>
+                <View style={styles.aiInsightHeader}>
+                  <Ionicons name="sparkles-outline" size={19} color={colors.green} />
+                  <Text style={styles.aiInsightTitle}>AI 소비 코멘트</Text>
+                </View>
+                <Text style={styles.aiInsightText}>
+                  {insight.status === 'loading' ? 'AI가 이번 달 소비를 분석하고 있어요…' :
+                    insight.status === 'idle' ? '소비 데이터를 확인하고 있어요…' :
+                    insight.comment}
+                </Text>
+              </View>
             ) : null}
 
             <View style={styles.tabs}>
@@ -551,11 +606,11 @@ function CategoryTab({ categories, shared }) {
       {shared &&
       rows.some(
         (row) =>
-          row.name === '미분류(이전 기록)'
+          row.name === '기존 기록'
       ) ? (
         <Text style={styles.helperText}>
-          이전 소비 기록 중 카테고리가
-          없는 항목은 미분류로 표시했어요.
+          카테고리가 저장되지 않은 이전 소비 기록은
+          기존 기록으로 표시했어요.
         </Text>
       ) : null}
     </View>
@@ -753,6 +808,29 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
 
+  aiInsightCard: {
+    marginTop: 18,
+    padding: 16,
+    borderRadius: 16,
+    backgroundColor: colors.cardBg,
+  },
+  aiInsightHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 10,
+  },
+  aiInsightTitle: {
+    fontFamily: fonts.bold,
+    color: colors.textPrimary,
+    fontSize: 16,
+  },
+  aiInsightText: {
+    fontFamily: fonts.regular,
+    color: colors.textSecondary,
+    fontSize: 14,
+    lineHeight: 22,
+  },
   tabs: {
     marginTop: 22,
   },
