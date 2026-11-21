@@ -164,7 +164,7 @@ export default function SignUpScreen({ navigation }) {
         <BackHeader
           title={d.title}
           subtitle={d.subtitle}
-          onBack={() => navigation.goBack()}
+          onBack={() => (navigation.canGoBack() ? navigation.goBack() : navigation.replace('Login'))}
         />
 
         <FormField
