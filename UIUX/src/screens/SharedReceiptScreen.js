@@ -157,6 +157,7 @@ export default function SharedReceiptScreen({
   const [ready, setReady] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
+  const [receiptConflict, setReceiptConflict] = useState(false);
 
   const [ocrToken, setOcrToken] = useState(receiptDefaultDevelopmentToken);
   const [ocrBusy, setOcrBusy] = useState(false);
@@ -184,6 +185,7 @@ export default function SharedReceiptScreen({
     setInbox(null);
     setSelectedNotification(null);
     setMessage('');
+    setReceiptConflict(false);
     setDraft(emptyDraft());
 
     if (key) {
@@ -248,6 +250,7 @@ export default function SharedReceiptScreen({
 
   // 영수증 촬영 또는 사진 선택
   async function pick(camera) {
+    setReceiptConflict(false);
     if (
       lock.current ||
       (receiptUsesDevelopmentToken &&
@@ -367,7 +370,7 @@ export default function SharedReceiptScreen({
   }
 
   // Firebase 소비 내역 저장
-  async function save() {
+  async function save(asDistinctPurchase = false) {
     if (
       !ready ||
       lock.current ||
@@ -382,15 +385,16 @@ export default function SharedReceiptScreen({
 
     try {
       const receiptId =
-        draft.receiptId ||
+        (asDistinctPurchase ? '' : draft.receiptId) ||
         `receipt-${Date.now()}-${Math.random()
           .toString(36)
           .slice(2)}`;
 
-      const payload = pending || {
+      const payload = (!asDistinctPurchase && pending) || {
         ...reviewedPayload({
           ...draft,
           receiptId,
+          requestId: 'req-' + Date.now() + '-' + Math.random().toString(36).slice(2),
           source: manual
             ? 'manual'
             : draft.source,
@@ -433,6 +437,9 @@ export default function SharedReceiptScreen({
           setPending(null);
         }
 
+        if (error.status === 409 && !manual && !payment && !asDistinctPurchase && draft.receiptId) {
+          setReceiptConflict(true);
+        }
         throw error;
       }
 
@@ -459,6 +466,7 @@ export default function SharedReceiptScreen({
       }
 
       setPending(null);
+      setReceiptConflict(false);
 
       if (
         auth.currentUser?.uid === sharedUid &&
@@ -470,6 +478,8 @@ export default function SharedReceiptScreen({
       setMessage(
         error.status === 405
           ? '팀 서버에 소비 저장 기능을 먼저 배포해 주세요.'
+          : error.status === 409
+            ? '이미 사용된 영수증 ID입니다. 기존 소비 기록을 확인하고, 실제로 다른 구매인 경우에만 아래 버튼을 이용해 주세요.'
           : (
               error.message ||
               '저장 상태를 확인하지 못했어요. 같은 요청으로 다시 시도해 주세요.'
@@ -926,6 +936,18 @@ export default function SharedReceiptScreen({
         </Text>
       ) : null}
 
+      {receiptConflict && !pending && !busy && !ocrBusy ? (
+        <View>
+          <Text style={{ color: colors.warnText }}>
+            주의: 이미 저장된 영수증이라면 다시 저장하지 마세요. 소비와 냉장고 재고가 중복될 수 있습니다.
+          </Text>
+          <Chip
+            label="실제로 다른 구매입니다 · 새 영수증으로 저장"
+            onPress={() => save(true)}
+          />
+        </View>
+      ) : null}
+
       {/* 최종 저장 버튼 */}
       {busy ? (
         <Text>저장 및 조회 중…</Text>
@@ -938,7 +960,7 @@ export default function SharedReceiptScreen({
               ? '같은 요청으로 다시 확인'
               : '확인하고 저장'
           }
-          onPress={save}
+          onPress={() => save()}
         />
       ) : null}
     </ScrollView>
