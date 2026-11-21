@@ -29,7 +29,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\start-team.ps1
 `start-team.ps1`은 Firebase·OCR 공용 클라우드 주소를 설정하고 **Expo Go LAN 모드**로 실행합니다.
 LAN 접속이 안 되면 동일 Wi-Fi/방화벽을 먼저 확인하세요. 로그인과 클라우드 서비스 접속에는 인터넷이 필요합니다.
 
-> **참고:** 아래 내용 중 `release/final-app-20261121` 또는 수동 Expo 명령어는 이전 운영 문서에 남아 있을 수 있습니다. 팀 공용 최종 테스트는 위의 `release/final-app-20261121` 브랜치와 `start-team.ps1` 명령어를 기준으로 합니다.
+> **참고:** 아래의 상세 개발 문서에는 과거 수동 실행 예시가 포함되어 있습니다. 팀 공용 모바일 테스트는 위의 `release/final-app-20261121` 브랜치와 `start-team.ps1` 명령어를 기준으로 합니다.
 
 ---
 
