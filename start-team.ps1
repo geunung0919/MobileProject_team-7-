@@ -1,4 +1,4 @@
-﻿$ErrorActionPreference = "Stop"
+$ErrorActionPreference = "Stop"
 Set-Location $PSScriptRoot
 
 Write-Host "=== 자취생존 AI 팀 공용 실행 ===" -ForegroundColor Cyan
@@ -30,6 +30,7 @@ if (-not (Test-Path "node_modules")) {
     Remove-Item "Env:$_" -ErrorAction SilentlyContinue
 }
 
+$env:EXPO_PUBLIC_SHARED_RECEIPTS = "true"
 Write-Host "Expo 실행 중..." -ForegroundColor Green
 
 npm.cmd run receipt:web -- --lan --clear
