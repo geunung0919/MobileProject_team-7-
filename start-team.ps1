@@ -28,8 +28,11 @@ $env:EXPO_PUBLIC_RECEIPT_AUTH_MODE = "firebase"
 $env:EXPO_PUBLIC_RECEIPT_OCR_BASE_URL = "https://jachwi-receipt-ocr-634501862696.asia-northeast3.run.app"
 $env:EXPO_PUBLIC_SHARED_RECEIPTS = "true"
 
-Write-Host "Starting Expo team app..." -ForegroundColor Green
-npm.cmd run receipt:web -- --lan --clear
+Write-Host "Starting iOS / Android via Expo Go (LAN)..." -ForegroundColor Green
+Write-Host "Open Expo Go on your phone and scan the QR code."
+Write-Host "Phone and computer must be on the same Wi-Fi."
+Write-Host "Android payment notification capture requires a development build (not Expo Go)."
+npx.cmd expo start --go --lan --clear
 if ($LASTEXITCODE -ne 0) {
     throw "Expo startup failed"
 }
