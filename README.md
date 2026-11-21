@@ -1,29 +1,43 @@
-# 자취생존 AI - 팀 공용 최종 테스트본 (2026.11.21)
+# 자취생존 AI — iOS / Android 팀 공용 최종 테스트 (2026-11-22)
 
-## 처음 실행하는 팀원
+이 저장소의 최종 실행 대상은 **iPhone 및 Android 휴대폰의 Expo 앱**입니다. 웹은 기본 실행 대상이 아닙니다.
 
+## 실행 준비
+- PC에 Git, Node.js, npm 설치
+- 휴대폰에 **Expo Go** 설치 (iOS App Store / Android Google Play)
+- PC와 휴대폰을 같은 Wi-Fi에 연결하고 Firebase 로그인 사용
+- Android **결제 알림 자동수집**은 Expo Go에서 지원하지 않아 Android 개발 빌드가 필요합니다.
+- 실제 iOS·Android 모든 기능의 동작은 기기별 확인이 필요합니다.
+
+### 처음 받는 팀원
+
+```powershell
 git clone --branch release/final-app-20261121 https://github.com/geunung0919/MobileProject_team-7-.git
-
 cd MobileProject_team-7-
-
 powershell -NoProfile -ExecutionPolicy Bypass -File .\start-team.ps1
+```
 
-## 기존 프로젝트가 있는 팀원
+### 기존 프로젝트가 있는 팀원
 
+```powershell
 git switch release/final-app-20261121
-
 git pull --ff-only origin release/final-app-20261121
-
 powershell -NoProfile -ExecutionPolicy Bypass -File .\start-team.ps1
+```
 
-전체 앱 실행 설정과 Firebase/OCR 서버 연결은 start-team.ps1에서 처리합니다.
+실행 후 표시된 QR 코드를 Expo Go로 열면 **전체 자취생존 AI 모바일 앱**을 실행할 수 있습니다.
+`start-team.ps1`은 Firebase·OCR 공용 클라우드 주소를 설정하고 **Expo Go LAN 모드**로 실행합니다.
+LAN 접속이 안 되면 동일 Wi-Fi/방화벽을 먼저 확인하세요. 로그인과 클라우드 서비스 접속에는 인터넷이 필요합니다.
+
+> **참고:** 아래 내용 중 `release/final-app-20261121` 또는 수동 Expo 명령어는 이전 운영 문서에 남아 있을 수 있습니다. 팀 공용 최종 테스트는 위의 `release/final-app-20261121` 브랜치와 `start-team.ps1` 명령어를 기준으로 합니다.
 
 ---
-# 자취생존 AI — 팀 7 최종 앱 실행 안내서
+
+
 
 React Native + Expo 기반 자취 생활 관리 앱입니다. Firebase Authentication/Firestore/Cloud Functions, 별도 AI Cloud Functions, 지도·생활정보, 소비·영수증, 냉장고·식사 기록, 생활 루틴, 비상 매뉴얼 기능을 연결합니다.
 
-> **최종 앱 기준:** `release/final-app` 브랜치의 **프로젝트 루트** (`C:\Projects\solo-living-app`)에서 실행합니다. `UIUX/`는 화면 코드이며 독립 실행 프로젝트로 실행하지 않습니다. 이전 `mobile/` Expo Router 앱과 `server/` Node 서버는 최종 브랜치에서 제외하는 중입니다. 현재 내용은 확인된 코드와 설정을 바탕으로 작성했으며, 깨끗한 환경에서의 전체 빌드·배포 검증은 별도로 필요합니다.
+> **최종 앱 기준:** `release/final-app-20261121` 브랜치의 **프로젝트 루트** (`C:\Projects\solo-living-app`)에서 실행합니다. `UIUX/`는 화면 코드이며 독립 실행 프로젝트로 실행하지 않습니다. 이전 `mobile/` Expo Router 앱과 `server/` Node 서버는 최종 브랜치에서 제외하는 중입니다. 현재 내용은 확인된 코드와 설정을 바탕으로 작성했으며, 깨끗한 환경에서의 전체 빌드·배포 검증은 별도로 필요합니다.
 
 ## 1. 빠른 실행: 이미 배포된 Firebase 사용
 
@@ -38,7 +52,7 @@ React Native + Expo 기반 자취 생활 관리 앱입니다. Firebase Authentic
 
 ```powershell
 # 원하는 작업 폴더에서 실행
-git clone --branch release/final-app https://github.com/geunung0919/MobileProject_team-7-.git solo-living-app
+git clone --branch release/final-app-20261121 https://github.com/geunung0919/MobileProject_team-7-.git solo-living-app
 cd solo-living-app
 npm.cmd ci
 ```
@@ -243,7 +257,7 @@ Windows 줄바꿈 관련 안내일 수 있습니다. JavaScript 오류를 뜻하
 
 ## 9. Git 작업과 보안
 
-- 작업 브랜치: `release/final-app`. 기존 `integration/final-uiux-20261118` 및 `main`은 별도 유지합니다.
+- 작업 브랜치: `release/final-app-20261121`. 기존 `integration/final-uiux-20261118` 및 `main`은 별도 유지합니다.
 - 개발용 별도 `mobile/` Expo Router 앱과 과거 `server/`는 최종 실행본에서 제외하는 방향으로 정리 중입니다. 기존 브랜치에는 기록이 남습니다.
 - `node_modules/`, `.expo/`, `android/`, `ios/`, `.env.local`, 에뮬레이터 데이터, 로그·백업 파일은 커밋하지 않습니다.
 - Firebase 실제 서비스 배포와 GitHub 푸시는 별도 작업입니다. 코드를 푸시한다고 Firebase 서버가 자동으로 배포되는 것은 아닙니다.
