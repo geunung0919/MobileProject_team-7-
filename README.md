@@ -1,3 +1,24 @@
+# 자취생존 AI - 팀 공용 최종 테스트본 (2026.11.21)
+
+## 처음 실행하는 팀원
+
+git clone --branch release/final-app-20261121 https://github.com/geunung0919/MobileProject_team-7-.git
+
+cd MobileProject_team-7-
+
+powershell -NoProfile -ExecutionPolicy Bypass -File .\start-team.ps1
+
+## 기존 프로젝트가 있는 팀원
+
+git switch release/final-app-20261121
+
+git pull --ff-only origin release/final-app-20261121
+
+powershell -NoProfile -ExecutionPolicy Bypass -File .\start-team.ps1
+
+전체 앱 실행 설정과 Firebase/OCR 서버 연결은 start-team.ps1에서 처리합니다.
+
+---
 # 자취생존 AI — 팀 7 최종 앱 실행 안내서
 
 React Native + Expo 기반 자취 생활 관리 앱입니다. Firebase Authentication/Firestore/Cloud Functions, 별도 AI Cloud Functions, 지도·생활정보, 소비·영수증, 냉장고·식사 기록, 생활 루틴, 비상 매뉴얼 기능을 연결합니다.
