@@ -158,7 +158,7 @@ export function reviewedPayload(draft) {
 
   return {
     receiptId: draft.receiptId,
-    requestId: draft.receiptId,
+    requestId: draft.requestId || draft.receiptId,
     title: draft.title.trim(),
     purchasedAt: draft.purchasedAt,
     amount: total,
