@@ -1,4 +1,6 @@
 import { registerRootComponent } from 'expo';
+// 웹에서 Alert.alert(확인창·안내)가 동작하도록 (앱에서는 변화 없음)
+import './UIUX/src/utils/webAlert';
 
 import App from './App';
 

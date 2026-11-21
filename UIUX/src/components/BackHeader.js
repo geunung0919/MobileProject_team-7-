@@ -16,20 +16,23 @@ export default function BackHeader({
   return (
     <View style={styles.wrapper}>
       <View style={styles.row}>
-        <Pressable
-          onPress={onBack}
-          hitSlop={12}
-          accessibilityRole="button"
-          accessibilityLabel="뒤로 가기"
-        >
-          <Ionicons name={icon} size={28} color={color} />
-        </Pressable>
-        <Text style={[styles.title, { color }]} numberOfLines={1}>
+        {/* 돌아갈 화면이 없으면(onBack 없음) 누를 수 없는 화살표를 숨겨요. */}
+        {onBack ? (
+          <Pressable
+            onPress={onBack}
+            hitSlop={12}
+            accessibilityRole="button"
+            accessibilityLabel="뒤로 가기"
+          >
+            <Ionicons name={icon} size={28} color={color} />
+          </Pressable>
+        ) : null}
+        <Text style={[styles.title, !onBack && styles.noIndent, { color }]} numberOfLines={1}>
           {title}
         </Text>
         {right ?? null}
       </View>
-      {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
+      {subtitle ? <Text style={[styles.subtitle, !onBack && styles.noIndent]}>{subtitle}</Text> : null}
     </View>
   );
 }
@@ -54,5 +57,8 @@ const styles = StyleSheet.create({
     fontFamily: fonts.regular,
     fontSize: 15,
     color: colors.textSecondary,
+  },
+  noIndent: {
+    marginLeft: 0,
   },
 });

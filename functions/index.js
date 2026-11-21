@@ -273,6 +273,21 @@ exports.api = onRequest(
         }
       }
 
+      if (req.path === "/refrigerator/items/use" && req.method === "POST") {
+        const user = await verifyUser(req, res);
+        if (!user) return;
+        const {getFirestore} = require("firebase-admin/firestore");
+        const {useFridgeItem} = require("./modules/refrigerator/manualItems");
+        try {
+          return res.json(await useFridgeItem(getFirestore(), user.uid,
+              req.body));
+        } catch (error) {
+          return res.status(error.status || 503).json({
+            error: error.status ? error.message : "저장소를 확인해 주세요.",
+          });
+        }
+      }
+
       if (req.path === "/refrigerator/items/change" && req.method === "POST") {
         const user = await verifyUser(req, res);
         if (!user) return;

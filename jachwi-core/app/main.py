@@ -24,6 +24,13 @@ from .onboarding_form import OnboardingForm, get_onboarding_form
 load_dotenv()
 SNAPSHOTS = {'spending': SpendingSnapshot, 'inventory': InventorySnapshot, 'life': LifeSnapshot}
 
+
+# http(s)://localhost, 127.0.0.1, 10.x.x.x, 172.16~31.x.x, 192.168.x.x (포트 선택)
+PRIVATE_NETWORK_ORIGIN = (
+    r'^https?://(localhost|127\.0\.0\.1|10\.\d{1,3}\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3}'
+    r'|172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3})(:\d{1,5})?$'
+)
+
 def create_app(database_url=None, tokens=None, demo_enabled=None):
     url = database_url or os.getenv('DATABASE_URL', 'sqlite:///./core.db')
     auth_mode = 'development' if tokens is not None else os.getenv('CORE_AUTH_MODE', 'development').strip()
@@ -42,11 +49,13 @@ def create_app(database_url=None, tokens=None, demo_enabled=None):
     engine, sessions = connect(url)
     @asynccontextmanager
     async def lifespan(app):
-        Base.metadata.create_all(engine)  # 초기 개발용. 스키마 변경은 별도 마이그레이션 필요.
+        if engine is not None:  # Firestore 저장소는 테이블 생성이 필요 없습니다.
+            Base.metadata.create_all(engine)  # 초기 개발용. 스키마 변경은 별도 마이그레이션 필요.
         try:
             yield
         finally:
-            engine.dispose()
+            if engine is not None:
+                engine.dispose()
             if close_firebase:
                 close_firebase()
     app = FastAPI(title='자취 가이드 중앙 코어', version='0.1.0', lifespan=lifespan)
@@ -64,7 +73,12 @@ def create_app(database_url=None, tokens=None, demo_enabled=None):
                 return JSONResponse(status_code=404, content={'error': {'message': '요청 경로를 확인해 주세요.'}})
             return await call_next(request)
 
+    # 개발 모드에서는 같은 Wi-Fi 의 사설 IP 주소(192.168.x.x 등)에서 연 웹 앱도 허용합니다.
+    # 아이폰 사파리로 http://<PC IP>:8081 을 열어 영수증을 찍으면 그 주소가 출처(origin)가 됩니다.
+    # 끄려면 CORS_ALLOW_PRIVATE_NETWORK=false. 운영(firebase) 모드에서는 항상 CORS_ORIGINS 만 허용합니다.
+    allow_private = not firebase_mode and os.getenv('CORS_ALLOW_PRIVATE_NETWORK', 'true').lower() == 'true'
     app.add_middleware(CORSMiddleware, allow_origins=os.getenv('CORS_ORIGINS', 'http://localhost:5173,http://127.0.0.1:5173,http://localhost:8081,http://127.0.0.1:8081').split(','),
+                       allow_origin_regex=PRIVATE_NETWORK_ORIGIN if allow_private else None,
                        allow_methods=['GET', 'PUT', 'POST', 'DELETE'], allow_headers=['Authorization', 'Content-Type'])
     bearer = HTTPBearer(auto_error=False)
     def current_user(credentials: HTTPAuthorizationCredentials | None = Depends(bearer)):

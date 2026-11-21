@@ -6,6 +6,7 @@ import {
   compact, DATA_SOURCE, FIELDS, toBudget, toExpense, toInventoryItem, toRoutine, toRoutineLog, todayLogsFromRoutines, toUsageLog,
 } from "./adapters";
 import { EmergencyFaq, InventoryItem, Profile, ReportInput, WeeklyInput } from "./types";
+import { bundledFaqs } from "./faqSeed";
 
 if (getApps().length === 0) initializeApp();
 export let db = getFirestore();
@@ -119,7 +120,11 @@ let faqCache: { at: number; items: EmergencyFaq[] } | null = null;
 export async function loadVerifiedFaqs(): Promise<EmergencyFaq[]> {
   if (faqCache && Date.now() - faqCache.at < 5 * 60_000) return faqCache.items;
   const snap = await db.collection(PATHS.emergencyFaq).where("status", "==", "verified").get();
-  const items = snap.docs.map((d) => d.data() as EmergencyFaq);
+  const stored = snap.docs.map((d) => d.data() as EmergencyFaq);
+  // 앱 가이드에서 옮겨 둔 기본 세트에 서버에 올려 둔 verified FAQ를 더합니다. (같은 faq_id는 서버 것이 우선)
+  // 서버 FAQ가 몇 개만 있어도 화재·누수 같은 기본 주제는 항상 안내되도록 합치는 방식입니다.
+  const storedIds = new Set(stored.map((f) => f.faq_id));
+  const items = [...bundledFaqs.filter((f) => !storedIds.has(f.faq_id)), ...stored];
   faqCache = { at: Date.now(), items };
   return items;
 }

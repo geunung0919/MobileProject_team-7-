@@ -151,9 +151,15 @@ export default function RootNavigator() {
         component={TabNavigator}
       />
 
-      {/* 기존 Firebase 로그인 테스트 */}
+      {/* 화면 곳곳의 "로그인" 버튼(SharedLogin)은 실제 로그인 화면으로 연결 */}
       <Stack.Screen
         name="SharedLogin"
+        component={LoginScreen}
+      />
+
+      {/* 개발용 Firebase 로그인 테스트 (사용자 화면에서는 연결하지 않음) */}
+      <Stack.Screen
+        name="AuthTest"
         component={AuthTestScreen}
       />
 
