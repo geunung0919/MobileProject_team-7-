@@ -28,6 +28,10 @@ class InventoryRow(Base):
 
 
 def connect(url):
+    if url.startswith('firestore'):
+        # DATABASE_URL=firestore://... 이면 Firestore 에 저장합니다 (app/firestore_storage.py).
+        from .firestore_storage import connect_firestore
+        return connect_firestore(url)
     engine = create_engine(url, pool_pre_ping=True,
                            connect_args={'check_same_thread': False} if url.startswith('sqlite') else {})
     return engine, sessionmaker(engine, expire_on_commit=False)

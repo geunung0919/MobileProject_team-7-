@@ -200,10 +200,26 @@ async function scenario(h: Harness, mock: string) {
   else check("AI 실패 → FAQ 원문 그대로 (reason=failed)", d?.ai === false && d?.reason === "failed" && String(d?.reply).includes("가스 냄새가 날 때"), d);
   r = await h.call("askEmergencyManual", { message: "정전이 됐어요" }, null);
   check("로그인 안 해도 FAQ 원문은 보여줌 (login_required)", okData(r)?.reason === "login_required" && String(okData(r)?.reply).includes("정전"), okData(r));
-  r = await h.call("askEmergencyManual", { message: "지진 나면 어떻게 해?" }, uid);
+  r = await h.call("askEmergencyManual", { message: "오늘 점심 뭐 먹지?" }, uid);
   check("맞는 FAQ 없으면 지어내지 않음 (no_faq)", okData(r)?.reason === "no_faq", okData(r));
   r = await h.call("askEmergencyManual", { message: "벌레가 나왔어요" }, uid);
-  check("검증 안 된(draft) FAQ는 사용 안 함", okData(r)?.reason === "no_faq", okData(r));
+  check("서버 FAQ에 없는 기본 주제(벌레)도 내장 가이드로 안내", okData(r)?.reason !== "no_faq" && okData(r)?.faq_ids?.[0] === "pest", okData(r));
+  r = await h.call("askEmergencyManual", { message: "불이 났어요" }, uid);
+  check("위급 키워드(불) → 119 + 대처 단계(화재 FAQ)", okData(r)?.safety === true && String(okData(r)?.reply).includes("119") && String(okData(r)?.reply).includes("1."), okData(r));
+
+  console.log("\n[소비 분석 한마디 generateSpendingInsight]");
+  const insightIn = { year: 2026, month: 11, categories: [{ name: "식비", amount: 300000 }, { name: "교통", amount: 50000 }], prev: [{ name: "식비", amount: 200000 }, { name: "교통", amount: 60000 }] };
+  r = await h.call("generateSpendingInsight", insightIn, uid);
+  d = okData(r);
+  if (aiOk) check("AI 한마디 생성 (ai=true)", d?.ai === true && String(d?.comment).includes("[MOCK]"), d);
+  else check("AI 실패 → 코드 문장 (식비 100,000원 증가)", d?.ai === false && String(d?.comment).includes("식비") && String(d?.comment).includes("100,000원"), d);
+  r = await h.call("generateSpendingInsight", insightIn, null);
+  check("로그인 안 하면 거절", !r.ok && r.code === "unauthenticated", r);
+  r = await h.call("generateSpendingInsight", { year: 1, month: 13, categories: [], prev: [] }, uid);
+  check("잘못된 기간 거절", !r.ok && r.code === "invalid-argument", r);
+  await h.put(`users/${uid}/ai_usage/spending_insight_${today}`, { count: 20 });
+  r = await h.call("generateSpendingInsight", insightIn, uid);
+  check("하루 한도 초과 → 코드 문장 + limited", okData(r)?.limited === true && okData(r)?.ai === false, okData(r));
 
   console.log("\n[AI 레시피 recommendRecipes]");
   r = await h.call("recommendRecipes", { max_minutes: 20 }, uid);

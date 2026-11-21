@@ -144,6 +144,9 @@ function mockReply(mode: string, system: string): string {
     const id = system.match(/"faq_id":\s*"([^"]+)"/)?.[1];
     return JSON.stringify({ answer: "[MOCK] 안내된 순서대로 차분히 확인해 주세요.", faq_ids: id ? [id] : [] });
   }
+  if (system.includes('"spending_comment"')) {
+    return JSON.stringify({ spending_comment: "[MOCK] 지난달과 비교한 소비 한마디예요." });
+  }
   if (system.includes('"next_week_goal"')) {
     return JSON.stringify({
       weekly_summary: "[MOCK] 지난주 생활을 정리한 요약입니다.",

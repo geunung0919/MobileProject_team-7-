@@ -71,3 +71,14 @@ def test_truncated_text_is_flagged(monkeypatch):
     monkeypatch.setattr(ocr,'recognize_server',lambda image:('이마트\n합계 1000원\n'+'x'*6000, {}))
     result=ocr.process_image(photo())
     assert len(result['raw_text'])==5000 and result['text_truncated'] and result['needs_review']
+
+
+def test_unreadable_photo_returns_retry_message_instead_of_garbage_items(monkeypatch):
+    import pytest
+    from fastapi import HTTPException
+    from app import receipt_ocr as ocr
+    monkeypatch.setattr(ocr, 'decode_image', lambda payload: __import__('PIL.Image', fromlist=['Image']).new('L', (10, 10)))
+    monkeypatch.setattr(ocr, 'recognize_server', lambda image: ('HAS ibe\nusw\ntlt\nja', {}))
+    with pytest.raises(HTTPException) as info:
+        ocr.process_image({})
+    assert info.value.status_code == 422

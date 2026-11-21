@@ -11,6 +11,7 @@ import { generateRecipes } from "./recipe";
 import { buildRecipeContext, DAILY_RECIPE_LIMIT, normalizeRecipeOptions } from "./recipeRules";
 import { answerEmergency } from "./emergency";
 import { composeReply, DAILY_EMERGENCY_LIMIT, NO_FAQ_REPLY, rankFaqs, renderFaq } from "./emergencyRules";
+import { buildFacts, DAILY_SPENDING_INSIGHT_LIMIT, fallbackComment, generateInsight, normalizeInsightInput } from "./spendingInsight";
 import { fallbackReport, generateReport } from "./generate";
 import { AiReport } from "./types";
 
@@ -95,13 +96,19 @@ export const askEmergencyManual = onCall(OPTIONS, async (request) => {
   if (!message) throw new HttpsError("invalid-argument", "질문을 입력해 주세요.");
   if (message.length > MAX_MESSAGE_LEN) throw new HttpsError("invalid-argument", `질문은 ${MAX_MESSAGE_LEN}자 이내로 입력해 주세요.`);
 
-  const faqs = rankFaqs(await loadVerifiedFaqs(), message);
+  const allFaqs = await loadVerifiedFaqs();
+  const history = normalizeHistory(request.data?.history);
+  // 이어지는 질문("그다음엔?")도 맞는 FAQ를 찾도록 직전 사용자 질문까지 함께 검색한다
+  const searchText = [...history.filter((h) => h.role === "user").slice(-2).map((h) => h.content), message].join(" ");
+  // 안전 안내는 검증된 FAQ만 근거로 하므로, 관련 FAQ를 키워드로 먼저 고른다(없으면 지어내지 않고 고정 문구)
+  const faqs = rankFaqs(allFaqs, searchText);
   const kind = safetyKind(message);
 
   // 1) 위급 키워드: LLM 없이 즉시 안내 (비로그인도 가능, 횟수 차감 없음)
   if (kind === "self_harm") return { reply: safetyReply(message), safety: true, faq_ids: [], ai: false };
   if (kind === "emergency") {
-    const top = faqs[0];
+    // 맞는 FAQ가 없어도(예: 가스) 일반 위급 안내(general)라도 붙여서 119 한 줄로 끝나지 않게 한다
+    const top = faqs[0] ?? allFaqs.find((f) => f.faq_id === "general");
     const reply = top ? `${CALL_119_LINE}\n\n${renderFaq(top)}` : `${CALL_119_LINE} 안전한 곳으로 이동하는 게 가장 중요해요.`;
     return { reply, safety: true, faq_ids: top ? [top.faq_id] : [], ai: false };
   }
@@ -116,7 +123,7 @@ export const askEmergencyManual = onCall(OPTIONS, async (request) => {
   if (!(await consumeQuota(uid, "emergency", DAILY_EMERGENCY_LIMIT, todayKST()))) return faqOnly("limited");
 
   // 4) FAQ 안에서만 답하도록 AI 호출 → 검증 → 출처는 코드가 붙임
-  const result = await answerEmergency(LLM_API_KEY.value(), faqs, normalizeHistory(request.data?.history), message);
+  const result = await answerEmergency(LLM_API_KEY.value(), faqs, history, message);
   if (!result) return faqOnly("failed");
   if (result.faq_ids.length === 0) return { reply: NO_FAQ_REPLY, faq_ids: [], ai: true, reason: "no_faq" };
   return { reply: composeReply(result.answer, result.faq_ids, faqs), faq_ids: result.faq_ids, ai: true };
@@ -210,4 +217,20 @@ export const generateWeeklyReport = onCall(OPTIONS, async (request) => {
   }
   // AI 실패: 템플릿 문장으로 보여주고 저장하지 않음 (다음 호출에서 재시도)
   return { week_start: weekStart, stats: analysis.stats, text: fallbackWeekly(analysis), ai: false, cached: false };
+});
+
+// 클라이언트: httpsCallable("generateSpendingInsight")({ year, month, categories:[{name,amount}], prev:[{name,amount}] })
+// → { comment, ai, limited? }   증감은 코드가 계산하고 AI는 문장만 쓴다. 실패·한도 초과면 기본 문장(ai:false).
+export const generateSpendingInsight = onCall(OPTIONS, async (request) => {
+  const uid = request.auth?.uid;
+  if (!uid) throw new HttpsError("unauthenticated", "로그인이 필요해요.");
+  const input = normalizeInsightInput(request.data);
+  if (!input) throw new HttpsError("invalid-argument", "year/month 가 올바르지 않아요.");
+  const facts = buildFacts(input);
+  if (!facts) return { comment: fallbackComment({ period: "", total: 0, prev_total: 0, total_diff: 0, top_up: null, top_down: null, top_category: null }), ai: false };
+  if (!(await consumeQuota(uid, "spending_insight", DAILY_SPENDING_INSIGHT_LIMIT, todayKST()))) {
+    return { comment: fallbackComment(facts), ai: false, limited: true };
+  }
+  const text = await generateInsight(LLM_API_KEY.value(), facts);
+  return text ? { comment: text, ai: true } : { comment: fallbackComment(facts), ai: false };
 });

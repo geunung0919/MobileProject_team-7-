@@ -141,6 +141,9 @@ _OCR_NUMERIC_TOKEN_RE = re.compile(
 )
 
 
+_OCR_WON_GLUE_RE = re.compile(r'(?<![\d,.])(\d{1,3}(?:,\d{3})+)[0-9Oo]?[!|]?(?=\s|원|$)', re.M)
+
+
 def normalize_ocr_numeric_text(value):
     """Fix common OCR substitutions only inside isolated numeric-looking tokens."""
     translations = str.maketrans({'O': '0', 'I': '1', 'l': '1'})
@@ -162,7 +165,9 @@ def normalize_ocr_numeric_text(value):
         fixed = re.sub(r'(?<=\d)\.(?=\d{3}(?:[.,]|$))', ',', fixed)
         return fixed
 
-    return _OCR_NUMERIC_TOKEN_RE.sub(replace, value or '')
+    fixed_text = _OCR_NUMERIC_TOKEN_RE.sub(replace, value or '')
+    # "20,900원"의 '원'이 숫자나 기호로 읽혀 "20,9007", "20,9002!"처럼 붙는 경우: 천 단위 쉼표 뒤 3자리까지만 금액으로 본다.
+    return _OCR_WON_GLUE_RE.sub(r'\1', fixed_text)
 
 
 def normalize_import_text(value):
@@ -376,7 +381,26 @@ _OCR_TOTALS = (
 )
 
 
+def _join_split_total_lines(text):
+    """OCR이 "결제금액"과 "20,900원"을 두 줄로 나눈 경우 한 줄로 합친다 (영수증은 글자와 금액이 멀리 떨어져 있는 경우가 많음)."""
+    lines = text.splitlines()
+    label = re.compile(r'^(?:' + '|'.join(r'\s*'.join(w) for w in (
+        '결제대상금액', '결제금액', '총결제금액', '승인금액', '받을금액', '총합계', '합계', '총액')) + r')\s*[:：]?$')
+    amount_only = re.compile(r'^[0-9][0-9,]*\s*원?$')
+    out = []
+    i = 0
+    while i < len(lines):
+        if label.fullmatch(lines[i].strip()) and i + 1 < len(lines) and amount_only.fullmatch(lines[i + 1].strip()):
+            out.append(f'{lines[i].strip()} {lines[i + 1].strip()}')
+            i += 2
+            continue
+        out.append(lines[i])
+        i += 1
+    return '\n'.join(out)
+
+
 def extract_receipt_amount(text):
+    text = _join_split_total_lines(text)
     # OCR 금액 오인식 방지:
     # 예: "합계 12,300원" -> "합계 12,3002!"
     #
@@ -458,7 +482,33 @@ def receipt_document_issues(text):
     return issues
 
 
+# OCR 이 자주 잘못 읽는 편의점·마트 이름 (예: GS25 → 6525, G525, 6S25)
+_CHAIN_FIXES = (
+    (re.compile(r'^\s*[G6C][S5$][2Z][S5]\b\s*'), 'GS25 '),
+    (re.compile(r'^\s*이마트\s*[2Z][4A]\b\s*'), '이마트24 '),
+    (re.compile(r'^\s*C\s*U\b\s*'), 'CU '),
+)
+_CHAIN_NAMES = re.compile(
+    r'GS25|CU\b|세븐일레븐|7-?ELEVEN|이마트24|이마트|미니스톱|홈플러스|롯데마트|노브랜드|'
+    r'다이소|올리브영|스타벅스|메가커피|컴포즈|이디야|빽다방|맥도날드|롯데리아|버거킹|코스트코|하나로마트',
+    re.I,
+)
+
+
+def _fix_chain_name(line):
+    for pattern, replacement in _CHAIN_FIXES:
+        if pattern.search(line):
+            return pattern.sub(replacement, line, count=1).strip()
+    return line
+
+
 def extract_receipt_merchant(text):
+    # 맨 위 몇 줄 안에 잘 알려진 체인 이름이 있으면 그 줄을 사용처로 (OCR 오인식 보정 포함)
+    for line in [l for l in text.splitlines() if l.strip()][:4]:
+        fixed = _fix_chain_name(line.strip())
+        if _CHAIN_NAMES.search(fixed) and not re.search(r'사업자|주소|전화|카드', fixed):
+            return _clean_merchant(fixed), False
+
     for line in text.splitlines():
         match = re.match(
             r'^(?:상호(?:명)?|가맹점(?:명)?|매장명|사용처)\s*[:：]\s*(.+)$',

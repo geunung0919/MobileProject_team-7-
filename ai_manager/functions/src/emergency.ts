@@ -16,7 +16,7 @@ export async function answerEmergency(
 
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     try {
-      const text = await askLlm(apiKey, system, [...history, { role: "user", content: message }], 500);
+      const text = await askLlm(apiKey, system, [...history, { role: "user", content: message }], 800);
       const parsed = parseEmergency(text, faqs, userText);
       if (parsed) return parsed;
       console.warn(`emergency reply validation failed (attempt ${attempt})`);
