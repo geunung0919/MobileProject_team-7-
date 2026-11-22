@@ -208,11 +208,22 @@ def is_non_purchase_event(text):
     return bool(_NON_PURCHASE_EVENT_RE.search(normalize_import_text(text)))
 
 
+# '누적245,000원', '잔액 1,000원' 처럼 키워드 바로 뒤의 금액 구간
+_NON_TRANSACTION_SEGMENT_RE = re.compile(
+    r'(?:누적|잔액|한도|청구|할인|적립|포인트|거스름)[^\d\n]{0,8}-?[\d,]+\s*원?'
+)
+
+
 def extract_amount(text):
-    lines = [
-        line for line in text.split('\n')
-        if not _NON_TRANSACTION_AMOUNT_RE.search(line)
-    ]
+    # 카드 문자는 한 줄에 '15,800원 일시불 ... 누적245,000원'이 같이 오기도 해서,
+    # 줄 전체를 버리지 않고 누적·잔액 등의 금액 구간만 지운다.
+    lines = []
+    for line in text.split('\n'):
+        if _NON_TRANSACTION_AMOUNT_RE.search(line):
+            line = _NON_TRANSACTION_SEGMENT_RE.sub(' ', line)
+            if _NON_TRANSACTION_AMOUNT_RE.search(line):
+                continue
+        lines.append(line)
 
     for patterns in (_AMOUNT_PATTERNS, [_GENERIC_AMOUNT_RE]):
         amounts = {
@@ -271,10 +282,37 @@ def extract_date(text, today=None):
     return today, True
 
 
+# 카드 문자 맨 앞의 [Web발신], [카카오뱅크] 같은 꼬리표
+_BRACKET_TAG_RE = re.compile(r'^\s*\[[^\]]{1,20}\]\s*')
+# 김*웅, 김*웅님, 홍길동님 같은 받는 사람 이름 (가게 이름이 아님)
+_MASKED_NAME_RE = re.compile(r'^[가-힣A-Za-z]{1,4}\*+[가-힣A-Za-z*]{0,4}(?:님)?$|^[가-힣]{2,4}님$')
+# 카드사·승인·결제 방식 줄 (가게 이름이 아님)
+_PAYMENT_META_RE = re.compile(r'카드|체크|뱅크|승인|일시불|할부|누적|잔액|Web발신', re.I)
+# 날짜(+시각)만 있는 줄: 카드 문자는 보통 이 다음 줄이 가게 이름
+_DATE_ONLY_RE = re.compile(
+    r'^(?:20\d{2}[./-]\d{1,2}[./-]\d{1,2}|\d{1,2}[/-]\d{1,2})(?:\s+(?:[01]?\d|2[0-3]):[0-5]\d)?$'
+)
+
+
+def _is_merchant_line(line):
+    merchant = _clean_merchant(line)
+    if not merchant or len(merchant) < 2:
+        return None
+    if (
+        _MASKED_NAME_RE.match(merchant)
+        or _PAYMENT_META_RE.search(line)
+        or _GENERIC_AMOUNT_RE.search(merchant)
+        or _TIME_RE.search(merchant)
+        or merchant.casefold() in _GENERIC_MERCHANTS
+    ):
+        return None
+    return merchant
+
+
 def _clean_merchant(value):
-    cleaned = value.strip(' -|:：[]()')
+    cleaned = _BRACKET_TAG_RE.sub('', value).strip(' -|:：[]()')
     cleaned = re.split(
-        r'\s+(?:잔액|누적|일시불|할부|승인번호|카드번호)\b',
+        r'\s+(?:잔액|누적|일시불|할부|승인번호|카드번호)',
         cleaned,
         maxsplit=1,
     )[0].strip()
@@ -310,6 +348,14 @@ def extract_merchant(text):
         r'(?:\s+(?:[01]?\d|2[0-3]):[0-5]\d)?\s+(.+)$'
     )
 
+    # 카드 문자: '11/21 18:32' 줄 다음 줄이 가게 이름 (받는 사람 이름·카드사 줄은 건너뜀)
+    for index, line in enumerate(lines):
+        if _DATE_ONLY_RE.match(_BRACKET_TAG_RE.sub('', line)):
+            for following in lines[index + 1:index + 3]:
+                merchant = _is_merchant_line(following)
+                if merchant:
+                    return merchant, False
+
     for line in lines:
         match = tail_re.search(line)
         if match:
@@ -336,6 +382,9 @@ def extract_merchant(text):
         if merchant in {
             '감사합니다', '고객님', '승인내역', '결제내역'
         }:
+            continue
+
+        if _MASKED_NAME_RE.match(merchant) or _PAYMENT_META_RE.search(line):
             continue
 
         if (
