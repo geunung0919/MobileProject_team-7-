@@ -102,9 +102,12 @@ export default function HomeScreen({ navigation }) {
 
           <SummaryCard title={fridge.title} onPress={() => navigation.navigate('Fridge')}>
             <Text style={summaryStyles.label}>보관 중인 식재료 {sharedReceipts && !visibleShared?.inventory ? '—' : `${fridgeSummary.total}개`}</Text>
+            {/* 카드 폭이 좁아(휴대폰 약 130px) '기한 임박'까지 큰 글씨면 '기한 임/박'으로 줄이 깨짐 →
+                소비 카드의 '숫자 + 원'처럼 제목은 작게, 숫자만 크게 한 줄로 */}
             <View style={summaryStyles.bigRow}>
-              <Text style={summaryStyles.bigText}>{fridge.headline} </Text>
-              <Text style={[summaryStyles.bigText, styles.greenText]}>{sharedReceipts && !visibleShared?.inventory ? '—' : `${fridgeSummary.urgentCount}개`}</Text>
+              <Text style={styles.fridgeHeadline} numberOfLines={1}>{fridge.headline}</Text>
+              <Text style={[summaryStyles.bigText, styles.greenText]}>{sharedReceipts && !visibleShared?.inventory ? '—' : fridgeSummary.urgentCount}</Text>
+              <Text style={[summaryStyles.unit, styles.greenText]}>개</Text>
             </View>
             <View style={styles.fridgeSub}>
               {first ? (
@@ -163,6 +166,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+  },
+  fridgeHeadline: {
+    flexShrink: 1,
+    marginRight: 6,
+    fontFamily: fonts.bold,
+    fontSize: 15,
+    color: colors.textPrimary,
   },
   greenText: {
     color: colors.green,
