@@ -56,6 +56,7 @@ import {
 } from '../../../modules/payment-notifications';
 
 import { useAppData } from '../store/AppDataContext';
+import { showNotice } from '../utils/confirm';
 
 // 식재료 분류
 const types = [
@@ -382,6 +383,8 @@ export default function SharedReceiptScreen({
     lock.current = true;
     setBusy(true);
     setMessage('');
+    // 네트워크 오류 뒤 '같은 요청으로 다시 확인'인지 (이 경우 서버가 기존 저장 결과를 돌려주는 게 정상)
+    const isRetry = !asDistinctPurchase && !!pending;
 
     try {
       const receiptId =
@@ -421,8 +424,9 @@ export default function SharedReceiptScreen({
 
       setPending(payload);
 
+      let saved;
       try {
-        await (
+        saved = await (
           manual || payment
             ? createTransaction
             : confirmReceipt
@@ -467,6 +471,12 @@ export default function SharedReceiptScreen({
 
       setPending(null);
       setReceiptConflict(false);
+
+      // 똑같은 영수증을 다시 저장하면 서버는 새로 만들지 않고 기존 기록을 돌려줘요(중복 방지).
+      // 아무 말 없이 넘어가면 "저장했는데 목록엔 하나뿐"이라 헷갈리니 알려 줍니다.
+      if (saved?.replayed && !isRetry) {
+        showNotice('이미 저장된 영수증이에요', '같은 내용이 이미 저장돼 있어서 다시 저장하지 않았어요. 소비 목록에서 확인해 주세요.');
+      }
 
       if (
         auth.currentUser?.uid === sharedUid &&
