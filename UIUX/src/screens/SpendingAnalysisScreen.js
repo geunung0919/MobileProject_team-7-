@@ -123,6 +123,10 @@ function getCategory(row) {
   return category;
 }
 
+// AI 소비 코멘트: 사용자·연월별 마지막 결과 (앱을 새로 열면 비워짐)
+const INSIGHT_CACHE = new Map();
+const insightCacheKey = (uid, year, month) => `${uid || ''}:${year}-${month}`;
+
 export default function SpendingAnalysisScreen({
   navigation,
   route,
@@ -320,7 +324,7 @@ export default function SpendingAnalysisScreen({
       !visibleShared?.spendingError
     );
 
-  const [insight, setInsight] = useState({ status: 'idle', comment: '' });
+  const [insight, setInsight] = useState(() => INSIGHT_CACHE.get(insightCacheKey(sharedUid, year, month)) ?? { status: 'idle', comment: '' });
   const insightData = useMemo(() => ({
     year,
     month,
@@ -330,6 +334,14 @@ export default function SpendingAnalysisScreen({
   const insightKey = JSON.stringify(insightData);
   useEffect(() => {
     let active = true;
+    // 같은 사용자·같은 소비 데이터면 이전 코멘트를 다시 보여줘요.
+    // (화면을 열 때마다 AI를 다시 부르면 하루 한도 20번을 금방 써 버림)
+    const cacheKey = insightCacheKey(sharedUid, year, month);
+    const cached = INSIGHT_CACHE.get(cacheKey);
+    if (cached && cached.dataKey === insightKey) {
+      setInsight(cached);
+      return () => { active = false; };
+    }
     setInsight({ status: 'idle', comment: '' });
     if (!focused || !sharedReceipts || !available || !sameUser) return () => { active = false; };
     if (!isAiServerEnabled) {
@@ -343,10 +355,16 @@ export default function SpendingAnalysisScreen({
     setInsight({ status: 'loading', comment: '' });
     fetchSpendingInsight(insightData).then((result) => {
       if (!active) return;
-      if (result?.ai === true && typeof result.comment === 'string' && result.comment.trim()) {
-        setInsight({ status: 'success', comment: result.comment.trim() });
-      } else if (result?.limited) {
-        setInsight({ status: 'error', comment: '오늘 AI 분석 횟수를 모두 사용했어요.' });
+      const comment = typeof result?.comment === 'string' ? result.comment.trim() : '';
+      if (comment) {
+        // AI가 실패하거나 오늘 한도를 다 써도 서버가 계산한 기본 코멘트(ai:false)를 주므로 그대로 보여줘요.
+        const next = {
+          status: 'success',
+          comment: result?.limited ? `${comment}\n(오늘 AI 분석 횟수를 모두 써서 기본 분석으로 보여드려요.)` : comment,
+          dataKey: insightKey,
+        };
+        INSIGHT_CACHE.set(cacheKey, next);
+        setInsight(next);
       } else {
         setInsight({ status: 'error', comment: 'AI가 소비 코멘트를 생성하지 못했어요. 잠시 후 다시 시도해 주세요.' });
       }

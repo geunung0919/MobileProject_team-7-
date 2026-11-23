@@ -30,3 +30,18 @@ test('expiry selected for the fridge cannot be earlier than purchase date', () =
   };
   assert.throws(() => reviewedPayload(draft), /구매일보다 빠를 수 없어요/);
 });
+
+test('server category is preselected for payment and receipt drafts', async () => {
+  const { draftFromPayment, draftFromRecognition, categoryFromServer } = await import('../../UIUX/src/utils/sharedReceipt.mjs');
+  const result = (category) => ({
+    candidate: { title: '이마트천안점', amount_krw: 15800, spent_on: '2026-11-21', category },
+    warnings: [],
+    receipt_items: [],
+    receipt_document: { document_type: 'not_applicable' },
+  });
+  assert.equal(draftFromPayment(result('groceries'), 'sms').category, '식품');
+  assert.equal(draftFromPayment(result('food'), 'sms').category, '식비');
+  assert.equal(draftFromRecognition(result('transport')).category, '교통비');
+  assert.equal(categoryFromServer('other'), '기타');
+  assert.equal(categoryFromServer(undefined), '기타');
+});

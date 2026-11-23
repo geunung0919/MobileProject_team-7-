@@ -178,6 +178,17 @@ export function reviewedPayload(draft) {
   };
 }
 
+// 분석 서버의 자동 분류 → 앱 소비 카테고리
+// (식품 = 마트·편의점 장보기, 식비 = 카페·배달·외식)
+const SERVER_CATEGORY = {
+  groceries: '식품',
+  food: '식비',
+  transport: '교통비',
+  living: '생활용품',
+};
+
+export const categoryFromServer = (key) => SERVER_CATEGORY[key] || '기타';
+
 export function draftFromRecognition(result) {
   const {
     candidate,
@@ -228,8 +239,8 @@ export function draftFromRecognition(result) {
         ? ''
         : String(candidate.amount_krw),
 
-    // 신규: OCR 결과에서도 소비 목적을 선택
-    category: '기타',
+    // 분석 서버가 가게 이름으로 고른 분류를 미리 선택 (사용자가 바꿀 수 있음)
+    category: categoryFromServer(candidate.category),
 
     items: (
       Array.isArray(result.receipt_items)
@@ -302,7 +313,6 @@ export function draftFromPayment(result, source) {
     ...draft,
     items: [],
     source,
-    category: '기타',
     receiptId: draft.receiptId.replace(
       /^ocr-/,
       'payment-'
